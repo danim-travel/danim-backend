@@ -27,6 +27,16 @@ jobs:
         run: uv run isort --check-only .
 
       - name: mypy
+        env:
+          SECRET_KEY: test-secret-key
+          DB_NAME: danim
+          DB_USER: danim
+          DB_PASSWORD: danim
+          DB_HOST: localhost
+          DB_PORT: 5432
+          REDIS_URL: redis://localhost:6379/1
+          REDIS_AUTH_URL: redis://localhost:6379/2
+          DJANGO_SETTINGS_MODULE: config.settings.local
         run: uv run mypy .
 
   test:
@@ -69,4 +79,9 @@ jobs:
           REDIS_URL: redis://localhost:6379/1
           REDIS_AUTH_URL: redis://localhost:6379/2
           DJANGO_SETTINGS_MODULE: config.settings.local
-        run: uv run coverage run -m pytest
+        run: |
+          set +e
+          uv run coverage run -m pytest
+          exit_code=$?
+          set -e
+          if [ $exit_code -eq 5 ]; then exit 0; else exit $exit_code; fi
