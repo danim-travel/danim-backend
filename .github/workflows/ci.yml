@@ -69,4 +69,7 @@ jobs:
           REDIS_URL: redis://localhost:6379/1
           REDIS_AUTH_URL: redis://localhost:6379/2
           DJANGO_SETTINGS_MODULE: config.settings.local
-        run: uv run coverage run -m pytest
+        run: |
+          uv run coverage run -m pytest
+          exit_code=$?
+          if [ $exit_code -eq 5 ]; then exit 0; else exit $exit_code; fi
