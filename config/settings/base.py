@@ -32,7 +32,7 @@ THIRD_APPS = [
     "drf_spectacular",
 ]
 
-OWN_APPS = []
+OWN_APPS: list[str] = []
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_APPS + OWN_APPS
 
