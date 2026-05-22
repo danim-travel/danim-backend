@@ -32,7 +32,11 @@ THIRD_APPS = [
     "drf_spectacular",
 ]
 
-OWN_APPS: list[str] = []
+OWN_APPS: list[str] = [
+    "apps.users",
+    "apps.posts",
+    "apps.comments",
+]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_APPS + OWN_APPS
 
@@ -81,6 +85,7 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+AUTH_USER_MODEL = "users.User"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
