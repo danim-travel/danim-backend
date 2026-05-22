@@ -1,0 +1,24 @@
+repos:
+  - repo: https://github.com/psf/black
+    # black 공식레포
+    rev: 24.10.0
+    hooks:
+      - id: black
+
+  - repo: https://github.com/PyCQA/isort
+    # isort 공식레포
+    rev: 5.13.2
+    hooks:
+      - id: isort
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        # 불필요한 공백 자동 제거
+      - id: end-of-file-fixer
+        # 파일 맨 마지막 줄 개행 자동 추가
+      - id: check-yaml
+        # yaml 파일 문법 오류 검사
+      - id: check-added-large-files
+        # 큰 파일 실수로 커밋하는 것 방지

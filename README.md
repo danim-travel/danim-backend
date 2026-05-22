@@ -75,7 +75,24 @@ uv --version
 
 ---
 
-### 1. 레포지토리 클론
+### 1. GitHub Personal Access Token 발급 (최초 1회)
+GitHub 인증을 위해 토큰이 필요합니다.
+
+1. GitHub → 우측 상단 프로필 → **Settings**
+2. 좌측 하단 **Developer settings**
+3. **Personal access tokens** → **Tokens (classic)**
+4. **Generate new token (classic)**
+5. **repo** 전체 체크
+6. **Generate token** → 토큰 복사 (창 닫으면 다시 못 봄!)
+
+발급 후 아래 명령어로 등록:
+```bash
+git remote set-url origin https://토큰@github.com/danim-travel/danim-backend.git
+```
+
+---
+
+### 2. 레포지토리 클론
 ```bash
 git clone -b develop https://github.com/danim-travel/danim-backend.git
 cd danim-backend
@@ -127,7 +144,15 @@ docker compose up --build
 
 ---
 
-### 6. DB 마이그레이션
+### 6. pre-commit 설정 (최초 1회)
+```bash
+uv run pre-commit install
+```
+커밋할 때마다 black/isort가 자동으로 코드를 정리해줍니다.
+
+---
+
+### 7. DB 마이그레이션
 새 터미널을 열고 아래 명령어를 실행합니다:
 ```bash
 docker compose exec django uv run python manage.py migrate
@@ -135,7 +160,7 @@ docker compose exec django uv run python manage.py migrate
 
 ---
 
-### 7. 서버 확인
+### 8. 서버 확인
 브라우저에서 아래 주소로 접속합니다:
 - 서버 확인: `http://localhost:8000/hello/`
 - API 문서: `http://localhost:8000/api/schema/swagger-ui/`
@@ -177,7 +202,7 @@ docker compose exec django uv run python manage.py migrate
 ```bash
 uv add 패키지명
 ```
-추가 후 반드시 `pyproject.toml`과 `uv.lock`을 같이 커밋해주세요.  
+추가 후 반드시 `pyproject.toml`과 `uv.lock`을 같이 커밋해주세요.
 다른 팀원들은 `docker compose up --build`로 동기화합니다.
 
 ---
