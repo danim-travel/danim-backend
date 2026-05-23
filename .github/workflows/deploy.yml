@@ -1,0 +1,40 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["Build and Push"]
+    types: [completed]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          script: |
+            cd ~/danim-backend
+            git pull origin main
+
+            # .env.prod 파일 생성
+            echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" > envs/.env.prod
+            echo "DB_HOST=${{ secrets.DB_HOST }}" >> envs/.env.prod
+            echo "DB_NAME=${{ secrets.DB_NAME }}" >> envs/.env.prod
+            echo "DB_USER=${{ secrets.DB_USER }}" >> envs/.env.prod
+            echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> envs/.env.prod
+            echo "DB_PORT=5432" >> envs/.env.prod
+            echo "REDIS_URL=redis://redis:6379/1" >> envs/.env.prod
+            echo "REDIS_AUTH_URL=redis://redis:6379/2" >> envs/.env.prod
+            echo "ALLOWED_HOSTS=52.78.31.79" >> envs/.env.prod
+            echo "CORS_ALLOWED_ORIGINS=http://52.78.31.79" >> envs/.env.prod
+
+            # 새 이미지 pull 및 재시작
+            docker pull ${{ secrets.DOCKER_USERNAME }}/danim-backend:latest
+            export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
+            docker compose -f docker-compose.prod.yml up -d
+            docker image prune -f
