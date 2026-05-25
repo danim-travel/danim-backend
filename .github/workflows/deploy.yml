@@ -67,3 +67,17 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ap-northeast-2
+
+      - name: Discord 배포 성공 알림
+        if: success()
+        run: |
+          curl -H "Content-Type: application/json" \
+          -d '{"content": "🚀 **배포 완료!**\n브랜치: main\n상태: 성공 ✅"}' \
+          ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+      - name: Discord 배포 실패 알림
+        if: failure()
+        run: |
+          curl -H "Content-Type: application/json" \
+          -d '{"content": "❌ **배포 실패!**\n브랜치: main\n확인이 필요합니다."}' \
+          ${{ secrets.DISCORD_WEBHOOK_URL }}
