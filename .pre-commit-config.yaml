@@ -30,3 +30,18 @@ repos:
       - id: mypy
         additional_dependencies:
           - django-stubs
+          - django-environ
+          - daphne
+          - channels
+          - channels-redis
+          - djangorestframework
+          - djangorestframework-simplejwt
+          - django-allauth
+          - dj-rest-auth
+          - django-cors-headers
+          - django-storages
+          - django-redis
+          - drf-spectacular
+          - psycopg2-binary
+          - boto3
+          - Pillow
