@@ -25,7 +25,7 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ap-northeast-2
+          AWS_DEFAULT_REGION: us-east-1
 
       - name: Deploy to Dev EC2
         uses: appleboy/ssh-action@v1.0.3
@@ -66,7 +66,7 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ap-northeast-2
+          AWS_DEFAULT_REGION: us-east-1
 
       - name: Discord 배포 성공 알림
         if: success()
