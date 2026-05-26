@@ -10,16 +10,16 @@ def hello(request):
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("hello/", hello),
+    path("hello", hello),
 ]
 
 if settings.DEBUG:
     from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
     urlpatterns += [
-        path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+        path("schema", SpectacularAPIView.as_view(), name="schema"),
         path(
-            "api/schema/swagger-ui/",
+            "swagger",
             SpectacularSwaggerView.as_view(url_name="schema"),
             name="swagger-ui",
         ),
