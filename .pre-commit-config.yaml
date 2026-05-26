@@ -22,3 +22,11 @@ repos:
         # yaml 파일 문법 오류 검사
       - id: check-added-large-files
         # 큰 파일 실수로 커밋하는 것 방지
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    # mypy 공식 레포
+    rev: v1.11.0
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - django-stubs
