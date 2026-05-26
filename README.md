@@ -211,4 +211,4 @@ uv add 패키지명
 - [ ] Docker Desktop 실행 중인지 확인
 - [ ] `git pull origin develop` 으로 최신 코드 받기
 - [ ] 패키지 변경 있으면 `docker compose up --build`
-- [ ] 마이그레이션 변경 있으면 `migrate` 실행
+- [ ] 마이그레이션 변경 있으면 `migrate` 실행하기
