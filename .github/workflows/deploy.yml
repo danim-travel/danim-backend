@@ -46,8 +46,8 @@ jobs:
             echo "DB_PORT=5432" >> envs/.env.prod
             echo "REDIS_URL=redis://redis:6379/1" >> envs/.env.prod
             echo "REDIS_AUTH_URL=redis://redis:6379/2" >> envs/.env.prod
-            echo "ALLOWED_HOSTS=api.danim.kr,52.78.31.79" >> envs/.env.prod
-            echo "CORS_ALLOWED_ORIGINS=https://danim.kr,https://www.danim.kr" >> envs/.env.prod
+            echo "ALLOWED_HOSTS=${{ secrets.ALLOWED_HOSTS }}" >> envs/.env.prod
+            echo "CORS_ALLOWED_ORIGINS=${{ secrets.CORS_ALLOWED_ORIGINS }}" >> envs/.env.prod
 
             # 새 이미지 pull 및 재시작
             docker pull ${{ secrets.DOCKER_USERNAME }}/danim-backend:latest
