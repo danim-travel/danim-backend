@@ -1,0 +1,83 @@
+name: Deploy Dev
+
+on:
+  workflow_run:
+    workflows: ["Build Dev"]
+    types: [completed]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Get GitHub Actions runner IP
+        id: ip
+        run: echo "ip=$(curl -s https://api.ipify.org)" >> $GITHUB_OUTPUT
+
+      - name: Open SSH port for runner
+        run: |
+          aws ec2 authorize-security-group-ingress \
+            --group-id ${{ secrets.DEV_EC2_SECURITY_GROUP_ID }} \
+            --protocol tcp \
+            --port 22 \
+            --cidr ${{ steps.ip.outputs.ip }}/32
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ap-northeast-2
+
+      - name: Deploy to Dev EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEV_EC2_HOST }}
+          username: ${{ secrets.DEV_EC2_USER }}
+          key: ${{ secrets.DEV_EC2_PRIVATE_KEY }}
+          script: |
+            cd ~/danim-backend
+            git pull origin develop
+
+            # .env.dev 파일 생성
+            echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" > envs/.env.dev
+            echo "DB_HOST=db" >> envs/.env.dev
+            echo "DB_NAME=danim_dev" >> envs/.env.dev
+            echo "DB_USER=danim" >> envs/.env.dev
+            echo "DB_PASSWORD=danim1234" >> envs/.env.dev
+            echo "DB_PORT=5432" >> envs/.env.dev
+            echo "REDIS_URL=redis://redis:6379/1" >> envs/.env.dev
+            echo "REDIS_AUTH_URL=redis://redis:6379/2" >> envs/.env.dev
+            echo "ALLOWED_HOSTS=${{ secrets.DEV_ALLOWED_HOSTS }}" >> envs/.env.dev
+            echo "CORS_ALLOWED_ORIGINS=${{ secrets.DEV_CORS_ALLOWED_ORIGINS }}" >> envs/.env.dev
+
+            # 새 이미지 pull 및 재시작
+            docker pull ${{ secrets.DOCKER_USERNAME }}/danim-backend:dev
+            export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
+            docker compose -f docker-compose.dev.yml up -d
+            docker image prune -f
+
+      - name: Close SSH port
+        if: always()
+        run: |
+          aws ec2 revoke-security-group-ingress \
+            --group-id ${{ secrets.DEV_EC2_SECURITY_GROUP_ID }} \
+            --protocol tcp \
+            --port 22 \
+            --cidr ${{ steps.ip.outputs.ip }}/32
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ap-northeast-2
+
+      - name: Discord 배포 성공 알림
+        if: success()
+        run: |
+          curl -H "Content-Type: application/json" \
+          -d '{"content": "🛠️ **Dev 배포 완료!**\n브랜치: develop\n상태: 성공 ✅"}' \
+          ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+      - name: Discord 배포 실패 알림
+        if: failure()
+        run: |
+          curl -H "Content-Type: application/json" \
+          -d '{"content": "❌ **Dev 배포 실패!**\n브랜치: develop\n확인이 필요합니다."}' \
+          ${{ secrets.DISCORD_WEBHOOK_URL }}
