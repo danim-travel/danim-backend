@@ -2,9 +2,9 @@ services:
   db:
     image: postgres:16
     environment:
-      POSTGRES_DB: danim_dev
-      POSTGRES_USER: danim
-      POSTGRES_PASSWORD: danim1234
+      POSTGRES_DB: ${DEV_DB_NAME}
+      POSTGRES_USER: ${DEV_DB_USER}
+      POSTGRES_PASSWORD: ${DEV_DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: always

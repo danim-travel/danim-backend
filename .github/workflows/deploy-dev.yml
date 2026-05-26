@@ -40,9 +40,9 @@ jobs:
             # .env.dev 파일 생성
             echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" > envs/.env.dev
             echo "DB_HOST=db" >> envs/.env.dev
-            echo "DB_NAME=danim_dev" >> envs/.env.dev
-            echo "DB_USER=danim" >> envs/.env.dev
-            echo "DB_PASSWORD=danim1234" >> envs/.env.dev
+            echo "DB_NAME=${{ secrets.DEV_DB_NAME }}" >> envs/.env.dev
+            echo "DB_USER=${{ secrets.DEV_DB_USER }}" >> envs/.env.dev
+            echo "DB_PASSWORD=${{ secrets.DEV_DB_PASSWORD }}" >> envs/.env.dev
             echo "DB_PORT=5432" >> envs/.env.dev
             echo "REDIS_URL=redis://redis:6379/1" >> envs/.env.dev
             echo "REDIS_AUTH_URL=redis://redis:6379/2" >> envs/.env.dev
@@ -53,6 +53,9 @@ jobs:
             echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
             docker pull ${{ secrets.DOCKER_USERNAME }}/danim-backend:dev
             export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
+            export DEV_DB_NAME=${{ secrets.DEV_DB_NAME }}
+            export DEV_DB_USER=${{ secrets.DEV_DB_USER }}
+            export DEV_DB_PASSWORD=${{ secrets.DEV_DB_PASSWORD }}
             docker-compose -f docker-compose.dev.yml down
             docker-compose -f docker-compose.dev.yml up -d
             docker image prune -f
