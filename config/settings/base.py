@@ -10,6 +10,7 @@ environ.Env.read_env(BASE_DIR / "envs" / ".env")
 SECRET_KEY = env("SECRET_KEY")
 
 DJANGO_APPS = [
+    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -19,7 +20,6 @@ DJANGO_APPS = [
 ]
 
 THIRD_APPS = [
-    "daphne",
     "channels",
     "rest_framework",
     "rest_framework_simplejwt",
