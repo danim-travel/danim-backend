@@ -1,6 +1,9 @@
+from datetime import date
+
 from django.test import TestCase
 
 from apps.users.models import User
+from apps.users.models.models import LoginType
 
 
 class UserTest(TestCase):
@@ -13,10 +16,11 @@ class UserTest(TestCase):
             nickname="testnickname",
             password="Password@123",
             phone_number="01012345678",
-            birth_day="1970-01-01",
+            birth_day=date(1970, 1, 1),
             is_email_verified=True,
             is_phone_verified=True,
             is_active=True,
+            login_type=LoginType.EMAIL,
         )
 
         self.assertEqual(User.objects.count(), 1)
@@ -25,7 +29,7 @@ class UserTest(TestCase):
         self.assertEqual(self.user.name, "test")
         self.assertTrue(self.user.check_password("Password@123"))
         self.assertEqual(self.user.phone_number, "01012345678")
-        self.assertEqual(self.user.birth_day, "1970-01-01")
+        self.assertEqual(self.user.birth_day, date(1970, 1, 1))
         self.assertTrue(self.user.is_email_verified)
         self.assertTrue(self.user.is_phone_verified)
         self.assertTrue(self.user.is_active)
@@ -38,11 +42,12 @@ class UserTest(TestCase):
             nickname="supernickname",
             password="Password@123",
             phone_number="01012345678",
-            birth_day="1970-01-01",
+            birth_day=date(1970, 1, 1),
             is_email_verified=True,
             is_phone_verified=True,
             is_active=True,
             is_superuser=True,
+            login_type=LoginType.EMAIL,
         )
         self.assertTrue(self.superuser.is_staff)
         self.assertTrue(self.superuser.is_superuser)
