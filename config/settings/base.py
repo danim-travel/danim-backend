@@ -129,9 +129,11 @@ REST_AUTH = {
 }
 
 # AWS S3
-S3_REGION = env("S3_REGION", default="us-east-1")
+S3_REGION = env("S3_REGION", default="ap-northeast-2")
 S3_ACCESS_KEY_ID = env("S3_ACCESS_KEY_ID", default="AKIADUMMYDUMMYDUMMY1")  # 더미 아이디
-S3_SECRET_ACCESS_KEY = env("S3_SECRET_ACCESS_KEY", default="DUMMYSECRETKEYDUMMYSECRETKEYDUMMYSECRET1")  # 더미 키
+S3_SECRET_ACCESS_KEY = env(
+    "S3_SECRET_ACCESS_KEY", default="DUMMYSECRETKEYDUMMYSECRETKEYDUMMYSECRET1"
+)  # 더미 키
 S3_BUCKET_NAME = env("S3_BUCKET_NAME", default="danim_local")
 S3_PREFIX = env("S3_PREFIX", default="local/")
 S3_PATH = env("S3_PATH", default="{action}/image/{category}/{suffix}")
