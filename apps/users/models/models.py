@@ -15,7 +15,7 @@ class UserManager(BaseUserManager):
         return user
 
     def create_superuser(self, email, password=None, **extra_fields):
-        """super user 생성"""
+        """super_user 생성"""
         email = self.normalize_email(email)
         user = self.create_user(email, password=password, **extra_fields)
         user.is_staff = True
@@ -24,7 +24,16 @@ class UserManager(BaseUserManager):
         return user
 
 
+class LoginType(models.TextChoices):
+    EMAIL = "email"
+    KAKAO = "kakao"
+    GOOGLE = "google"
+
+
 class User(AbstractBaseUser, PermissionsMixin, BaseModel):
+    login_type = models.CharField(
+        max_length=10, choices=LoginType.choices, default=LoginType.EMAIL
+    )
     email = models.EmailField(max_length=255, unique=True)
     nickname = models.CharField(null=False, unique=True, max_length=20)
     name = models.CharField(null=False, max_length=20)
