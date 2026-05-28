@@ -28,3 +28,5 @@ CACHES = {
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 CORS_ALLOW_ALL_ORIGINS = True
+
+S3_CONFIG = Config(s3={"addressing_style": "virtual"})
