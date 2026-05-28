@@ -1,5 +1,5 @@
-from django.urls import path
+from django.urls import URLPattern, path
 
 app_name = "users"
 
-urlpatterns = []
+urlpatterns: list[URLPattern] = []
