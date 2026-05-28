@@ -207,6 +207,20 @@ uv add 패키지명
 
 ---
 
+## Makefile 명령어
+
+도커 컨테이너 실행 중인 상태에서 사용합니다.
+
+```bash
+make format    # 코드 포맷팅 (black + isort)
+make type      # 타입 체크 (mypy)
+make test      # 테스트 실행 (pytest)
+make coverage  # 커버리지 측정
+make check     # 전체 실행 (format + type + test + coverage)
+```
+
+---
+
 ## 개발 시작 전 체크리스트
 - [ ] Docker Desktop 실행 중인지 확인
 - [ ] `git pull origin develop` 으로 최신 코드 받기
