@@ -1,3 +1,28 @@
+"""
+
+service에서 raise, view에서 BaseCustomException으로 catch 후 Response 반환
+raise NotFoundException() → 기본 메시지
+raise NotFoundException("커스텀 메시지") → 커스텀 메시지
+
+
+
+# service
+  def get_user(self, user_id: str) -> User:
+      try:
+          return User.objects.get(pk=user_id)
+      except User.DoesNotExist:
+          raise NotFoundException("해당 유저를 찾을 수 없습니다.")
+
+  # view
+  def get(self, request):
+      try:
+          user = self.service.get_user(request.user.id)
+      except BaseCustomException as e: 또는 ----> except NotFoundException as e:
+          return Response({"error_detail": e.message}, status=e.status_code)
+      return Response(UserSerializer(user).data)
+"""
+
+
 class BaseCustomException(Exception):
     status_code: int
     default_message: str
