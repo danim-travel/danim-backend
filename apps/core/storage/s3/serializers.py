@@ -1,8 +1,7 @@
 from pathlib import Path
 from typing import Any
 
-from django.utils.text import slugify
-from rest_framework import serializers, status
+from rest_framework import serializers
 
 from apps.core.exceptions.exception import ValidationException
 from apps.core.storage.s3.constants import ALLOWED_EXTENSIONS

@@ -5,12 +5,11 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.core.exceptions.exception import ValidationException
 from apps.core.storage.s3.serializers import (
     PresignedUrlRequestSerializer,
     PresignedUrlResponseSerializer,
 )
-from apps.core.storage.s3.services import s3_svc
+from apps.core.storage.s3.services import ActionEnum, CategoryEnum, SuffixEnum, s3_svc
 
 
 class PresignedUrlView(APIView):
@@ -21,10 +20,9 @@ class PresignedUrlView(APIView):
 
     permission_classes: list[type[Any]] = []
 
-    action: str
-    category: str
-    suffix: str | None
-    path: str
+    action: ActionEnum
+    category: CategoryEnum
+    suffix: SuffixEnum
     expires_in: int = 900
 
     def post(self, request: Request) -> Response:
