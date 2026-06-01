@@ -36,8 +36,8 @@ jobs:
           script: |
             cd ~/danim-backend
             git fetch origin
-            git checkout staging
-            git pull origin staging
+            git checkout develop
+            git pull origin develop
 
             # .env.dev 파일 생성
             echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" > envs/.env.dev
@@ -79,12 +79,12 @@ jobs:
         if: success()
         run: |
           curl -H "Content-Type: application/json" \
-          -d '{"content": "🛠️ **Dev 배포 완료!**\n브랜치: staging\n상태: 성공 ✅"}' \
+          -d '{"content": "🛠️ **Dev 배포 완료!**\n브랜치: develop\n상태: 성공 ✅"}' \
           ${{ secrets.DISCORD_WEBHOOK_URL }}
 
       - name: Discord 배포 실패 알림
         if: failure()
         run: |
           curl -H "Content-Type: application/json" \
-          -d '{"content": "❌ **Dev 배포 실패!**\n브랜치: staging\n확인이 필요합니다."}' \
+          -d '{"content": "❌ **Dev 배포 실패!**\n브랜치: develop\n확인이 필요합니다."}' \
           ${{ secrets.DISCORD_WEBHOOK_URL }}
