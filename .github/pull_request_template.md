@@ -1,5 +1,5 @@
 ## 📝 관련 이슈 (Related Issues)
--
+- 예시) closes #이슈번호
 
 ## 💡 작업 내용 (What's Changed)
 -
