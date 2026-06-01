@@ -1,51 +1,62 @@
+from rest_framework import status
+from rest_framework.exceptions import APIException
+
+
 """
+  DRF 기본 예외 응답 형태를 error_detail + status_code로 통일하는 핸들러
+  settings.py의 EXCEPTION_HANDLER에 등록되어 자동으로 호출됨
 
-service에서 raise, view에서 BaseCustomException으로 catch 후 Response 반환
-raise NotFoundException() → 기본 메시지
-raise NotFoundException("커스텀 메시지") → 커스텀 메시지
+  [ APIException 계열 예외 ]
+  service에서 raise하면 view에서 try/except 없이 자동으로 처리됨
+
+      # service
+      def get_user(self, user_id: str) -> User:
+          try:
+              return User.objects.get(pk=user_id)
+          except User.DoesNotExist:
+              raise NotFoundException()                  # 기본 메시지
+              raise NotFoundException("커스텀 메시지")    # 커스텀 메시지
+
+      # 응답
+      {"error_detail": "존재하지 않습니다.", "status_code": 404}
+      {"error_detail": "커스텀 메시지", "status_code": 404}
+
+  [ ValidationError ]
+  serializer.is_valid(raise_exception=True) 호출 시 자동으로 처리됨
+
+      # view
+      serializer.is_valid(raise_exception=True)
+
+      # 응답
+      {"error_detail": {"email": ["이 필드는 필수입니다."]}, "status_code": 400}
+  """
 
 
-
-# service
-  def get_user(self, user_id: str) -> User:
-      try:
-          return User.objects.get(pk=user_id)
-      except User.DoesNotExist:
-          raise NotFoundException("해당 유저를 찾을 수 없습니다.")
-
-  # view
-  def get(self, request):
-      try:
-          user = self.service.get_user(request.user.id)
-      except NotFoundException as e:
-          return Response({"error_detail": e.message}, status=e.status_code)
-      return Response(UserSerializer(user).data)
-"""
-
-
-class BaseCustomException(Exception):
-    default_message: str
-
-    def __init__(self, message: str | None = None) -> None:
-        self.message = message or self.default_message
-        super().__init__(self.message)
+class BaseCustomException(APIException):
+    status_code: int
+    default_detail: str
 
 
 class ValidationException(BaseCustomException):
-    default_message = "잘못된 요청입니다."
+    status_code = status.HTTP_400_BAD_REQUEST
+    default_detail = "잘못된 요청입니다."
 
 
 class NotFoundException(BaseCustomException):
-    default_message = "존재하지 않습니다."
+    status_code = status.HTTP_404_NOT_FOUND
+    default_detail = "존재하지 않습니다."
 
 
 class UnauthorizedException(BaseCustomException):
-    default_message = "인증이 필요합니다."
+    status_code = status.HTTP_401_UNAUTHORIZED
+    default_detail = "인증이 필요합니다."
 
 
 class ConflictException(BaseCustomException):
-    default_message = "이미 존재합니다."
+    status_code = status.HTTP_409_CONFLICT
+    default_detail = "이미 존재합니다."
 
 
 class ForbiddenException(BaseCustomException):
-    default_message = "접근 권한이 없습니다."
+    status_code = status.HTTP_403_FORBIDDEN
+    default_detail = "접근 권한이 없습니다."
