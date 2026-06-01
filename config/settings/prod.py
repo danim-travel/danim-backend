@@ -35,3 +35,5 @@ EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS")
 
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+S3_CONFIG = Config(s3={"addressing_style": "virtual"})
