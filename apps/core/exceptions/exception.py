@@ -1,6 +1,35 @@
 from rest_framework import status
 from rest_framework.exceptions import APIException
 
+"""
+  DRF 기본 예외 응답 형태를 error_detail + status_code로 통일하는 핸들러
+  settings.py의 EXCEPTION_HANDLER에 등록되어 자동으로 호출됨
+
+  [ APIException 계열 예외 ]
+  service에서 raise하면 view에서 try/except 없이 자동으로 처리됨
+
+      # service
+      def get_user(self, user_id: str) -> User:
+          try:
+              return User.objects.get(pk=user_id)
+          except User.DoesNotExist:
+              raise NotFoundException()                  # 기본 메시지
+              raise NotFoundException("커스텀 메시지")    # 커스텀 메시지
+
+      # 응답
+      {"error_detail": "존재하지 않습니다.", "status_code": 404}
+      {"error_detail": "커스텀 메시지", "status_code": 404}
+
+  [ ValidationError ]
+  serializer.is_valid(raise_exception=True) 호출 시 자동으로 처리됨
+
+      # view
+      serializer.is_valid(raise_exception=True)
+
+      # 응답
+      {"error_detail": {"email": ["이 필드는 필수입니다."]}, "status_code": 400}
+  """
+
 
 class BaseCustomException(APIException):
     status_code: int
