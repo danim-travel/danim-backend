@@ -1,7 +1,6 @@
 from rest_framework import status
 from rest_framework.exceptions import APIException
 
-
 """
   DRF 기본 예외 응답 형태를 error_detail + status_code로 통일하는 핸들러
   settings.py의 EXCEPTION_HANDLER에 등록되어 자동으로 호출됨
