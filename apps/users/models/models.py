@@ -2,7 +2,7 @@ from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
 from django.db import models
 
-from apps.core.models import BaseModel
+from apps.core.models import TimeStampModel
 
 
 class UserManager(BaseUserManager):
@@ -30,7 +30,7 @@ class LoginType(models.TextChoices):
     GOOGLE = "google"
 
 
-class User(AbstractBaseUser, PermissionsMixin, BaseModel):
+class User(AbstractBaseUser, PermissionsMixin, TimeStampModel):
     login_type = models.CharField(
         max_length=10, choices=LoginType.choices, default=LoginType.EMAIL
     )
