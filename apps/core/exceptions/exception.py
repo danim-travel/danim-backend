@@ -59,3 +59,13 @@ class ConflictException(BaseCustomException):
 class ForbiddenException(BaseCustomException):
     status_code = status.HTTP_403_FORBIDDEN
     default_detail = "접근 권한이 없습니다."
+
+
+class InternalServerException(BaseCustomException):
+    status_code = 500
+    default_detail = "서버 오류가 발생했습니다."
+
+
+class ExternalServiceException(BaseCustomException):
+    status_code = 502
+    default_detail = "외부 서비스 오류가 발생했습니다."
