@@ -1,15 +1,17 @@
+from django.conf import settings
 from django.db import models
 
 from apps.core.models import BaseModel, TimeStampModel
-
-# from apps.posts.models import Post TODO : Post 모델 추가시 주석 해제
-from apps.users.models import User
+from apps.posts.models import Post
 
 
 class Comment(TimeStampModel):
-    # post = models.ForeignKey(Post, on_delete=models.CASCADE) TODO : Post 모델 추가시 주석 해제
+    post = models.ForeignKey(Post, on_delete=models.CASCADE)
     user = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, related_name="comments"
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="comments",
     )
     content = models.CharField(max_length=100, null=True, blank=True)
     img_key = models.CharField(max_length=255, null=True, blank=True)
@@ -17,7 +19,7 @@ class Comment(TimeStampModel):
 
     class Meta:
         db_table = "comment"
-        # indexes = [models.Index(fields=["post", "user"])] TODO : Post 모델 추가시 주석 해제
+        indexes = [models.Index(fields=["post", "user"])]
 
 
 class CommentLike(BaseModel):
@@ -25,7 +27,10 @@ class CommentLike(BaseModel):
         Comment, on_delete=models.CASCADE, related_name="comment_likes"
     )
     user = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, related_name="comment_likes"
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="comment_likes",
     )
 
     class Meta:
