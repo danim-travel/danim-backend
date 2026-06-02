@@ -1,7 +1,6 @@
 from rest_framework import serializers
 
 from apps.comments.models import Comment
-from apps.core.exceptions.exception import ValidationException
 
 
 class CommentImageSerializer(serializers.Serializer):
@@ -16,7 +15,7 @@ class CommentCreateSerializer(serializers.Serializer):
 
     def validate(self, data):
         if not data.get("content") and not data.get("comment_img"):
-            raise ValidationException(
+            raise serializers.ValidationError(
                 "content와 comment_img 두 항목 중 하나는 입력해야합니다."
             )
         return data

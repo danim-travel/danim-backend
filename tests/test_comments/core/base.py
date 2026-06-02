@@ -22,6 +22,8 @@ class CommentBaseTest(TestCase):
     data_for_comment_content: dict
     data_for_comment_img: dict
     fail_data_for_comment_content: dict
+    fail_data_for_none_post: dict
+    fail_data_for_only_post: dict
     url: str
 
     def setUp(self):
@@ -75,5 +77,8 @@ class CommentBaseTest(TestCase):
         self.fail_data_for_none_post = {
             "post_id": "없는 게시글 아이디",
             "content": "test_content",
+        }
+        self.fail_data_for_only_post = {
+            "post_id": self.post.id,
         }
         self.url = "/api/v1/comments/"

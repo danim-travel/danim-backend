@@ -26,8 +26,7 @@ class TestCommentCreateSerializer(CommentBaseTest):
 
     def test_fail_create_serializer(self) -> None:
         """둘다 입력 안한 댓글 생성 요청 데이터 serializer 검증 실패 테스트"""
-        data: dict = {}
-        serializer = CommentCreateSerializer(data=data)
+        serializer = CommentCreateSerializer(data=self.fail_data_for_only_post)
         self.assertFalse(serializer.is_valid())
 
     def test_fail_create_serializer_content(self) -> None:
@@ -44,14 +43,14 @@ class TestCommentCreateSerializer(CommentBaseTest):
         """content comment 객체 응답 serializer 검증 성공 테스트"""
         serializer = CommentCreateResponseSerializer(self.comment_content)
         self.assertEqual(serializer.data["content"], self.comment_content.content)
-        self.assertIsNone(serializer.data["comment_img"]["img_key"])
+        self.assertIsNone(serializer.data["comment_img"]["key"])
         self.assertIsNone(serializer.data["comment_img"]["original_img"])
 
     def test_response_serializer_img(self) -> None:
         """image comment 객체 응답 serializer 검증 성공 테스트"""
         serializer = CommentCreateResponseSerializer(self.comment_image)
         self.assertEqual(
-            serializer.data["comment_img"]["img_key"], self.comment_image.img_key
+            serializer.data["comment_img"]["key"], self.comment_image.img_key
         )
         self.assertEqual(
             serializer.data["comment_img"]["original_img"],

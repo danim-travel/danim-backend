@@ -1,3 +1,5 @@
+from django.db import transaction
+
 from apps.comments.models import Comment, CommentLike
 from tests.test_comments.core import CommentBaseTest
 
@@ -47,12 +49,13 @@ class CommentTest(CommentBaseTest):
     def test_fail_create_comment_like(self) -> None:
         """comment와 user unique_together 적용 테스트"""
         with self.assertRaises(Exception):
-            CommentLike.objects.create(
-                user=self.user,
-                comment=self.comment_content,
-            )
-            self.comment_like.refresh_from_db()
-            self.assertEqual(CommentLike.objects.count(), 1)
+            with transaction.atomic():
+                CommentLike.objects.create(
+                    user=self.user,
+                    comment=self.comment_content,
+                )
+        self.comment_like.refresh_from_db()
+        self.assertEqual(CommentLike.objects.count(), 1)
 
     def test_delete_comment_comment_like(self) -> None:
         """삭제된 comment에 대한 좋아요 CASCADE 적용 test"""
