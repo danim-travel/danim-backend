@@ -3,9 +3,15 @@ from typing import Any
 from django.core.cache import cache
 from django.db import transaction
 from django.db.models import Q
+from redis import RedisError
 
-from apps.core.exceptions.exception import ConflictException, NotFoundException
+from apps.core.exceptions.exception import (
+    ConflictException,
+    InternalServerException,
+    NotFoundException,
+)
 from apps.users.models import User
+from apps.users.redis_keys import EmailRedisKey
 
 
 class SignUpService:
@@ -17,8 +23,11 @@ class SignUpService:
         validated_data.pop("password_confirm")
         nickname = validated_data.pop("nickname")
 
-        email_key = f"email:token:signup:{email_token}"
-        email_data = cache.get(email_key)
+        email_key = EmailRedisKey.token("signup", email_token)
+        try:
+            email_data = cache.get(email_key)
+        except RedisError:
+            raise InternalServerException("서버 오류, 다시 시도해주세요.")
 
         if not email_data:
             raise NotFoundException("유효하지 않은 이메일입니다.")
@@ -47,5 +56,8 @@ class SignUpService:
                 **validated_data,
             )
 
-            cache.delete(email_key)
+            try:
+                cache.delete(email_key)
+            except RedisError:
+                raise InternalServerException("서버 오류, 다시 시도해주세요.")
             return user
