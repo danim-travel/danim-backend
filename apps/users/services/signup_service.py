@@ -1,8 +1,8 @@
 from typing import Any
 
+from django.core.cache import cache
 from django.db import transaction
 from django.db.models import Q
-from django_redis import cache
 
 from apps.core.exceptions.exception import ConflictException, NotFoundException
 from apps.users.models import User

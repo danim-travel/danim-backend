@@ -1,8 +1,12 @@
+from django.core.cache import cache
 from django.core.mail import send_mail
-from django_redis import cache
 from redis import RedisError
 
-from apps.core.exceptions.exception import ValidationException,InternalServerException,ExternalServiceException
+from apps.core.exceptions.exception import (
+    ExternalServiceException,
+    InternalServerException,
+    ValidationException,
+)
 from apps.core.utils.base62 import generate_6digits_safe, generate_token
 from apps.users.redis_keys import EmailRedisKey
 
@@ -51,6 +55,6 @@ class EmailService:
         try:
             cache.set(token_key, data, self.TOKEN_TTL)
         except RedisError:
-           raise InternalServerException("서버 오류, 다시 시도해주세요.")
+            raise InternalServerException("서버 오류, 다시 시도해주세요.")
         cache.delete(cache_key)
         return verify_token

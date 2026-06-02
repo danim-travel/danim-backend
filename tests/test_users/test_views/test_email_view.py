@@ -58,7 +58,7 @@ class EmailSendViewTest(BaseViewTest):
             reverse("users:send_email"),
             {"email": "test@example.com", "purpose": "signup"},
         )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)
 
     def test_send_email_redis_error(self) -> None:
         self.mock_cache.set.side_effect = RedisError
@@ -66,7 +66,7 @@ class EmailSendViewTest(BaseViewTest):
             reverse("users:send_email"),
             {"email": "test@example.com", "purpose": "signup"},
         )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class EmailVerifyViewTest(BaseViewTest):
@@ -123,7 +123,7 @@ class EmailVerifyViewTest(BaseViewTest):
                 "purpose": "signup",
             },
         )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def test_verify_code_token_save_error(self) -> None:
         """토큰 저장 실패 test code"""
