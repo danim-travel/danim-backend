@@ -2,7 +2,7 @@ from django.core.mail import send_mail
 from django_redis import cache
 from redis import RedisError
 
-from apps.core.exceptions.exception import ValidationException
+from apps.core.exceptions.exception import ValidationException,InternalServerException,ExternalServiceException
 from apps.core.utils.base62 import generate_6digits_safe, generate_token
 from apps.users.redis_keys import EmailRedisKey
 
@@ -17,9 +17,7 @@ class EmailService:
         try:
             cache.set(cache_key, code, self.TTL)
         except RedisError:
-            raise ValidationException(
-                "서버 오류, 다시 시도해주세요"
-            )  # Todo: 공용 핸들러에서 500대 에러 핸들러 생성후 변경
+            raise InternalServerException("서버 오류, 다시 시도해주세요.")
 
         try:
             send_mail(
@@ -31,9 +29,7 @@ class EmailService:
             )
         except Exception:
             cache.delete(cache_key)
-            raise ValidationException(
-                "이메일 발송에 실패했습니다."
-            )  # Todo: 공용핸들러에서 500대 에러 핸들러 생성후 변경
+            raise ExternalServiceException("이메일 발송에 실패했습니다.")
 
     def verify_code(self, email: str, code: str, purpose: str) -> str:
         cache_key = EmailRedisKey.code(purpose, email)
@@ -41,7 +37,7 @@ class EmailService:
         try:
             cache_data = cache.get(cache_key)
         except RedisError:
-            raise ValidationException("서버 오류, 다시 시도해주세요")
+            raise InternalServerException("서버 오류, 다시 시도해주세요.")
 
         if not cache_data:
             raise ValidationException("인증 코드가 만료되었거나 존재하지 않습니다.")
@@ -55,8 +51,6 @@ class EmailService:
         try:
             cache.set(token_key, data, self.TOKEN_TTL)
         except RedisError:
-            raise ValidationException(
-                "서버 오류, 다시 시도해주세요"
-            )  # Todo: 공용핸들러에서 500대 에러 핸들러 생성후 변경
+           raise InternalServerException("서버 오류, 다시 시도해주세요.")
         cache.delete(cache_key)
         return verify_token
