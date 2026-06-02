@@ -16,7 +16,6 @@ class SignUpService:
         password = validated_data.pop("password")
         validated_data.pop("password_confirm")
         nickname = validated_data.pop("nickname")
-        birth_day = validated_data.pop("birth_day")
 
         email_key = f"email:token:signup:{email_token}"
         email_data = cache.get(email_key)
@@ -43,7 +42,6 @@ class SignUpService:
                 email=email,
                 nickname=nickname,
                 password=password,
-                birth_day=birth_day,
                 is_active=True,
                 is_email_verified=True,
                 **validated_data,
