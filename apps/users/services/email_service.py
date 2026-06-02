@@ -25,7 +25,7 @@ class EmailService:
 
         try:
             send_mail(
-                subject="[Danim] 인증 코드",
+                subject="[Danim] 이메일 인증 코드",
                 message=f"인증 코드:{code}",
                 from_email="",
                 recipient_list=[email],
