@@ -1,57 +1,9 @@
-from datetime import date
-
-from django.test import TestCase
-
 from apps.comments.models import Comment, CommentLike
-from apps.posts.models import Post
-from apps.users.models.models import LoginType, User
+from tests.test_comments.core import CommentBaseTest
 
 
-class CommentTest(TestCase):
+class CommentTest(CommentBaseTest):
     """comment와 comment_like 모델 테스트"""
-
-    user: User
-    comment_no_image: Comment
-    comment_image: Comment
-    comment_like: CommentLike
-
-    def setUp(self):
-        """Comment test를 위한 공통 데이터 생성 (user,post,comment)"""
-        self.user = User.objects.create_user(
-            email="test@example.com",
-            name="test",
-            nickname="testnickname",
-            password="Password@123",
-            phone_number="01012345678",
-            birth_day=date(1970, 1, 1),
-            is_email_verified=True,
-            is_phone_verified=True,
-            is_active=True,
-            login_type=LoginType.EMAIL,
-        )
-        self.post = Post.objects.create(
-            title="test_title",
-            content="test",
-            user=self.user,
-        )
-        self.comment_no_image = Comment.objects.create(
-            post=self.post,
-            user=self.user,
-            content="test_1",
-            img_key=None,
-            original_img=None,
-        )
-        self.comment_image = Comment.objects.create(
-            user=self.user,
-            post=self.post,
-            content=None,
-            img_key="dev/comments/uuid.png",
-            original_img="uuid.png",
-        )
-        self.comment_like = CommentLike.objects.create(
-            user=self.user,
-            comment=self.comment_no_image,
-        )
 
     def test_create_comment_no_image(self) -> None:
         """이미지 없는 댓글 생성 성공 테스트"""
@@ -97,12 +49,12 @@ class CommentTest(TestCase):
         with self.assertRaises(Exception):
             CommentLike.objects.create(
                 user=self.user,
-                comment=self.comment_no_image,
+                comment=self.comment_content,
             )
             self.comment_like.refresh_from_db()
             self.assertEqual(CommentLike.objects.count(), 1)
 
     def test_delete_comment_comment_like(self) -> None:
         """삭제된 comment에 대한 좋아요 CASCADE 적용 test"""
-        self.comment_no_image.delete()
+        self.comment_content.delete()
         self.assertEqual(CommentLike.objects.count(), 0)
