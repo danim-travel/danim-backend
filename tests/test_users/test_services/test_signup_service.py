@@ -2,8 +2,13 @@ from datetime import date
 from unittest.mock import patch
 
 from django.test import TestCase
+from redis import RedisError
 
-from apps.core.exceptions.exception import ConflictException, NotFoundException
+from apps.core.exceptions.exception import (
+    ConflictException,
+    InternalServerException,
+    NotFoundException,
+)
 from apps.users.models import User
 from apps.users.services.signup_service import SignUpService
 
@@ -76,4 +81,17 @@ class SignUpServiceTest(TestCase):
         """Redis 데이터에 email 값이 빈 문자열"""
         self.mock_cache.get.return_value = {"email": ""}
         with self.assertRaises(NotFoundException):
+            self.service.create_user(self._validated_data())
+
+    def test_create_user_redis_error_on_get(self) -> None:
+        """cache.get 호출 시 RedisError 발생"""
+        self.mock_cache.get.side_effect = RedisError
+        with self.assertRaises(InternalServerException):
+            self.service.create_user(self._validated_data())
+
+    def test_create_user_redis_error_on_delete(self) -> None:
+        """cache.delete 호출 시 RedisError 발생"""
+        self.mock_cache.get.return_value = {"email": "test@example.com"}
+        self.mock_cache.delete.side_effect = RedisError
+        with self.assertRaises(InternalServerException):
             self.service.create_user(self._validated_data())
