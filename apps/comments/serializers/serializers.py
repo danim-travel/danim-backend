@@ -40,12 +40,12 @@ class CommentCreateResponseSerializer(serializers.ModelSerializer):
     def get_comment_img(self, obj):
         if obj.img_key:
             return {
-                "img_key": obj.img_key,
+                "key": obj.img_key,
                 "original_img": obj.original_img,
                 "img_url": obj.img_url,
             }
         return {
-            "img_key": None,
+            "key": None,
             "original_img": None,
             "img_url": None,
         }
