@@ -45,6 +45,7 @@ class SignUpService:
                 password=password,
                 birth_day=birth_day,
                 is_active=True,
+                is_email_verified=True,
                 **validated_data,
             )
 
