@@ -1,14 +1,13 @@
 from django.conf import settings
 from django.db import models
 
-from apps.core.models import BaseModel
+from apps.core.models import BaseModel, TimeStampModel
 
 
 class Location(BaseModel):
     address_name = models.CharField(max_length=255)
     road_address_name = models.CharField(max_length=255)
     place_name = models.CharField(max_length=255)
-    kakao_id = models.BigIntegerField()
     x = models.DecimalField(max_digits=17, decimal_places=14)
     y = models.DecimalField(max_digits=17, decimal_places=14)
 
@@ -16,7 +15,7 @@ class Location(BaseModel):
         db_table = "locations"
 
 
-class Post(BaseModel):
+class Post(TimeStampModel):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="posts"
     )
@@ -28,7 +27,7 @@ class Post(BaseModel):
         db_table = "posts"
 
 
-class PostSpot(BaseModel):
+class PostSpot(TimeStampModel):
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="spots")
     location = models.ForeignKey(
         Location, on_delete=models.PROTECT, related_name="post_spots"
@@ -41,12 +40,12 @@ class PostSpot(BaseModel):
         ordering = ["order"]
 
 
-class PostSpotImage(BaseModel):
+class PostSpotImage(TimeStampModel):
     post_spot = models.ForeignKey(
         PostSpot, on_delete=models.CASCADE, related_name="images"
     )
-    img_url = models.TextField()
-    original_image_url = models.TextField()
+    img_key = models.TextField()
+    original_img = models.TextField()
     img_order = models.PositiveIntegerField()
 
     class Meta:
