@@ -4,6 +4,7 @@ from redis import RedisError
 
 from apps.core.exceptions.exception import ValidationException
 from apps.core.utils.base62 import generate_6digits_safe, generate_token
+from apps.users.redis_keys import EmailRedisKey
 
 
 class EmailService:
@@ -12,7 +13,7 @@ class EmailService:
 
     def send_email(self, email: str, purpose: str) -> None:
         code = generate_6digits_safe()
-        cache_key = f"email:code:{purpose}:{email}"
+        cache_key = EmailRedisKey.code(purpose, email)
         try:
             cache.set(cache_key, code, self.TTL)
         except RedisError:
@@ -35,7 +36,7 @@ class EmailService:
             )  # Todo: 공용핸들러에서 500대 에러 핸들러 생성후 변경
 
     def verify_code(self, email: str, code: str, purpose: str) -> str:
-        cache_key = f"email:code:{purpose}:{email}"
+        cache_key = EmailRedisKey.code(purpose, email)
 
         try:
             cache_data = cache.get(cache_key)
@@ -49,7 +50,7 @@ class EmailService:
 
         verify_token = generate_token()
 
-        token_key = f"email:token:{purpose}:{verify_token}"
+        token_key = EmailRedisKey.token(purpose, verify_token)
         data = {"email": email}
         try:
             cache.set(token_key, data, self.TOKEN_TTL)
