@@ -14,6 +14,10 @@ class LoginView(APIView):
     service = LoginService()
 
     def post(self, request: Request) -> Response:
+        """
+        POST api/v1/users/login
+        유저 로그인
+        """
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         old_refresh_token = request.COOKIES.get("refresh_token", "")
@@ -37,6 +41,10 @@ class LogoutView(APIView):
     service = LogoutService()
 
     def post(self, request: Request) -> Response:
+        """
+        POST api/v1/users/logout
+        유저 로그아웃
+        """
         refresh_token = request.COOKIES.get("refresh_token", "")
 
         self.service.logout(refresh_token)
