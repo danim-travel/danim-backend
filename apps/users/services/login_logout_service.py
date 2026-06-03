@@ -2,10 +2,23 @@ from datetime import datetime
 
 from django.contrib.auth import authenticate
 from django.core.cache import cache
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.core.exceptions.exception import UnauthorizedException, ValidationException
 from apps.users.redis_keys import LoginRedisKey
+
+
+def _blacklist_refresh_token(refresh_token: str) -> None:
+    """refresh_token을 만료 시점까지 블랙리스트에 등록. 이미 만료/손상된 토큰은 무시한다."""
+    try:
+        token = RefreshToken(refresh_token)  # type: ignore[arg-type]
+    except TokenError:
+        return
+
+    ttl = int(token["exp"]) - int(datetime.now().timestamp())
+    if ttl > 0:
+        cache.set(LoginRedisKey.blacklist(token["jti"]), True, ttl)
 
 
 class LoginService:
@@ -17,44 +30,18 @@ class LoginService:
             raise UnauthorizedException("이메일 또는 비밀번호가 올바르지 않습니다.")
 
         if old_refresh_token:
-            token = RefreshToken(old_refresh_token)  # type: ignore
-            jti = token["jti"]
-
-            cache_key = LoginRedisKey.blacklist(jti)
-
-            if cache.get(cache_key):
-
-                raise ValidationException("블랙리스트 토큰 입니다.")
-
-            expire_at = token["exp"]
-
-            now = int(datetime.now().timestamp())
-
-            ttl = expire_at - now
-
-            if ttl > 0:
-
-                cache.set(cache_key, True, ttl)
+            _blacklist_refresh_token(old_refresh_token)
 
         token = RefreshToken.for_user(user)
-
         access_token, refresh_token = str(token.access_token), str(token)
 
         return access_token, refresh_token
 
 
 class LogoutService:
+
     def logout(self, refresh_token: str) -> None:
         if not refresh_token:
             raise ValidationException("로그아웃을 위한 토큰이 없습니다.")
 
-        token = RefreshToken(refresh_token)  # type: ignore
-        jti = token["jti"]
-
-        cache_key = LoginRedisKey.blacklist(jti)
-
-        expire_at = token["exp"]
-        now = int(datetime.now().timestamp())
-        ttl = expire_at - now
-        if ttl > 0:
-            cache.set(cache_key, True, timeout=ttl)
+        _blacklist_refresh_token(refresh_token)

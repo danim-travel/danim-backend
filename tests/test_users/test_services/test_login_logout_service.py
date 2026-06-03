@@ -47,12 +47,13 @@ class LoginServiceTest(BaseTest):
         with self.assertRaises(UnauthorizedException):
             self.login_service.login("wrong@example.com", "wrongpassword", "")
 
-    def test_login_blacklist_token(self) -> None:
-        """블랙리스트 토큰으로 로그인"""
-        old_token = RefreshToken.for_user(self.user)
-        self.mock_cache.get.return_value = True
-        with self.assertRaises(ValidationException):
-            self.login_service.login("test@example.com", "Password@1", str(old_token))
+    def test_login_with_invalid_old_token(self) -> None:
+        """손상된 기존 refresh_token이 있어도 로그인은 성공"""
+        access_token, refresh_token = self.login_service.login(
+            "test@example.com", "Password@1", "invalid_token"
+        )
+        self.assertIsInstance(access_token, str)
+        self.assertIsInstance(refresh_token, str)
 
     def test_login_with_old_refresh_token(self) -> None:
         """기존 refresh_token 있을 때 로그인 성공"""
@@ -79,3 +80,8 @@ class LogoutServiceTest(BaseTest):
         """refresh_token 없음"""
         with self.assertRaises(ValidationException):
             self.logout_service.logout("")
+
+    def test_logout_with_invalid_token(self) -> None:
+        """손상된 refresh_token으로 로그아웃해도 예외 없이 처리"""
+        self.logout_service.logout("invalid_token")
+        self.mock_cache.set.assert_not_called()
