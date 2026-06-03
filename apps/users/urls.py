@@ -15,4 +15,5 @@ urlpatterns: list[URLPattern] = [
     ),
     path("signup", signup_view.SignupView.as_view(), name="signup"),
     path("login", login_logout_view.LoginView.as_view(), name="login"),
+    path("logout", login_logout_view.LogoutView.as_view(), name="logout"),
 ]
