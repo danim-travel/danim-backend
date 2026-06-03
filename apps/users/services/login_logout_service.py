@@ -3,8 +3,9 @@ from datetime import datetime
 from django.contrib.auth import authenticate
 from django.core.cache import cache
 from rest_framework_simplejwt.tokens import RefreshToken
-from apps.users.redis_keys import LoginRedisKey
+
 from apps.core.exceptions.exception import UnauthorizedException, ValidationException
+from apps.users.redis_keys import LoginRedisKey
 
 
 class LoginService:
@@ -40,3 +41,20 @@ class LoginService:
         access_token, refresh_token = str(token.access_token), str(token)
 
         return access_token, refresh_token
+
+
+class LogoutService:
+    def logout(self, refresh_token: str) -> None:
+        if not refresh_token:
+            raise ValidationException("로그아웃을 위한 토큰이 없습니다.")
+
+        token = RefreshToken(refresh_token)  # type: ignore
+        jti = token["jti"]
+
+        cache_key = LoginRedisKey.blacklist(jti)
+
+        expire_at = token["exp"]
+        now = int(datetime.now().timestamp())
+        ttl = expire_at - now
+        if ttl > 0:
+            cache.set(cache_key, True, timeout=ttl)
