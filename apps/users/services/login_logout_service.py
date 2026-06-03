@@ -3,7 +3,7 @@ from datetime import datetime
 from django.contrib.auth import authenticate
 from django.core.cache import cache
 from rest_framework_simplejwt.tokens import RefreshToken
-
+from apps.users.redis_keys import LoginRedisKey
 from apps.core.exceptions.exception import UnauthorizedException, ValidationException
 
 
@@ -19,7 +19,7 @@ class LoginService:
             token = RefreshToken(old_refresh_token)  # type: ignore
             jti = token["jti"]
 
-            cache_key = f"blacklist:refresh_token:{jti}"
+            cache_key = LoginRedisKey.blacklist(jti)
 
             if cache.get(cache_key):
 
