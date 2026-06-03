@@ -32,12 +32,13 @@ class CommentCreateSerializer(serializers.Serializer):
 class CommentCreateResponseSerializer(serializers.ModelSerializer):
     """댓글 생성 후 Response Body의 데이터 직렬화 serializer"""
 
+    comment_id = serializers.CharField(max_length=26, source="id")
     comment_img = serializers.SerializerMethodField()
 
     class Meta:
         model = Comment
         fields = [
-            "id",
+            "comment_id",
             "content",
             "comment_img",
             "post_id",
