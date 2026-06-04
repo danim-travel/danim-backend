@@ -9,11 +9,6 @@ from tests.test_comments.core import CommentBaseTest
 class TestCommentCreateSerializer(CommentBaseTest):
     """Comment 생성 관련 serializer 검증 테스트"""
 
-    def setUp(self):
-        """서비스 메서드로 생성하는 img_url 테스트를 위해 setUp으로 생성"""
-        super().setUp()
-        self.comment_image.img_url = s3_svc.create_img_url(self.comment_image.img_key)
-
     def test_create_serializer_content(self) -> None:
         """content만 있는 댓글 생성 요청 데이터 serializer 검증 성공 테스트"""
         serializer = CommentCreateSerializer(data=self.data_for_content)

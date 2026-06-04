@@ -23,7 +23,6 @@ class TestCommentCreateService(CommentBaseTest):
         self.assertEqual(new_comment.content, None)
         self.assertEqual(new_comment.img_key, self.data_for_img["comment_img"]["key"])
         self.assertEqual(new_comment.original_img, "dog.png")
-        self.assertEqual(new_comment.img_url, s3_svc.create_img_url(new_comment.img_key))
 
     def test_fail_create_comment(self) -> None:
         """존재하지 않는 게시글에 댓글 작성 시도 실패 테스트"""

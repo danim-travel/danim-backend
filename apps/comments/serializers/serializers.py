@@ -1,6 +1,34 @@
 from rest_framework import serializers
 
 from apps.comments.models import Comment
+from apps.core.storage.s3 import s3_svc
+
+
+class CommentImageURLMixin:
+    """
+    comment_img의 img_url을 s3_svc.create_img_url을 사용해 생성하는 MixIn
+    객체에 img_key 필드가 없으면 None으로 반환함
+    comment_img 필드를 SerializerMethodField로 설정하고 해당 MixIn을 상속받아서 사용
+    필드의 구조는 아래와 같음
+    {
+        "key" : str,
+        "original_img" : str,
+        "img_url" : str,
+    }
+    """
+
+    def get_comment_img(self, obj):
+        if obj.img_key:
+            return {
+                "key": obj.img_key,
+                "original_img": obj.original_img,
+                "img_url": s3_svc.create_img_url(obj.img_key),
+            }
+        return {
+            "key": None,
+            "original_img": None,
+            "img_url": None,
+        }
 
 
 class CommentImageSerializer(serializers.Serializer):
@@ -29,7 +57,7 @@ class CommentCreateSerializer(serializers.Serializer):
         return data
 
 
-class CommentCreateResponseSerializer(serializers.ModelSerializer):
+class CommentCreateResponseSerializer(CommentImageURLMixin, serializers.ModelSerializer):
     """댓글 생성 후 Response Body의 데이터 직렬화 serializer"""
 
     comment_id = serializers.CharField(max_length=26, source="id")
@@ -47,25 +75,8 @@ class CommentCreateResponseSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
-    def get_comment_img(self, obj):
-        """
-        댓글 생성 후 Response Body에 담을 comment_img 필드의 구조를 정의하는 메서드
-        content만 있는 댓글의 경우에는 key와 original_img가 없기 때문에 img_url도 None으로 응답함
-        """
-        if obj.img_key:
-            return {
-                "key": obj.img_key,
-                "original_img": obj.original_img,
-                "img_url": obj.img_url,
-            }
-        return {
-            "key": None,
-            "original_img": None,
-            "img_url": None,
-        }
 
-
-class CommentListSerializer(serializers.ModelSerializer):
+class CommentListSerializer(CommentImageURLMixin, serializers.ModelSerializer):
     """댓글 목록 조회 Response Body의 데이터 직렬화 serializer"""
 
     user = serializers.SerializerMethodField()
@@ -104,23 +115,6 @@ class CommentListSerializer(serializers.ModelSerializer):
             "is_deleted": True,
         }
 
-    def get_comment_img(self, obj):
-        """
-        댓글 목록 조회 Response Body의 comment_img의 구조를 정의하는 메서드
-        content만 있는 댓글의 경우에는 key와 original_img가 없기 때문에 img_url도 None으로 응답함
-        """
-        if obj.img_key:
-            return {
-                "key": obj.img_key,
-                "original_img": obj.original_img,
-                "img_url": obj.img_url,
-            }
-        return {
-            "key": None,
-            "original_img": None,
-            "img_url": None,
-        }
-
 
 class CommentListSwaggerSerializer(serializers.Serializer):
     """swagger를 위한 목록 조회 query_parameter용 serializer"""
@@ -128,3 +122,29 @@ class CommentListSwaggerSerializer(serializers.Serializer):
     page = serializers.IntegerField(default=1)
     page_size = serializers.IntegerField(default=10)
     post_id = serializers.CharField(max_length=26, default="01J5KXQZ3WNMVP8TQHG2RB4CD")
+
+
+class CommentUpdateSerializer(serializers.Serializer):
+    """댓글 수정 Request Body의 데이터 검증 serializer"""
+
+    content = serializers.CharField(max_length=100, required=False, allow_null=True)
+    comment_img = CommentImageSerializer(required=False, allow_null=True)
+
+
+class CommentUpdateResponseSerializer(CommentImageURLMixin, serializers.ModelSerializer):
+    """댓글 수정 후 Response Body의 데이터 직렬화 serializer"""
+
+    comment_img = serializers.SerializerMethodField()
+    post_id = serializers.CharField(max_length=26)
+    user_id = serializers.CharField(max_length=26)
+
+    class Meta:
+        model = Comment
+        fields = [
+            "content",
+            "comment_img",
+            "post_id",
+            "user_id",
+            "created_at",
+            "updated_at",
+        ]

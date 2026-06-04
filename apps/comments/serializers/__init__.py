@@ -3,6 +3,8 @@ from apps.comments.serializers.serializers import (
     CommentCreateSerializer,
     CommentListSerializer,
     CommentListSwaggerSerializer,
+    CommentUpdateResponseSerializer,
+    CommentUpdateSerializer,
 )
 
 __all__ = [
@@ -10,4 +12,6 @@ __all__ = [
     "CommentCreateResponseSerializer",
     "CommentListSerializer",
     "CommentListSwaggerSerializer",
+    "CommentUpdateResponseSerializer",
+    "CommentUpdateSerializer",
 ]
