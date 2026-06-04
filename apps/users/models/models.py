@@ -3,6 +3,7 @@ from django.contrib.auth.models import PermissionsMixin
 from django.db import models
 
 from apps.core.models import TimeStampModel
+from apps.core.storage.s3 import s3_svc
 
 
 class UserManager(BaseUserManager):
@@ -57,3 +58,11 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampModel):
 
     class Meta:
         db_table = "users"
+
+    @property
+    def profile_img_url(self) -> str | None:
+        """저장된 profile_img(S3 key)를 조회용 URL로 변환. key가 없으면 None."""
+        if not self.profile_img:
+            return None
+
+        return s3_svc.create_img_url(self.profile_img)
