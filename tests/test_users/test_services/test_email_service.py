@@ -6,9 +6,11 @@ from redis import RedisError
 from apps.core.exceptions.exception import (
     ExternalServiceException,
     InternalServerException,
+    NotFoundException,
     TooManyRequestsException,
     ValidationException,
 )
+from apps.users.models.models import LoginType, User
 from apps.users.redis_keys import EmailRedisKey
 from apps.users.services.email_service import EmailService
 
@@ -78,6 +80,44 @@ class SendEmailTest(EmailServiceTest):
         fail_key = EmailRedisKey.verify_fail("signup", "test@example.com")
         self.service.send_email("test@example.com", "signup")
         self.mock_cache.delete.assert_any_call(fail_key)
+
+
+class FindPasswordSendEmailTest(EmailServiceTest):
+    """find_password 발송 시 가입된 이메일 로그인 유저만 허용하는지 검증"""
+
+    def _create_user(
+        self, email: str, nickname: str, login_type: str = LoginType.EMAIL
+    ) -> User:
+        return User.objects.create_user(
+            email=email,
+            nickname=nickname,
+            name="홍길동",
+            birth_day="1990-01-01",
+            login_type=login_type,
+            is_active=True,
+        )
+
+    def test_find_password_eligible_user_sends(self) -> None:
+        """가입된 이메일 유저 → 정상 발송"""
+        self._create_user("user@example.com", "email_user")
+        self.mock_cache.set.return_value = None
+        self.mock_send_mail.return_value = None
+        self.service.send_email("user@example.com", "find_password")
+        self.mock_send_mail.assert_called_once()
+
+    def test_find_password_unknown_email_raises(self) -> None:
+        """가입되지 않은 이메일 → 404, 발송/쿨다운 없음"""
+        with self.assertRaises(NotFoundException):
+            self.service.send_email("ghost@example.com", "find_password")
+        self.mock_cache.add.assert_not_called()
+        self.mock_send_mail.assert_not_called()
+
+    def test_find_password_social_user_raises(self) -> None:
+        """소셜 로그인 유저 → 재설정 대상 아님(404)"""
+        self._create_user("kakao@example.com", "kakao_user", login_type=LoginType.KAKAO)
+        with self.assertRaises(NotFoundException):
+            self.service.send_email("kakao@example.com", "find_password")
+        self.mock_send_mail.assert_not_called()
 
 
 class VerifyCodeTest(EmailServiceTest):
