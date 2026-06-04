@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 from apps.comments.pagination import CommentPagination
 from apps.comments.schemas import (
     comment_create_schema,
+    comment_delete_schema,
     comment_list_schema,
     comment_update_schema,
 )
@@ -61,6 +62,7 @@ class CommentDetailView(APIView):
             status=status.HTTP_200_OK,
         )
 
+    @comment_delete_schema
     def delete(self, request, comment_id):
         delete_comment(comment_id, request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
