@@ -4,6 +4,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.users.schemas import login_schema, logout_schema
 from apps.users.serializers.login_logout_serializer import LoginSerializer
 from apps.users.serializers.token_serializer import TokenResponseSerializer
 from apps.users.services.login_logout_service import LoginService, LogoutService
@@ -13,6 +14,7 @@ class LoginView(APIView):
     permission_classes = [AllowAny]
     service = LoginService()
 
+    @login_schema
     def post(self, request: Request) -> Response:
         """
         POST api/v1/users/login
@@ -40,6 +42,7 @@ class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
     service = LogoutService()
 
+    @logout_schema
     def post(self, request: Request) -> Response:
         """
         POST api/v1/users/logout

@@ -9,12 +9,16 @@ token_refresh_schema = extend_schema(
         "httpOnly 쿠키의 refresh_token으로 새로운 access_token을 발급합니다. "
         "access_token은 응답 body로 내려갑니다."
     ),
+    request=None,
     parameters=[
         OpenApiParameter(
             name="refresh_token",
             location=OpenApiParameter.COOKIE,
-            required=True,
-            description="로그인 시 발급된 httpOnly refresh_token 쿠키",
+            required=False,
+            description=(
+                "로그인 시 발급된 httpOnly refresh_token 쿠키. "
+                "브라우저가 자동 전송하므로 Swagger에서 직접 입력할 필요 없음."
+            ),
         ),
     ],
     responses={
