@@ -1,4 +1,5 @@
 from datetime import date
+from unittest.mock import patch
 
 from django.urls import reverse
 from rest_framework import status
@@ -12,7 +13,7 @@ class BaseViewTest(APITestCase):
     user: User
 
     @classmethod
-    def setUpTestData(cls):
+    def setUpTestData(cls) -> None:
         cls.user = User.objects.create_user(
             email="test@example.com",
             password="Password@1",
@@ -23,30 +24,36 @@ class BaseViewTest(APITestCase):
         )
 
     def setUp(self) -> None:
-        refresh = RefreshToken.for_user(self.user)
-        self.refresh_token = str(refresh)
+        self.refresh_token = str(RefreshToken.for_user(self.user))
+        # view 레이어는 Redis를 mock (블랙리스트 조회)
+        self.cache_patcher = patch("apps.users.services.token_service.cache")
+        self.mock_cache = self.cache_patcher.start()
+        self.mock_cache.get.return_value = None
+        self.addCleanup(self.cache_patcher.stop)
 
 
 class TokenViewTest(BaseViewTest):
     def test_refresh_access_token_success(self) -> None:
-        """유효한 refresh_token으로 access_token 재발급"""
-        response = self.client.post(
-            reverse("users:token_refresh"), {"refresh_token": self.refresh_token}
-        )
+        """쿠키의 refresh_token으로 access_token 재발급"""
+        self.client.cookies["refresh_token"] = self.refresh_token
+        response = self.client.post(reverse("users:token_refresh"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("access_token", response.data)
 
     def test_refresh_access_token_invalid(self) -> None:
-        """유효하지 않은 refresh_token"""
-        response = self.client.post(
-            reverse("users:token_refresh"), {"refresh_token": "invalid_token"}
-        )
+        """유효하지 않은 refresh_token 쿠키 → 403"""
+        self.client.cookies["refresh_token"] = "invalid_token"
+        response = self.client.post(reverse("users:token_refresh"))
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_token_refresh_missing(self) -> None:
-        """refresh_token 누락"""
-        response = self.client.post(
-            reverse("users:token_refresh"),
-            {},
-        )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        """refresh_token 쿠키 누락 → 403"""
+        response = self.client.post(reverse("users:token_refresh"))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_refresh_blacklisted_token(self) -> None:
+        """블랙리스트(로그아웃)된 refresh_token → 403"""
+        self.mock_cache.get.return_value = True
+        self.client.cookies["refresh_token"] = self.refresh_token
+        response = self.client.post(reverse("users:token_refresh"))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
