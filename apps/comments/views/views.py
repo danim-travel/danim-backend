@@ -55,3 +55,7 @@ class CommentDetailView(APIView):
             CommentUpdateResponseSerializer(mod_comment).data,
             status=status.HTTP_200_OK,
         )
+
+    def delete(self, request, comment_id):
+        delete_comment(comment_id, request.user)
+        return Response(status=status.HTTP_204_NO_CONTENT)
