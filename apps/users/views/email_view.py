@@ -4,6 +4,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.users.schemas import email_send_schema, email_verify_schema
 from apps.users.serializers.email_serializer import (
     EmailSendSerializer,
     EmailVerifySerializer,
@@ -20,6 +21,7 @@ class EmailSendView(APIView):
     permission_classes = [AllowAny]
     service = EmailService()
 
+    @email_send_schema
     def post(self, request: Request) -> Response:
         """이메일 및 목적을 보내주면 인증코드 숫자 6자리를 보내주는 view"""
         serializer = EmailSendSerializer(data=request.data)
@@ -42,6 +44,7 @@ class EmailVerifyView(APIView):
     permission_classes = [AllowAny]
     service = EmailService()
 
+    @email_verify_schema
     def post(self, request: Request) -> Response:
         """이메일과 인증코드를 검증하고 email_token을 반환하는 view"""
         serializer = EmailVerifySerializer(data=request.data)

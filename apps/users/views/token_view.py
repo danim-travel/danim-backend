@@ -4,6 +4,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.users.schemas import token_refresh_schema
 from apps.users.serializers.token_serializer import (
     TokenRequestSerializer,
     TokenResponseSerializer,
@@ -15,6 +16,7 @@ class TokenView(APIView):
     permission_classes = [AllowAny]
     service = TokenService()
 
+    @token_refresh_schema
     def post(self, request: Request) -> Response:
         serializer = TokenRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
