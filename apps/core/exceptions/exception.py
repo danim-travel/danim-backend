@@ -62,10 +62,15 @@ class ForbiddenException(BaseCustomException):
 
 
 class InternalServerException(BaseCustomException):
-    status_code = 500
+    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
     default_detail = "서버 오류가 발생했습니다."
 
 
 class ExternalServiceException(BaseCustomException):
-    status_code = 502
+    status_code = status.HTTP_502_BAD_GATEWAY
     default_detail = "외부 서비스 오류가 발생했습니다."
+
+
+class TooManyRequestsException(BaseCustomException):
+    status_code = status.HTTP_429_TOO_MANY_REQUESTS
+    default_detail = "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."

@@ -1,6 +1,7 @@
 from datetime import date
 from unittest.mock import patch
 
+from django.db import IntegrityError
 from django.test import TestCase
 from redis import RedisError
 
@@ -67,6 +68,14 @@ class SignUpServiceTest(TestCase):
             name="testname",
             birth_day=date(1999, 1, 1),
         )
+        self.mock_cache.get.return_value = {"email": "test@example.com"}
+        with self.assertRaises(ConflictException):
+            self.service.create_user(self._validated_data())
+
+    @patch("apps.users.services.signup_service.User.objects.create_user")
+    def test_create_user_race_integrity_error(self, mock_create_user) -> None:
+        """동시 가입 race → INSERT가 unique 제약에 걸리면 ConflictException(409)"""
+        mock_create_user.side_effect = IntegrityError
         self.mock_cache.get.return_value = {"email": "test@example.com"}
         with self.assertRaises(ConflictException):
             self.service.create_user(self._validated_data())
