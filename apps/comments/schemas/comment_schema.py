@@ -67,5 +67,7 @@ comment_delete_schema = extend_schema(
         404: OpenApiResponse(
             description='{"error_detail" : "댓글에 대한 정보를 찾지 못했습니다.",status_code" : 404}'
         ),
-    }
+    },
+    tags=["comments"],
+    summary="댓글 삭제",
 )
