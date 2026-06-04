@@ -16,7 +16,12 @@ from apps.comments.serializers import (
     CommentUpdateResponseSerializer,
 )
 from apps.comments.serializers.serializers import CommentUpdateSerializer
-from apps.comments.services import create_comment, get_comment_list, update_comment
+from apps.comments.services import (
+    create_comment,
+    delete_comment,
+    get_comment_list,
+    update_comment,
+)
 
 
 class CommentView(APIView):

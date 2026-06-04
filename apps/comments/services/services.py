@@ -79,3 +79,15 @@ def update_comment(data, user, comment_id):
     target_comment.save()
 
     return target_comment
+
+
+def delete_comment(comment_id, user):
+    """댓글 삭제 서비스 로직"""
+
+    target_comment = Comment.objects.filter(id=comment_id).first()
+    if not target_comment:
+        raise NotFoundException("댓글에 대한 정보를 찾지 못했습니다.")
+    if target_comment.user != user:
+        raise ForbiddenException("본인이 작성한 댓글만 삭제 할 수 있습니다.")
+
+    target_comment.delete()
