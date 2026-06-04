@@ -6,6 +6,7 @@ from apps.users.views import (
     presigned_url_view,
     signup_view,
     token_view,
+    check_nickname_view,
 )
 
 app_name = "users"
@@ -26,6 +27,10 @@ urlpatterns: list[URLPattern] = [
     path(
         "me/profile-image/presigned-url",
         presigned_url_view.UserProfileImgView.as_view(),
-        name="presigned_url_image",
+        name="presigned_url_image"),
+    path(
+        "check-nickname",
+        check_nickname_view.CheckNicknameView.as_view(),
+        name="check_nickname",
     ),
 ]

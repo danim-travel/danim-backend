@@ -5,6 +5,8 @@ from typing import Any
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
+from apps.users.validators import validate_nickname_format
+
 
 class UserSignUpSerializer(serializers.Serializer):
     password = serializers.CharField(max_length=20, write_only=True)
@@ -37,12 +39,7 @@ class UserSignUpSerializer(serializers.Serializer):
         return value
 
     def validate_nickname(self, value: str) -> str:
-        """
-        닉네임 영문,숫자,언더바(_)만 허용
-        """
-        if not re.match(r"^[a-zA-Z0-9_]+$", value):
-            raise ValidationError("닉네임은 영문, 숫자, 언더바(_)만 사용 가능합니다.")
-        return value
+        return validate_nickname_format(value)
 
     def validate_birth_day(self, value: date) -> date:
         """현재 날짜보다 높은 날짜 선택불가"""
