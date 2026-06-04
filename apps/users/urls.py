@@ -1,7 +1,6 @@
 from django.urls import URLPattern, path
 
-from apps.users.views import email_view, signup_view, token_view,login_logout_view
-
+from apps.users.views import email_view, login_logout_view, signup_view, token_view
 
 app_name = "users"
 
