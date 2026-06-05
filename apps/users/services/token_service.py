@@ -3,13 +3,20 @@ from redis import RedisError
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.core.exceptions.exception import ForbiddenException, InternalServerException
+from apps.core.exceptions.exception import (
+    ForbiddenException,
+    InternalServerException,
+    ValidationException,
+)
 from apps.users.redis_keys import LoginRedisKey
 
 
 class TokenService:
 
     def refresh_access_token(self, refresh_token: str) -> str:
+        if not refresh_token:
+            raise ValidationException("재발급을 위한 토큰이 없습니다.")
+
         try:
             token = RefreshToken(refresh_token)  # type: ignore[arg-type]
         except TokenError:

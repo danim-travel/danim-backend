@@ -9,7 +9,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from apps.users.models import User
 
 
-class BaseViewTest(APITestCase):
+class TokenViewTest(APITestCase):
     user: User
 
     @classmethod
@@ -31,8 +31,6 @@ class BaseViewTest(APITestCase):
         self.mock_cache.get.return_value = None
         self.addCleanup(self.cache_patcher.stop)
 
-
-class TokenViewTest(BaseViewTest):
     def test_refresh_access_token_success(self) -> None:
         """쿠키의 refresh_token으로 access_token 재발급"""
         self.client.cookies["refresh_token"] = self.refresh_token
@@ -47,9 +45,9 @@ class TokenViewTest(BaseViewTest):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_token_refresh_missing(self) -> None:
-        """refresh_token 쿠키 누락 → 403"""
+        """refresh_token 쿠키 누락 → 400"""
         response = self.client.post(reverse("users:token_refresh"))
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_refresh_blacklisted_token(self) -> None:
         """블랙리스트(로그아웃)된 refresh_token → 403"""

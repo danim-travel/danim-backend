@@ -64,7 +64,5 @@ class SignUpService:
             try:
                 cache.delete(email_key)
             except RedisError:
-                raise InternalServerException(
-                    "서버 오류, 다시 시도해주세요."
-                )  # TODO:409로 에러 변경
+                raise InternalServerException("서버 오류, 다시 시도해주세요.")
             return user
