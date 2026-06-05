@@ -1,16 +1,22 @@
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.comments.pagination import CommentPagination
-from apps.comments.schemas import comment_create_schema, comment_list_schema
+from apps.comments.schemas import (
+    comment_create_schema,
+    comment_list_schema,
+    comment_update_schema,
+)
 from apps.comments.serializers import (
     CommentCreateResponseSerializer,
     CommentCreateSerializer,
     CommentListSerializer,
+    CommentUpdateResponseSerializer,
 )
-from apps.comments.services import create_comment, get_comment_img_url, get_comment_list
+from apps.comments.serializers.serializers import CommentUpdateSerializer
+from apps.comments.services import create_comment, get_comment_list, update_comment
 
 
 class CommentView(APIView):
@@ -33,6 +39,19 @@ class CommentView(APIView):
         queryset = get_comment_list(request.query_params.get("post_id"), request.user)
         paginator = CommentPagination()
         page = paginator.paginate_queryset(queryset, request)
-        page = get_comment_img_url(page)
         serializer = CommentListSerializer(page, many=True)
         return paginator.get_paginated_response(serializer.data)
+
+
+class CommentDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @comment_update_schema
+    def patch(self, request, comment_id):
+        serializer = CommentUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        mod_comment = update_comment(serializer.validated_data, request.user, comment_id)
+        return Response(
+            CommentUpdateResponseSerializer(mod_comment).data,
+            status=status.HTTP_200_OK,
+        )

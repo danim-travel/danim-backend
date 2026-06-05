@@ -1,8 +1,7 @@
 from django.db.models import BooleanField, Count, Exists, OuterRef, Value
 
 from apps.comments.models import Comment, CommentLike
-from apps.core.exceptions.exception import NotFoundException
-from apps.core.storage.s3 import s3_svc
+from apps.core.exceptions.exception import ForbiddenException, NotFoundException
 from apps.posts.models import Post
 
 
@@ -31,9 +30,6 @@ def create_comment(data, user):
         original_img=original_img,
     )
 
-    if new_comment.img_key is not None:
-        new_comment.img_url = s3_svc.create_img_url(img_key)
-
     return new_comment
 
 
@@ -59,13 +55,27 @@ def get_comment_list(post_id, user):
     return query_set
 
 
-def get_comment_img_url(page):
-    """paginate된 댓글 목록 리스트 객체에서 각 겍체에 img_url을 생성하는 서비스 로직"""
+def update_comment(data, user, comment_id):
+    """댓글 수정 서비스 로직"""
 
-    for comment in page:
-        if comment.img_key is not None:
-            comment.img_url = s3_svc.create_img_url(comment.img_key)
-        else:
-            comment.img_url = None
+    target_comment = Comment.objects.filter(id=comment_id).first()
+    if not target_comment:
+        raise NotFoundException("댓글에 대한 정보를 찾지 못했습니다.")
+    if target_comment.user != user:
+        raise ForbiddenException("본인이 작성한 댓글만 수정 가능합니다.")
 
-    return page
+    content = data.get("content", target_comment.content)
+    target_comment.content = content
+
+    if data.get("comment_img"):
+        img_key = data["comment_img"].get("key", target_comment.img_key)
+        original_img = data["comment_img"].get(
+            "original_img", target_comment.original_img
+        )
+
+        target_comment.img_key = img_key
+        target_comment.original_img = original_img
+
+    target_comment.save()
+
+    return target_comment

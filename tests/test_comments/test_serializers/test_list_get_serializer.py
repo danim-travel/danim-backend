@@ -11,7 +11,6 @@ class TestListGetSerializer(CommentBaseTest):
         self.comment_content.is_liked = True
         self.comment_image.like_count = 1
         self.comment_content.like_count = 1
-        self.comment_image.img_url = s3_svc.create_img_url(self.comment_image.img_key)
 
     def test_list_get_serializer_image(self) -> None:
         """이미지 댓글 serializer 응답 데이터 검증 테스트"""
@@ -27,8 +26,10 @@ class TestListGetSerializer(CommentBaseTest):
         self.assertEqual(serializer.data["user"]["is_deleted"], False)
         self.assertEqual(serializer.data["comment_id"], self.comment_image.id)
         self.assertEqual(serializer.data["content"], self.comment_image.content)
+        assert self.comment_image.img_key is not None
         self.assertEqual(
-            serializer.data["comment_img"]["img_url"], self.comment_image.img_url  # type: ignore[attr-defined]
+            serializer.data["comment_img"]["img_url"],
+            s3_svc.create_img_url(self.comment_image.img_key),
         )
         self.assertEqual(
             serializer.data["comment_img"]["key"], self.comment_image.img_key
@@ -54,9 +55,7 @@ class TestListGetSerializer(CommentBaseTest):
         self.assertEqual(serializer.data["user"]["is_deleted"], False)
         self.assertEqual(serializer.data["comment_id"], self.comment_content.id)
         self.assertEqual(serializer.data["content"], self.comment_content.content)
-        self.assertEqual(
-            serializer.data["comment_img"]["img_url"], self.comment_content.img_key
-        )
+        self.assertEqual(serializer.data["comment_img"]["img_url"], None)
         self.assertEqual(
             serializer.data["comment_img"]["key"], self.comment_content.img_key
         )

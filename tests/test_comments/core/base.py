@@ -11,6 +11,7 @@ from apps.users.models.models import LoginType, User
 class CommentBaseTest(TestCase):
     client: APIClient
     user: User
+    user_2: User
     post: Post
     comment_content: Comment
     comment_image: Comment
@@ -21,10 +22,15 @@ class CommentBaseTest(TestCase):
     data_fail_img: dict
     data_for_comment_content: dict
     data_for_comment_img: dict
+    data_for_update_content: dict
+    data_for_update_img: dict
     fail_data_for_comment_content: dict
     fail_data_for_none_post: dict
     fail_data_for_only_post: dict
     url: str
+    detail_url: str
+    detail_url_img: str
+    none_comment_id: str
 
     def setUp(self):
 
@@ -36,6 +42,18 @@ class CommentBaseTest(TestCase):
             password="Password@123",
             phone_number="01012345678",
             birth_day=date(1970, 1, 1),
+            is_email_verified=True,
+            is_phone_verified=True,
+            is_active=True,
+            login_type=LoginType.EMAIL,
+        )
+        self.user_2 = User.objects.create(
+            email="test_2@example.com",
+            name="test_2",
+            nickname="test_2_nickname",
+            password="Password@123test",
+            phone_number="01009002829",
+            birth_day=date(1970, 1, 2),
             is_email_verified=True,
             is_phone_verified=True,
             is_active=True,
@@ -82,3 +100,15 @@ class CommentBaseTest(TestCase):
             "post_id": self.post.id,
         }
         self.url = "/api/v1/comments/"
+        self.detail_url_content = f"/api/v1/comments/{self.comment_content.id}/"
+        self.detail_url_img = f"/api/v1/comments/{self.comment_image.id}/"
+        self.data_for_update_content = {
+            "content": "modify_content",
+        }
+        self.data_for_update_img = {
+            "comment_img": {
+                "key": "prod/.../update...png",
+                "original_img": "update_dog.png",
+            }
+        }
+        self.none_comment_id = "없는 댓글 아이디"
