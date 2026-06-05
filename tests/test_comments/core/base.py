@@ -99,9 +99,9 @@ class CommentBaseTest(TestCase):
         self.fail_data_for_only_post = {
             "post_id": self.post.id,
         }
-        self.url = "/api/v1/comments/"
-        self.detail_url_content = f"/api/v1/comments/{self.comment_content.id}/"
-        self.detail_url_img = f"/api/v1/comments/{self.comment_image.id}/"
+        self.url = "/api/v1/comments"
+        self.detail_url_content = f"/api/v1/comments/{self.comment_content.id}"
+        self.detail_url_img = f"/api/v1/comments/{self.comment_image.id}"
         self.data_for_update_content = {
             "content": "modify_content",
         }
