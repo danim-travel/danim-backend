@@ -50,7 +50,6 @@ def get_comment_list(post_id, user):
             ),
             like_count=Count("comment_likes"),
         )
-        .order_by("-created_at")
     )
     return query_set
 
