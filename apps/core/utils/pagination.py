@@ -7,6 +7,10 @@ from rest_framework.serializers import BaseSerializer
 """
 view에서 
 
+from apps.core.utils.pagination import paginate
+
+임포트 해서 사용하기
+
 def get(self,request):
     queryset = service.get_list(...) #  service가 조회할 쿼리셋을 만들어 반환 (lazy)
     return paginate(queryset,request,SomeSerializer) # 기본 10개 단위 커서 페이지네이션
