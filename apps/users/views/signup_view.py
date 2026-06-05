@@ -4,6 +4,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.users.schemas import signup_schema
 from apps.users.serializers.signup_serializer import UserSignUpSerializer
 from apps.users.services.signup_service import SignUpService
 
@@ -17,6 +18,7 @@ class SignupView(APIView):
     permission_classes = [AllowAny]
     service = SignUpService()
 
+    @signup_schema
     def post(self, request: Request) -> Response:
         """
         user로 부터 data를 받아 유저를 생성하는 view
