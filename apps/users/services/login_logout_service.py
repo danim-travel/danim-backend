@@ -33,6 +33,9 @@ class LoginService:
             _blacklist_refresh_token(old_refresh_token)
 
         token = RefreshToken.for_user(user)
+        # 프론트가 토큰 디코딩만으로 소셜 로그인 여부를 판별할 수 있도록 담는다.
+        # (access_token 생성 전에 set하면 access_token에도 복사되고, 재발급 시에도 유지됨)
+        token["login_type"] = user.login_type
         access_token, refresh_token = str(token.access_token), str(token)
 
         return access_token, refresh_token
