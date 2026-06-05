@@ -119,8 +119,7 @@ class CommentListSerializer(CommentImageURLMixin, serializers.ModelSerializer):
 class CommentListSwaggerSerializer(serializers.Serializer):
     """swagger를 위한 목록 조회 query_parameter용 serializer"""
 
-    page = serializers.IntegerField(default=1)
-    page_size = serializers.IntegerField(default=10)
+    page_size = serializers.IntegerField(default=10)  # 스웨거 테스트용 page_size 필드
     post_id = serializers.CharField(max_length=26, default="01J5KXQZ3WNMVP8TQHG2RB4CD")
 
 
