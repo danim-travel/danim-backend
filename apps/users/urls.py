@@ -8,6 +8,7 @@ from apps.users.views import (
     presigned_url_view,
     signup_view,
     token_view,
+    user_search_view
 )
 
 app_name = "users"
@@ -36,4 +37,5 @@ urlpatterns: list[URLPattern] = [
         name="check_nickname",
     ),
     path("me", me_view.UserMeView.as_view(), name="me"),
+    path("", user_search_view.UserSearchView.as_view(), name="user_search"),
 ]
