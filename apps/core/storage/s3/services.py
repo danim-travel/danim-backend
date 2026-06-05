@@ -9,7 +9,6 @@ from .s3_client import s3
 
 class ActionEnum(StrEnum):
     UPLOAD = "upload"
-    DOWNLOAD = "download"
 
 
 class CategoryEnum(StrEnum):

@@ -43,7 +43,7 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampModel):
     intro = models.CharField(null=True, max_length=100)
     is_email_verified = models.BooleanField(default=False)
     is_phone_verified = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
 
     USERNAME_FIELD = "email"

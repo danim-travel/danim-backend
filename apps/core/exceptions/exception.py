@@ -59,3 +59,18 @@ class ConflictException(BaseCustomException):
 class ForbiddenException(BaseCustomException):
     status_code = status.HTTP_403_FORBIDDEN
     default_detail = "접근 권한이 없습니다."
+
+
+class InternalServerException(BaseCustomException):
+    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+    default_detail = "서버 오류가 발생했습니다."
+
+
+class ExternalServiceException(BaseCustomException):
+    status_code = status.HTTP_502_BAD_GATEWAY
+    default_detail = "외부 서비스 오류가 발생했습니다."
+
+
+class TooManyRequestsException(BaseCustomException):
+    status_code = status.HTTP_429_TOO_MANY_REQUESTS
+    default_detail = "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
