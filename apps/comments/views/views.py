@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 from apps.comments.pagination import CommentPagination
 from apps.comments.schemas import (
     comment_create_schema,
+    comment_delete_schema,
     comment_list_schema,
     comment_update_schema,
 )
@@ -16,7 +17,12 @@ from apps.comments.serializers import (
     CommentUpdateResponseSerializer,
 )
 from apps.comments.serializers.serializers import CommentUpdateSerializer
-from apps.comments.services import create_comment, get_comment_list, update_comment
+from apps.comments.services import (
+    create_comment,
+    delete_comment,
+    get_comment_list,
+    update_comment,
+)
 
 
 class CommentView(APIView):
@@ -55,3 +61,8 @@ class CommentDetailView(APIView):
             CommentUpdateResponseSerializer(mod_comment).data,
             status=status.HTTP_200_OK,
         )
+
+    @comment_delete_schema
+    def delete(self, request, comment_id):
+        delete_comment(comment_id, request.user)
+        return Response(status=status.HTTP_204_NO_CONTENT)
