@@ -6,7 +6,7 @@ class TestCommentDeleteView(CommentBaseTest):
 
     def setUp(self):
         super().setUp()
-        self.none_comment_url = f"/api/v1/comments/{self.none_comment_id}/"
+        self.none_comment_url = f"/api/v1/comments/{self.none_comment_id}"
 
     def test_delete_comment_view(self) -> None:
         """로그인 유저 본인이 작성한 댓글 삭제 view 성공 테스트"""
