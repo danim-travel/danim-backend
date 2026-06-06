@@ -3,6 +3,7 @@ from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnl
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.comments.pagination import CommentPagination
 from apps.comments.schemas import (
     comment_create_schema,
     comment_delete_schema,
@@ -23,6 +24,7 @@ from apps.comments.services import (
     update_comment,
 )
 from apps.core.utils.pagination import paginate
+from apps.core.storage.s3 import ActionEnum, CategoryEnum, PresignedUrlView, SuffixEnum
 
 
 class CommentView(APIView):
@@ -63,3 +65,11 @@ class CommentDetailView(APIView):
     def delete(self, request, comment_id):
         delete_comment(comment_id, request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class CommentPresignedURLView(PresignedUrlView):
+    permission_classes = [IsAuthenticated]
+
+    action = ActionEnum.UPLOAD
+    category = CategoryEnum.COMMENT
+    suffix = SuffixEnum.NONE
