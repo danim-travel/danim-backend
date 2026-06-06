@@ -8,6 +8,7 @@ from apps.comments.schemas import (
     comment_create_schema,
     comment_delete_schema,
     comment_list_schema,
+    comment_presigned_urls_schema,
     comment_update_schema,
 )
 from apps.comments.serializers import (
@@ -67,6 +68,7 @@ class CommentDetailView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@comment_presigned_urls_schema
 class CommentPresignedURLView(PresignedUrlView):
     permission_classes = [IsAuthenticated]
 
