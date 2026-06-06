@@ -15,6 +15,6 @@ class UserSearchView(APIView):
 
     @user_search_schema
     def get(self, request: Request) -> Response:
-        search = request.query_params.get("search", "")
+        search = request.query_params.get("search", "").strip()
         queryset = self.service.search_users(search=search)
         return paginate(queryset, request, UserSearchResponseSerializer)
