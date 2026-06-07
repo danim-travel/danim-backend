@@ -1,4 +1,4 @@
-from typing import Any
+from apps.users.schemas.update_delete_schema import user_update_schema
 
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -18,6 +18,7 @@ class UserMeView(APIView):
     permission_classes = [IsAuthenticated]
     update_service = UserUpdateService()
 
+    @user_update_schema
     def patch(self, request: Request) -> Response:
         serializer = UserUpdateRequestSerializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
