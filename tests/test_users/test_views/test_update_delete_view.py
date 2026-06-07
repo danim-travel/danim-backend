@@ -80,3 +80,23 @@ class UpdateViewTest(BaseTestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_user_nickname_invalid(self) -> None:
+        """유효하지 않은 유저 닉네임"""
+        self.client.force_authenticate(user=self.user1)
+        response = self.client.patch(
+            reverse("users:user_update_delete"),
+            data={"nickname": "안녕"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_user_nickname_duplicate(self) -> None:
+        """닉네임 중복"""
+        self.client.force_authenticate(user=self.user1)
+        response = self.client.patch(
+            reverse("users:user_update_delete"),
+            data={"nickname": "test2"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
