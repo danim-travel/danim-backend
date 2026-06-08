@@ -2,11 +2,24 @@ from datetime import date
 
 from django.test import TestCase
 
-from apps.posts.models import Location, Post, PostLike, PostSpot
+from apps.posts.models import Location, Post, PostLike, PostSpot, PostSpotImage
 from apps.users.models.models import LoginType, User
 
 
 class PostBaseTest(TestCase):
+    user: User
+    user_2: User
+    post: Post
+    location: Location
+    post_spot: PostSpot
+    post_like: PostLike
+    post_spot_image: PostSpotImage
+    data_for_post: dict
+    data_for_location: dict
+    data_for_post_spot: dict
+    data_for_spot_image: dict
+    data_for_post_like: dict
+    data_for_fail_post_like: dict
 
     def setUp(self):
         self.user = User.objects.create(
