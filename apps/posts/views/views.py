@@ -15,5 +15,5 @@ class PostView(APIView):
         serializer.is_valid(raise_exception=True)
         create_post(serializer.validated_data, request.user)
         return Response(
-            {"detail": "게시글이 생성되었습니다."}, status=status.HTTP_201_CREATED
+            {"detail": "게시글이 작성되었습니다."}, status=status.HTTP_201_CREATED
         )
