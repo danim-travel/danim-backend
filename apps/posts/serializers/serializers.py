@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 
 class ImageSerializer(serializers.Serializer):
-    img_key = serializers.CharField()
+    key = serializers.CharField()
     original_img = serializers.CharField()
 
 
