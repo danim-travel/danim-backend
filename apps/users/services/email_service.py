@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.cache import cache
 from django.core.mail import send_mail
 from redis import RedisError
@@ -50,7 +51,7 @@ class EmailService:
             send_mail(
                 subject="[Danim] 이메일 인증 코드",
                 message=f"인증 코드:{code}",
-                from_email="",
+                from_email=settings.EMAIL_HOST_USER,
                 recipient_list=[email],
                 fail_silently=False,
             )
