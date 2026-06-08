@@ -117,6 +117,16 @@ REST_FRAMEWORK = {
 SPECTACULAR_SETTINGS = {
     "TITLE": "danim API",
     "VERSION": "1.0.0",
+    "SECURITY": [{"jwtAuth": []}],
+    "COMPONENTS": {
+        "securitySchemes": {
+            "jwtAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+            }
+        }
+    },
 }
 
 ACCOUNT_LOGIN_METHODS = {"email"}
