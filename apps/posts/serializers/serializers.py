@@ -7,9 +7,9 @@ class ImageSerializer(serializers.Serializer):
 
 
 class LocationSerializer(serializers.Serializer):
-    address_name = serializers.CharField()
-    road_address_name = serializers.CharField()
-    place_name = serializers.CharField()
+    address_name = serializers.CharField(max_length=255)
+    road_address_name = serializers.CharField(max_length=255)
+    place_name = serializers.CharField(max_length=255)
     x = serializers.DecimalField(max_digits=17, decimal_places=14)
     y = serializers.DecimalField(max_digits=17, decimal_places=14)
 
