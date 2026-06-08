@@ -1,0 +1,88 @@
+from datetime import date
+
+from django.test import TestCase
+
+from apps.posts.models import Location, Post, PostLike, PostSpot
+from apps.users.models.models import LoginType, User
+
+
+class PostBaseTest(TestCase):
+
+    def setUp(self):
+        self.user = User.objects.create(
+            email="test@example.com",
+            name="test",
+            nickname="testnickname",
+            password="Password@123",
+            phone_number="01012345678",
+            birth_day=date(1970, 1, 1),
+            is_email_verified=True,
+            is_phone_verified=True,
+            is_active=True,
+            login_type=LoginType.EMAIL,
+        )
+        self.user_2 = User.objects.create(
+            email="test_2@example.com",
+            name="test_2",
+            nickname="testnickname_2",
+            password="Password@123_2",
+            phone_number="01012345672",
+            birth_day=date(1972, 1, 1),
+            is_email_verified=True,
+            is_phone_verified=True,
+            is_active=True,
+            login_type=LoginType.EMAIL,
+        )
+        self.post = Post.objects.create(
+            user=self.user,
+            title="testtitle",
+            description="testdescription",
+            thumbnail="prod/posts/thumbnail/uuid.jpg",
+        )
+        self.location = Location.objects.create(
+            address_name="test_address_name_1",
+            road_address_name="test_road_address_name_1",
+            place_name="test_place_name_1",
+            x=120.02758310323954,
+            y=40.49803536728867,
+        )
+        self.post_spot = PostSpot.objects.create(
+            post=self.post, location=self.location, content="제주도 탐방 1일차", order=1
+        )
+        self.post_like = PostLike.objects.create(
+            post=self.post,
+            user=self.user_2,
+        )
+        self.data_for_post = {
+            "user": self.user,
+            "title": "test_title",
+            "description": "test_description",
+            "thumbnail": "prod/posts/thumbnail/uuid.jpg",
+        }
+        self.data_for_location = {
+            "address_name": "test_address_name",
+            "road_address_name": "test_road_address_name",
+            "place_name": "test_place_name",
+            "x": 127.02758310323954,
+            "y": 37.49803536728867,
+        }
+        self.data_for_post_spot = {
+            "post": self.post,
+            "location": self.location,
+            "content": "test_content_spot",
+            "order": 1,
+        }
+        self.data_for_spot_image = {
+            "post_spot": self.post_spot,
+            "img_key": "prod/posts/uuid.jpg",
+            "original_img": "제주도1일차.png",
+            "img_order": 1,
+        }
+        self.data_for_post_like = {
+            "post": self.post,
+            "user": self.user,
+        }
+        self.data_for_fail_post_like = {
+            "post": self.post,
+            "user": self.user_2,
+        }
