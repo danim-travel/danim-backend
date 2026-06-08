@@ -7,6 +7,10 @@ from apps.comments.serializers import (
     CommentListSwaggerSerializer,
     CommentUpdateResponseSerializer,
 )
+from apps.core.storage.s3.serializers import (
+    PresignedUrlRequestSerializer,
+    PresignedUrlResponseSerializer,
+)
 
 comment_create_schema = extend_schema(
     request=CommentCreateSerializer,
@@ -70,4 +74,18 @@ comment_delete_schema = extend_schema(
     },
     tags=["comments"],
     summary="댓글 삭제",
+)
+comment_presigned_urls_schema = extend_schema(
+    request=PresignedUrlRequestSerializer,
+    responses={
+        200: PresignedUrlResponseSerializer,
+        400: OpenApiResponse(
+            description='{"error_detail" : "지원하지 않는 파일 형식입니다.","status_code" : 400}'
+        ),
+        401: OpenApiResponse(
+            description='{error_detail" : "로그인이 필요합니다.","status_code" : 401}'
+        ),
+    },
+    tags=["comments"],
+    summary="댓글 presigned_url 발급",
 )
