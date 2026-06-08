@@ -61,7 +61,7 @@ class CommentBaseTest(TestCase):
         )
         self.post = Post.objects.create(
             title="test_title",
-            content="test",
+            description="test",
             user=self.user,
         )
         self.comment_content = Comment.objects.create(

@@ -20,7 +20,7 @@ class Post(TimeStampModel):
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="posts"
     )
     title = models.CharField(max_length=100)
-    content = models.TextField(blank=True, default="")
+    description = models.TextField(blank=True, default="")
     thumbnail = models.TextField(blank=True, default="")
 
     class Meta:
@@ -51,3 +51,17 @@ class PostSpotImage(TimeStampModel):
     class Meta:
         db_table = "post_spot_images"
         ordering = ["img_order"]
+
+
+class PostLike(BaseModel):
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="post_likes")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="post_likes",
+    )
+
+    class Meta:
+        db_table = "post_likes"
+        indexes = [models.Index(fields=["post", "user"])]
+        unique_together = (("post", "user"),)
