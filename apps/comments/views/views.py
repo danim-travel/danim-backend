@@ -3,7 +3,6 @@ from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnl
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.comments.pagination import CommentPagination
 from apps.comments.schemas import (
     comment_create_schema,
     comment_delete_schema,
@@ -23,6 +22,7 @@ from apps.comments.services import (
     get_comment_list,
     update_comment,
 )
+from apps.core.utils.pagination import paginate
 
 
 class CommentView(APIView):
@@ -43,10 +43,7 @@ class CommentView(APIView):
     @comment_list_schema
     def get(self, request):
         queryset = get_comment_list(request.query_params.get("post_id"), request.user)
-        paginator = CommentPagination()
-        page = paginator.paginate_queryset(queryset, request)
-        serializer = CommentListSerializer(page, many=True)
-        return paginator.get_paginated_response(serializer.data)
+        return paginate(queryset, request, CommentListSerializer)
 
 
 class CommentDetailView(APIView):
