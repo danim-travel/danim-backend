@@ -69,6 +69,7 @@ jobs:
             export DEV_DB_PASSWORD=${{ secrets.DEV_DB_PASSWORD }}
             docker-compose -f docker-compose.dev.yml down
             docker-compose -f docker-compose.dev.yml up -d
+            docker-compose -f docker-compose.dev.yml exec -T django uv run python manage.py migrate
             docker image prune -f
 
       - name: Close SSH port
