@@ -51,3 +51,15 @@ class PostSpotImage(TimeStampModel):
     class Meta:
         db_table = "post_spot_images"
         ordering = ["img_order"]
+
+
+class PostLike(BaseModel):
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="post_likes")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, related_name="post_likes"
+    )
+
+    class Meta:
+        db_table = "post_likes"
+        indexes = [models.Index(fields=["post", "user"])]
+        unique_together = (("post", "user"),)
