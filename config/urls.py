@@ -16,7 +16,7 @@ urlpatterns = [
     path("hello/", hello),
 ]
 
-if settings.DEBUG:
+if getattr(settings, "SHOW_SWAGGER", False):
 
     urlpatterns += [
         path("schema", SpectacularAPIView.as_view(), name="schema"),

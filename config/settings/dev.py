@@ -1,6 +1,7 @@
 from .base import *
 
 DEBUG = False
+SHOW_SWAGGER = True
 
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
 
