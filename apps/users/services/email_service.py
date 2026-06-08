@@ -55,7 +55,8 @@ class EmailService:
                 recipient_list=[email],
                 fail_silently=False,
             )
-        except Exception:
+        except Exception as e:
+            print(f"이메일 발송 에러: {e}")
             cache.delete(cache_key)
             cache.delete(cooldown_key)
             raise ExternalServiceException("이메일 발송에 실패했습니다.")
