@@ -36,7 +36,7 @@ class PostSpot(TimeStampModel):
     order = models.PositiveIntegerField()
 
     class Meta:
-        db_table = "post_spots"
+        db_table = "post_ spots"
         ordering = ["order"]
 
 

@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.posts.serializers import PostCreateRequestSerializer
+from apps.posts.services import create_post
 
 
 class PostView(APIView):
