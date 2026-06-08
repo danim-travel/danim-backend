@@ -15,7 +15,7 @@ class LocationSerializer(serializers.Serializer):
 
 
 class SpotSerializer(serializers.Serializer):
-    order = serializers.IntegerField()
+    order = serializers.IntegerField(min_value=1)
     content = serializers.CharField()
     location = LocationSerializer()
     images = ImageSerializer(many=True)
