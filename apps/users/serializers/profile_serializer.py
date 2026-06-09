@@ -17,13 +17,15 @@ class PostSimpleSerializer(serializers.ModelSerializer):
         model = Post
         fields = ["post_id", "title", "thumbnail"]
 
-    def get_thumbnail(self, obj: Post) -> str:
+    def get_thumbnail(self, obj: Post) -> str|None:
+        if not obj.thumbnail:
+            return None
         return s3.s3_svc.create_img_url(obj.thumbnail)
 
 
 class ProfileResponseSerializer(serializers.Serializer):
     nickname = serializers.CharField()
-    profile_img = serializers.SerializerMethodField()
+    profile_img = serializers.CharField(source="profile_img_url", allow_null=True)
     intro = serializers.CharField(allow_null=True)
     follower = serializers.IntegerField()
     following = serializers.IntegerField()
