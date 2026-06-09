@@ -1,6 +1,7 @@
 from django.urls import URLPattern, path
 
 from apps.users.views import (
+    check_nickname_view,
     email_view,
     login_logout_view,
     presigned_url_view,
@@ -27,5 +28,10 @@ urlpatterns: list[URLPattern] = [
         "me/profile-image/presigned-url",
         presigned_url_view.UserProfileImgView.as_view(),
         name="presigned_url_image",
+    ),
+    path(
+        "check-nickname",
+        check_nickname_view.CheckNicknameView.as_view(),
+        name="check_nickname",
     ),
 ]
