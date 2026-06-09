@@ -30,6 +30,8 @@ EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS")
 
+CORS_ALLOW_CREDENTIALS = True
+
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 S3_CONFIG = Config(s3={"addressing_style": "virtual"})
