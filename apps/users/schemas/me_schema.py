@@ -1,6 +1,7 @@
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 
 from apps.users.serializers.me_serializer import (
+    UserInfoResponseSerializer,
     UserUpdateRequestSerializer,
     UserUpdateResponseSerializer,
 )
@@ -19,5 +20,15 @@ user_update_schema = extend_schema(
         400: OpenApiResponse(description="입력값 검증 실패 (닉네임 형식 등)"),
         401: OpenApiResponse(description="자격 인증 데이터가 제공되지 않았습니다."),
         409: OpenApiResponse(description="이미 존재하는 닉네임입니다."),
+    },
+)
+
+user_me_schema = extend_schema(
+    tags=["users"],
+    summary="내 정보 조회",
+    description="로그인한 본인의 정보를 조회합니다.",
+    responses={
+        200: UserInfoResponseSerializer,
+        401: OpenApiResponse(description="자격 인증 데이터가 제공되지 않았습니다."),
     },
 )
