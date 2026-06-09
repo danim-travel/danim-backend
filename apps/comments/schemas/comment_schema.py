@@ -17,13 +17,11 @@ comment_create_schema = extend_schema(
     responses={
         201: CommentCreateResponseSerializer,
         400: OpenApiResponse(
-            description='{"error_detail" : { "non_field_errors" : [ "content와 comment_img 두 항목이 입력해야합니다." ]},"status_code" : 400 }\n {"error_detail" : { "field_name" : [ "이 필드의 글자 수가 100이하인지 확인하십시오." ]},"status_code" : 400}',
+            description="content와 comment_img 두 항목이 입력해야합니다.",
         ),
-        401: OpenApiResponse(
-            description='{"error_detail" : "로그인이 필요합니다.","status_code" : 401}'
-        ),
+        401: OpenApiResponse(description="로그인이 필요합니다."),
         404: OpenApiResponse(
-            description='{"error_detail" : "게시글에 대한 정보를 찾지 못했습니다.","status_code" : 404}}'
+            description="게시글에 대한 정보를 찾지 못했습니다.",
         ),
     },
     tags=["comments"],
@@ -34,7 +32,7 @@ comment_list_schema = extend_schema(
     responses={
         200: CommentListSerializer,
         404: OpenApiResponse(
-            description='{"error_detail" : "게시글에 대한 정보를 찾지 못했습니다.","status_code" : 404}"}'
+            description="게시글에 대한 정보를 찾지 못했습니다.",
         ),
     },
     tags=["comments"],
@@ -45,16 +43,16 @@ comment_update_schema = extend_schema(
     responses={
         200: CommentUpdateResponseSerializer,
         400: OpenApiResponse(
-            description='{"error_detail" : { "field_name" : [ "이 필드의 글자 수가 100이하인지 확인하십시오." ]},"status_code" : 400}',
+            description="이 필드의 글자 수가 100이하인지 확인하십시오.",
         ),
         401: OpenApiResponse(
-            description='{"error_detail" : "로그인이 필요합니다.","status_code" : 401}'
+            description="로그인이 필요합니다.",
         ),
         403: OpenApiResponse(
-            description='{"error_detail" : "본인이 작성한 댓글만 수정 할 수 있습니다.","status_code" : 403}'
+            description="본인이 작성한 댓글만 수정 할 수 있습니다.",
         ),
         404: OpenApiResponse(
-            description='{"error_detail" : "댓글에 대한 정보를 찾지 못했습니다.","status_code" : 404}'
+            description="댓글에 대한 정보를 찾지 못했습니다.",
         ),
     },
     tags=["comments"],
@@ -63,13 +61,13 @@ comment_update_schema = extend_schema(
 comment_delete_schema = extend_schema(
     responses={
         401: OpenApiResponse(
-            description='{"error_detail" : "로그인이 필요합니다.",status_code" : 401}'
+            description="로그인이 필요합니다.",
         ),
         403: OpenApiResponse(
-            description='{"error_detail" : "본인이 작성한 댓글만 삭제 할 수 있습니다.","status_code" : 403}"}'
+            description="본인이 작성한 댓글만 삭제 할 수 있습니다.",
         ),
         404: OpenApiResponse(
-            description='{"error_detail" : "댓글에 대한 정보를 찾지 못했습니다.",status_code" : 404}'
+            description="댓글에 대한 정보를 찾지 못했습니다.",
         ),
     },
     tags=["comments"],
@@ -80,10 +78,10 @@ comment_presigned_urls_schema = extend_schema(
     responses={
         200: PresignedUrlResponseSerializer,
         400: OpenApiResponse(
-            description='{"error_detail" : "지원하지 않는 파일 형식입니다.","status_code" : 400}'
+            description="지원하지 않는 파일 형식입니다.",
         ),
         401: OpenApiResponse(
-            description='{error_detail" : "로그인이 필요합니다.","status_code" : 401}'
+            description="로그인이 필요합니다.",
         ),
     },
     tags=["comments"],
