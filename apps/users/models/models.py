@@ -2,8 +2,9 @@ from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
 from django.db import models
 
-from apps.core.models import TimeStampModel
+from apps.core.models import BaseModel, TimeStampModel
 from apps.core.storage.s3 import s3_svc
+from apps.posts.models import Post
 
 
 class UserManager(BaseUserManager):
@@ -66,3 +67,24 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampModel):
             return None
 
         return s3_svc.create_img_url(self.profile_img)
+
+
+class Follows(BaseModel):
+    follower = models.ForeignKey(User, related_name="followers", on_delete=models.CASCADE)
+    following = models.ForeignKey(
+        User, related_name="following", on_delete=models.CASCADE
+    )
+
+    class Meta:
+        db_table = "follows"
+        indexes = [models.Index(fields=["follower", "following"])]
+        unique_together = (("follower", "following"),)
+
+
+class BookMark(BaseModel):
+    post = models.ForeignKey(Post, related_name="bookmarks", on_delete=models.CASCADE)
+    user = models.ForeignKey(User, related_name="bookmarks", on_delete=models.CASCADE)
+
+    class Meta:
+        db_table = "bookmarks"
+        indexes = [models.Index(fields=["post", "user"])]
