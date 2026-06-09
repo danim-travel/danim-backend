@@ -100,3 +100,23 @@ class UpdateViewTest(BaseTestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+
+
+class UserInfoViewTest(BaseTestCase):
+
+    def test_user_info(self) -> None:
+        """내 정보 조회 성공"""
+        self.client.force_authenticate(user=self.user1)
+        response = self.client.get(
+            reverse("users:me"),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["nickname"], self.user1.nickname)
+        self.assertEqual(response.data["profile_img"], s3_svc.create_img_url("test_key"))
+        self.assertEqual(response.data["user_id"], self.user1.id)
+
+    def test_user_info_unauthenticated(self) -> None:
+        """인증 없이 요청 시 401"""
+        response = self.client.get(reverse("users:me"), format="json")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
