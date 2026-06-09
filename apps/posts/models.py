@@ -2,6 +2,7 @@ from django.conf import settings
 from django.db import models
 
 from apps.core.models import BaseModel, TimeStampModel
+from apps.posts.bookmark_model import BookMark
 
 
 class Location(BaseModel):
