@@ -44,7 +44,7 @@ OWN_APPS: list[str] = [
 INSTALLED_APPS = DJANGO_APPS + THIRD_APPS + OWN_APPS
 
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware"
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
