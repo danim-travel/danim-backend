@@ -77,7 +77,6 @@ class Follows(BaseModel):
 
     class Meta:
         db_table = "follows"
-        indexes = [models.Index(fields=["follower", "following"])]
         unique_together = (("follower", "following"),)
 
 
@@ -87,4 +86,4 @@ class BookMark(BaseModel):
 
     class Meta:
         db_table = "bookmarks"
-        indexes = [models.Index(fields=["post", "user"])]
+        unique_together = (("post", "user"),)
