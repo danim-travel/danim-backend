@@ -6,7 +6,7 @@ from django.test import TestCase
 
 from apps.core.exceptions.exception import ConflictException
 from apps.users.models import User
-from apps.users.services.user_update_delete_service import UserUpdateService
+from apps.users.services.me_service import UserUpdateService
 
 
 class BaseTestCase(TestCase):

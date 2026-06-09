@@ -1,6 +1,6 @@
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 
-from apps.users.serializers.user_update_delete_serializer import (
+from apps.users.serializers.me_serializer import (
     UserUpdateRequestSerializer,
     UserUpdateResponseSerializer,
 )

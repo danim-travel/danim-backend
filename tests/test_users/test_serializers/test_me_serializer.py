@@ -4,7 +4,7 @@ from django.test import TestCase
 
 from apps.core.storage.s3 import s3_svc
 from apps.users.models import User
-from apps.users.serializers.user_update_delete_serializer import (
+from apps.users.serializers.me_serializer import (
     UserUpdateRequestSerializer,
     UserUpdateResponseSerializer,
 )

@@ -53,7 +53,7 @@ class UpdateViewTest(BaseTestCase):
         """user 업데이트 성공"""
         self.client.force_authenticate(user=self.user1)
         response = self.client.patch(
-            reverse("users:user_update_delete"),
+            reverse("users:me"),
             data={
                 "nickname": "update_nickname",
                 "intro": "update_intro",
@@ -71,7 +71,7 @@ class UpdateViewTest(BaseTestCase):
     def test_user_not_unauthorized(self) -> None:
         """비 로그인 유저가 업데이트 보낼떄 (401)"""
         response = self.client.patch(
-            reverse("users:user_update_delete"),
+            reverse("users:me"),
             data={
                 "nickname": "update_nickname",
                 "intro": "update_intro",
@@ -85,7 +85,7 @@ class UpdateViewTest(BaseTestCase):
         """유효하지 않은 유저 닉네임"""
         self.client.force_authenticate(user=self.user1)
         response = self.client.patch(
-            reverse("users:user_update_delete"),
+            reverse("users:me"),
             data={"nickname": "안녕"},
             format="json",
         )
@@ -95,7 +95,7 @@ class UpdateViewTest(BaseTestCase):
         """닉네임 중복"""
         self.client.force_authenticate(user=self.user1)
         response = self.client.patch(
-            reverse("users:user_update_delete"),
+            reverse("users:me"),
             data={"nickname": "test2"},
             format="json",
         )

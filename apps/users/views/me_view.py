@@ -7,12 +7,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.users.models import User
-from apps.users.schemas.update_delete_schema import user_update_schema
-from apps.users.serializers.user_update_delete_serializer import (
+from apps.users.schemas.me_schema import user_update_schema
+from apps.users.serializers.me_serializer import (
     UserUpdateRequestSerializer,
     UserUpdateResponseSerializer,
 )
-from apps.users.services.user_update_delete_service import UserUpdateService
+from apps.users.services.me_service import UserUpdateService
 
 
 class UserMeView(APIView):
