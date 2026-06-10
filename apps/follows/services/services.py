@@ -11,9 +11,6 @@ def create_follow(target_user_id, request_user):
         following_id=target_user_id, follower_id=request_user.id
     )
 
-    if not created:
-        raise ConflictException("이미 팔로잉 중입니다.")
-
     follow_count = Follows.objects.filter(following_id=target_user_id).count()
 
     result = {"follower_count": follow_count, "is_followed": created}
