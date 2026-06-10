@@ -65,6 +65,7 @@ jobs:
             export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
             docker compose -f docker-compose.prod.yml down
             docker compose -f docker-compose.prod.yml up -d
+            sleep 10
             docker compose -f docker-compose.prod.yml exec -T django uv run python manage.py migrate
             docker image prune -f
 

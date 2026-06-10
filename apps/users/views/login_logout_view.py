@@ -1,3 +1,4 @@
+from django.conf import settings
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
@@ -33,7 +34,13 @@ class LoginView(APIView):
             TokenResponseSerializer({"access_token": access_token}).data,
             status=status.HTTP_200_OK,
         )
-        response.set_cookie("refresh_token", refresh_token, httponly=True)
+        response.set_cookie(
+            "refresh_token",
+            refresh_token,
+            httponly=True,
+            samesite="Lax" if settings.DEBUG else "None",
+            secure=not settings.DEBUG,
+        )
 
         return response
 
@@ -53,7 +60,10 @@ class LogoutView(APIView):
         self.service.logout(refresh_token)
 
         response = Response({"detail": "로그아웃 되었습니다."}, status=status.HTTP_200_OK)
-        response.delete_cookie("refresh_token")
+        response.delete_cookie(
+            "refresh_token",
+            samesite="Lax" if settings.DEBUG else "None",
+        )
         return response
 
 

@@ -1,10 +1,12 @@
 services:
   db:
     image: postgres:16
+    env_file:
+      - envs/.env.dev
     environment:
-      POSTGRES_DB: ${DEV_DB_NAME}
-      POSTGRES_USER: ${DEV_DB_USER}
-      POSTGRES_PASSWORD: ${DEV_DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: always
@@ -14,7 +16,7 @@ services:
     restart: always
 
   django:
-    image: ${DOCKER_USERNAME}/danim-backend:dev
+    image: kochanyeol/danim-backend:dev
     env_file:
       - envs/.env.dev
     environment:
