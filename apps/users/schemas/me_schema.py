@@ -1,6 +1,7 @@
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 
 from apps.users.serializers.me_serializer import (
+    UserDeleteRequestSerializer,
     UserInfoResponseSerializer,
     UserUpdateRequestSerializer,
     UserUpdateResponseSerializer,
@@ -30,5 +31,23 @@ user_me_schema = extend_schema(
     responses={
         200: UserInfoResponseSerializer,
         401: OpenApiResponse(description="자격 인증 데이터가 제공되지 않았습니다."),
+    },
+)
+
+user_delete_schema = extend_schema(
+    tags=["users"],
+    summary="회원탈퇴",
+    description=(
+        "로그인한 본인의 계정을 삭제합니다. "
+        "본문에 현재 비밀번호(password)를 받아 검증 후 탈퇴 처리하며, "
+        "성공 시 204 No Content(본문 없음)를 반환합니다."
+    ),
+    request=UserDeleteRequestSerializer,
+    responses={
+        204: OpenApiResponse(description="회원탈퇴 성공 (응답 본문 없음)"),
+        400: OpenApiResponse(description="비밀번호를 입력해주세요."),
+        401: OpenApiResponse(
+            description="비밀번호가 틀립니다. / 자격 인증 데이터가 제공되지 않았습니다."
+        ),
     },
 )

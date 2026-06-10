@@ -7,7 +7,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.users.models import User
-from apps.users.schemas.me_schema import user_me_schema, user_update_schema
+from apps.users.schemas.me_schema import (
+    user_delete_schema,
+    user_me_schema,
+    user_update_schema,
+)
 from apps.users.serializers.me_serializer import (
     UserDeleteRequestSerializer,
     UserInfoResponseSerializer,
@@ -42,6 +46,7 @@ class UserMeView(APIView):
             UserUpdateResponseSerializer(update_user).data, status=status.HTTP_200_OK
         )
 
+    @user_delete_schema
     def delete(self, request: Request) -> Response:
         serializer = UserDeleteRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
