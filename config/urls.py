@@ -13,6 +13,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/v1/users/", include("apps.users.urls", namespace="users")),
     path("api/v1/comments", include("apps.comments.urls", namespace="comments")),
+    path("api/v1/posts", include("apps.posts.urls", namespace="posts")),
     path("hello/", hello),
 ]
 
