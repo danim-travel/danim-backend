@@ -1,4 +1,4 @@
-from apps.core.exceptions.exception import ConflictException, NotFoundException
+from apps.core.exceptions.exception import NotFoundException
 from apps.follows.models.models import Follows
 from apps.users.models import User
 
