@@ -18,7 +18,7 @@ follow_create_schema = extend_schema(
 )
 follow_delete_schema = extend_schema(
     responses={
-        201: OpenApiResponse(
+        200: OpenApiResponse(
             response={
                 "type": "object",
                 "properties": {
