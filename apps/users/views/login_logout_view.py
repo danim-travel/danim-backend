@@ -38,8 +38,8 @@ class LoginView(APIView):
             "refresh_token",
             refresh_token,
             httponly=True,
-            samesite="Lax" if settings.DEBUG else "None",
-            secure=not settings.DEBUG,
+            samesite="None",
+            secure=True,
         )
 
         return response
