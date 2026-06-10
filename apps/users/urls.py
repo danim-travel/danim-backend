@@ -4,6 +4,7 @@ from apps.users.views import (
     check_nickname_view,
     email_view,
     login_logout_view,
+    me_view,
     presigned_url_view,
     signup_view,
     token_view,
@@ -34,4 +35,5 @@ urlpatterns: list[URLPattern] = [
         check_nickname_view.CheckNicknameView.as_view(),
         name="check_nickname",
     ),
+    path("me", me_view.UserMeView.as_view(), name="me"),
 ]
