@@ -14,7 +14,9 @@ follow_create_schema = extend_schema(
         401: OpenApiResponse(description="로그인이 필요합니다."),
         404: OpenApiResponse(description="해당 유저를 찾을 수 없습니다."),
         409: OpenApiResponse(description="이미 팔로우 중입니다."),
-    }
+    },
+    tags=["follows"],
+    summary="팔로우 API,팔로우 생성",
 )
 follow_delete_schema = extend_schema(
     responses={
@@ -29,5 +31,7 @@ follow_delete_schema = extend_schema(
         ),
         401: OpenApiResponse(description="로그인이 필요합니다."),
         404: OpenApiResponse(description="해당 유저를 찾을 수 없습니다."),
-    }
+    },
+    tags=["follows"],
+    summary="팔로우 취소 API,팔로우 삭제",
 )
