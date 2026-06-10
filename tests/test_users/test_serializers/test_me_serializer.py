@@ -5,6 +5,7 @@ from django.test import TestCase
 from apps.core.storage.s3 import s3_svc
 from apps.users.models import User
 from apps.users.serializers.me_serializer import (
+    UserInfoResponseSerializer,
     UserUpdateRequestSerializer,
     UserUpdateResponseSerializer,
 )
@@ -118,3 +119,28 @@ class UserUpdateResponseSerializerTest(TestCase):
 
         serializer = UserUpdateResponseSerializer(self.user3)
         self.assertIsNone(serializer.data["intro"])
+
+
+class UserMeInfoResponseSerializerTest(TestCase):
+    user1: User
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user1 = User.objects.create_user(
+            email="test@example.com",
+            password="Password@1",
+            nickname="test",
+            name="test",
+            intro="test_intro",
+            birth_day=date(1970, 1, 1),
+            profile_img="test_key",
+        )
+
+    def test_get_me_info(self) -> None:
+        """GET 요청 응답 성공"""
+        serializer = UserInfoResponseSerializer(self.user1)
+        self.assertEqual(serializer.data["nickname"], "test")
+        self.assertEqual(
+            serializer.data["profile_img"], s3_svc.create_img_url("test_key")
+        )
+        self.assertEqual(serializer.data["user_id"], self.user1.id)

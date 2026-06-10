@@ -7,8 +7,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.users.models import User
-from apps.users.schemas.me_schema import user_update_schema
+from apps.users.schemas.me_schema import user_me_schema, user_update_schema
 from apps.users.serializers.me_serializer import (
+    UserInfoResponseSerializer,
     UserUpdateRequestSerializer,
     UserUpdateResponseSerializer,
 )
@@ -19,6 +20,12 @@ class UserMeView(APIView):
 
     permission_classes = [IsAuthenticated]
     update_service = UserUpdateService()
+
+    @user_me_schema
+    def get(self, request: Request) -> Response:
+
+        serializer = UserInfoResponseSerializer(request.user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @user_update_schema
     def patch(self, request: Request) -> Response:
