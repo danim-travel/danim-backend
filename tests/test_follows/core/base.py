@@ -7,7 +7,7 @@ from apps.users.models.models import LoginType, User
 
 
 class FollowBaseTest(TestCase):
-    client = APIClient
+    client = APIClient()
     user_1: User
     user_2: User
     create_url_following_user_1: str
