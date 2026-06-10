@@ -14,3 +14,7 @@ class FollowCreateView(APIView):
     def post(self, request, user_id):
         result = create_follow(user_id, request.user)
         return Response(result, status=status.HTTP_201_CREATED)
+
+    def delete(self, request, user_id):
+        result = delete_follow(user_id, request.user)
+        return Response(result, status=status.HTTP_200_OK)
