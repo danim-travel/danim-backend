@@ -10,7 +10,7 @@ class FollowBaseTest(TestCase):
     client = APIClient()
     user_1: User
     user_2: User
-    create_url_following_user_1: str
+    url_following_user_2: str
 
     def setUp(self):
         self.client = APIClient()
@@ -38,4 +38,16 @@ class FollowBaseTest(TestCase):
             is_active=True,
             login_type=LoginType.EMAIL,
         )
-        self.create_url_following_user_1 = f"/api/v1/follow/{self.user_1.id}"
+        self.user_3 = User.objects.create(
+            email="test_3@example.com",
+            name="test_3",
+            nickname="test_3_nickname",
+            password="Password@443test",
+            phone_number="01005502829",
+            birth_day=date(1970, 1, 2),
+            is_email_verified=True,
+            is_phone_verified=True,
+            is_active=True,
+            login_type=LoginType.EMAIL,
+        )
+        self.url_following_user_2 = f"/api/v1/follow/{self.user_2.id}"
