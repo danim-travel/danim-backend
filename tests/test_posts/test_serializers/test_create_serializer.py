@@ -1,6 +1,6 @@
 from django.test import TestCase
 
-from apps.posts.serializers.serializer import PostCreateSerializer
+from apps.posts.serializers.create_serializer import PostCreateSerializer
 
 
 class PostCreateSerializerTest(TestCase):

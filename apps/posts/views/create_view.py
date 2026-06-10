@@ -6,8 +6,8 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.posts.serializers.serializer import PostCreateSerializer
-from apps.posts.services.service import PostCreateService
+from apps.posts.serializers.create_serializer import PostCreateSerializer
+from apps.posts.services.create_service import PostCreateService
 from apps.users.models import User
 
 

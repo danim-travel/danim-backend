@@ -3,7 +3,7 @@ from datetime import date
 from django.test import TestCase
 
 from apps.posts.models import Location, Post, PostSpot, PostSpotImage
-from apps.posts.services.service import PostCreateService
+from apps.posts.services.create_service import PostCreateService
 from apps.users.models import User
 from apps.users.models.models import LoginType
 
