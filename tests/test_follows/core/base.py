@@ -38,4 +38,4 @@ class FollowBaseTest(TestCase):
             is_active=True,
             login_type=LoginType.EMAIL,
         )
-        self.create_url_following_user_1 = f"/api/v1/users/{self.user_1.id}/follow"
+        self.create_url_following_user_1 = f"/api/v1/follow/{self.user_1.id}"
