@@ -26,3 +26,11 @@ class UserInfoResponseSerializer(serializers.Serializer):
     profile_img = serializers.CharField(
         source="profile_img_url", read_only=True, allow_null=True
     )
+
+
+class UserDeleteRequestSerializer(serializers.Serializer):
+    password = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+    )
