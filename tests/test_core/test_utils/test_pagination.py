@@ -33,7 +33,6 @@ class PaginateHelperTest(APITestCase):
         """응답이 previous/next/results 형태인지"""
         response = paginate(User.objects.all(), self._build_request(), _UserSerializer)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn("previous", response.data)
         self.assertIn("next", response.data)
         self.assertIn("results", response.data)
 

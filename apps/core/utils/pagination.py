@@ -1,3 +1,5 @@
+from typing import Any
+
 from django.db.models import QuerySet
 from rest_framework.pagination import CursorPagination
 from rest_framework.request import Request
@@ -24,6 +26,14 @@ class DefaultPagination(CursorPagination):
     ordering = "-id"
     page_size_query_param = "page_size"
     max_page_size = 100
+
+    def get_paginated_response(self, data: Any) -> Response:
+        return Response(
+            {
+                "next": self.get_next_link(),
+                "results": data,
+            }
+        )
 
 
 def paginate(
