@@ -14,6 +14,7 @@ urlpatterns = [
     path("api/v1/users/", include("apps.users.urls", namespace="users")),
     path("api/v1/comments", include("apps.comments.urls", namespace="comments")),
     path("api/v1/posts", include("apps.posts.urls", namespace="posts")),
+    path("api/v1/follow/", include("apps.follows.urls", namespace="follows")),
     path("hello/", hello),
 ]
 
