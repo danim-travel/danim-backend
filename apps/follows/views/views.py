@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.follows.schemas import follow_create_schema
-from apps.follows.services import create_follow
+from apps.follows.services import create_follow, delete_follow
 
 
 class FollowCreateView(APIView):
