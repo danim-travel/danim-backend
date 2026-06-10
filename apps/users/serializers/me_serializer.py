@@ -18,3 +18,11 @@ class UserUpdateResponseSerializer(serializers.Serializer):
     profile_img = serializers.CharField(
         source="profile_img_url", read_only=True, allow_null=True
     )
+
+
+class UserInfoResponseSerializer(serializers.Serializer):
+    user_id = serializers.CharField(source="id", read_only=True)
+    nickname = serializers.CharField(read_only=True)
+    profile_img = serializers.CharField(
+        source="profile_img_url", read_only=True, allow_null=True
+    )
