@@ -1,72 +1,212 @@
+from datetime import date
+
 from django.db import transaction
+from django.test import TestCase
 
 from apps.posts.models import Location, Post, PostLike, PostSpot, PostSpotImage
-from tests.test_posts.core import PostBaseTest
+from apps.users.models import User
+from apps.users.models.models import LoginType
 
 
-class TestPost(PostBaseTest):
+class LocationTest(TestCase):
+    """Location 모델 테스트"""
 
-    def test_create_post(self):
-        """게시글 생성 성공 models 테스트"""
-        new_post = Post.objects.create(**self.data_for_post)
-        self.assertEqual(Post.objects.count(), 2)
-        self.assertEqual(new_post.user, self.user)
-        self.assertEqual(new_post.title, self.data_for_post["title"])
-        self.assertEqual(new_post.description, self.data_for_post["description"])
-        self.assertEqual(new_post.thumbnail, self.data_for_post["thumbnail"])
+    location: Location
 
-    def test_create_location(self):
-        """위치 생성 성공 models 테스트"""
-        new_location = Location.objects.create(**self.data_for_location)
+    def setUp(self):
+        """Location test를 위한 공통 데이터 생성"""
+        self.location = Location.objects.create(
+            address_name="제주특별자치도 서귀포시 성산읍 성산리 1",
+            road_address_name="제주특별자치도 서귀포시 성산읍 일출로 284-12",
+            place_name="성산일출봉",
+            x=126.942492,
+            y=33.458421,
+        )
+
+    def test_create_location(self) -> None:
+        """Location 생성 성공 테스트"""
+        location = Location.objects.create(
+            address_name="제주특별자치도 제주시 건일동 1",
+            road_address_name="제주특별자치도 제주시 임항로 111",
+            place_name="제주항",
+            x=126.521,
+            y=33.527,
+        )
+        self.assertEqual(location.address_name, "제주특별자치도 제주시 건일동 1")
+        self.assertEqual(location.road_address_name, "제주특별자치도 제주시 임항로 111")
+        self.assertEqual(location.place_name, "제주항")
         self.assertEqual(Location.objects.count(), 2)
-        self.assertEqual(
-            new_location.address_name, self.data_for_location["address_name"]
-        )
-        self.assertEqual(
-            new_location.road_address_name, self.data_for_location["road_address_name"]
-        )
-        self.assertEqual(new_location.place_name, self.data_for_location["place_name"])
-        self.assertEqual(new_location.x, self.data_for_location["x"])
-        self.assertEqual(new_location.y, self.data_for_location["y"])
 
-    def test_create_post_spot(self):
-        """핀 생성 성공 models 테스트"""
-        new_post_spot = PostSpot.objects.create(**self.data_for_post_spot)
-        self.assertEqual(PostSpot.objects.count(), 2)
-        self.assertEqual(new_post_spot.location, self.location)
-        self.assertEqual(new_post_spot.post, self.post)
-        self.assertEqual(new_post_spot.content, self.data_for_post_spot["content"])
-        self.assertEqual(new_post_spot.order, self.data_for_post_spot["order"])
 
-    def test_create_post_spot_image(self):
-        """핀 이미지 생성 성공 models 테스트"""
-        new_post_spot_image = PostSpotImage.objects.create(**self.data_for_spot_image)
+class PostTest(TestCase):
+    """Post 모델 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="test@example.com",
+            name="test",
+            nickname="test_nickname",
+            password="Password@123",
+            birth_day=date(1992, 6, 6),
+            login_type=LoginType.EMAIL,
+        )
+
+    def test_create_post(self) -> None:
+        """Post 생성 성공 테스트"""
+        post = Post.objects.create(
+            user=self.user,
+            title="test_title",
+            description="test_description",
+            thumbnail="prod/posts/thumbnail/uuid.jpg",
+        )
+        self.assertEqual(post.user, self.user)
+        self.assertEqual(post.title, "test_title")
+        self.assertEqual(post.description, "test_description")
+        self.assertEqual(post.thumbnail, "prod/posts/thumbnail/uuid.jpg")
+        self.assertEqual(Post.objects.count(), 1)
+
+
+class PostSpotTest(TestCase):
+    """PostSpot 모델 태스트"""
+
+    def setUp(self):
+        self.user = User.objects.create(
+            email="test@example.com",
+            name="test",
+            nickname="test_nickname",
+            password="Password@123",
+            birth_day=date(1992, 6, 6),
+            login_type=LoginType.EMAIL,
+        )
+        self.post = Post.objects.create(
+            user=self.user,
+            title="test_title",
+            description="test_description",
+            thumbnail="prod/posts/thumbnail/uuid.jpg",
+        )
+        self.location = Location.objects.create(
+            address_name="제주특별자치도 서귀포시 성산읍 성산리 1",
+            road_address_name="제주특별자치도 서귀포시 성산읍 일출로 284-12",
+            place_name="성산일출봉",
+            x=126.942492,
+            y=33.458421,
+        )
+
+    def test_create_post_spot(self) -> None:
+        """PostSpot 생성 성공 테스트"""
+        post_spot = PostSpot.objects.create(
+            post=self.post,
+            location=self.location,
+            content="test_content",
+            order=1,
+        )
+        self.assertEqual(post_spot.post, self.post)
+        self.assertEqual(post_spot.location, self.location)
+        self.assertEqual(post_spot.content, "test_content")
+        self.assertEqual(post_spot.order, 1)
+        self.assertEqual(PostSpot.objects.count(), 1)
+
+
+class PostSpotImageTest(TestCase):
+    """PostSpotImage 모델 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="test@example.com",
+            name="test",
+            nickname="test_nickname",
+            password="Password@123",
+            birth_day=date(1992, 6, 6),
+            login_type=LoginType.EMAIL,
+        )
+        self.post = Post.objects.create(
+            user=self.user,
+            title="test_title",
+            description="test_description",
+            thumbnail="prod/posts/thumbnail/uuid.jpg",
+        )
+        self.location = Location.objects.create(
+            address_name="제주특별자치도 서귀포시 성산읍 성산리 1",
+            road_address_name="제주특별자치도 서귀포시 성산읍 일출로 284-12",
+            place_name="성산일출봉",
+            x=126.942492,
+            y=33.458421,
+        )
+        self.post_spot = PostSpot.objects.create(
+            post=self.post,
+            location=self.location,
+            content="test_content",
+            order=1,
+        )
+
+    def test_create_post_spot_image(self) -> None:
+        """PostSpotImage 생성 성공 테스트"""
+        post_spot_image = PostSpotImage.objects.create(
+            post_spot=self.post_spot,
+            img_key="prod/posts/uuid.jpg",
+            original_img="제주도 1일차.png",
+            img_order=1,
+        )
+        self.assertEqual(post_spot_image.post_spot, self.post_spot)
+        self.assertEqual(post_spot_image.img_key, "prod/posts/uuid.jpg")
+        self.assertEqual(post_spot_image.original_img, "제주도 1일차.png")
+        self.assertEqual(post_spot_image.img_order, 1)
         self.assertEqual(PostSpotImage.objects.count(), 1)
-        self.assertEqual(new_post_spot_image.post_spot, self.post_spot)
-        self.assertEqual(new_post_spot_image.img_key, self.data_for_spot_image["img_key"])
-        self.assertEqual(
-            new_post_spot_image.original_img, self.data_for_spot_image["original_img"]
+
+
+class PostLikeTest(TestCase):
+    """PostLike 모델 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="test@example.com",
+            name="test",
+            nickname="test_nickname",
+            password="Password@123",
+            birth_day=date(1992, 6, 6),
+            login_type=LoginType.EMAIL,
         )
-        self.assertEqual(
-            new_post_spot_image.img_order, self.data_for_spot_image["img_order"]
+        self.user_2 = User.objects.create_user(
+            email="test2@example.com",
+            name="test2",
+            nickname="test_nickname2",
+            password="Password@123",
+            birth_day=date(1992, 6, 6),
+            login_type=LoginType.EMAIL,
+        )
+        self.post = Post.objects.create(
+            user=self.user,
+            title="test_title",
+            description="test_description",
+            thumbnail="prod/posts/thumbnail/uuid.jpg",
+        )
+        self.post_like = PostLike.objects.create(
+            post=self.post,
+            user=self.user_2,
         )
 
-    def test_create_post_like(self):
-        """게시글 좋아요 생성 models 테스트"""
-        new_post_like = PostLike.objects.create(**self.data_for_post_like)
+    def test_create_post_like(self) -> None:
+        """PostLike 생성 성공 테스트"""
+        post_like = PostLike.objects.create(
+            post=self.post,
+            user=self.user,
+        )
+        self.assertEqual(post_like.post, self.post)
+        self.assertEqual(post_like.user, self.user)
         self.assertEqual(PostLike.objects.count(), 2)
-        self.assertEqual(new_post_like.user, self.user)
-        self.assertEqual(new_post_like.post, self.post)
 
-    def test_fail_unique_together_post_like(self):
-        """게시글 생성 시 좋아요 unique together 적용 여부 확인 테스트"""
+    def test_fail_unique_together_post_like(self) -> None:
+        """PostLike unique_together 적용 테스트"""
         with self.assertRaises(Exception):
             with transaction.atomic():
-                PostLike.objects.create(**self.data_for_fail_post_like)
+                PostLike.objects.create(
+                    post=self.post,
+                    user=self.user_2,
+                )
         self.post_like.refresh_from_db()
         self.assertEqual(PostLike.objects.count(), 1)
 
-    def test_delete_together_with_post_and_like(self):
-        """postlike에서 post CASCADE 적용 테스트"""
+    def test_delete_post_cascades_post_like(self) -> None:
+        """Post 삭제 시 PostLike CASCADE 적용 테스트"""
         self.post.delete()
         self.assertEqual(PostLike.objects.count(), 0)
