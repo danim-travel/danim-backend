@@ -10,8 +10,8 @@ class ProfileService:
     def get_profile(self, user_id: str, request_user: User) -> User:
         user = (
             User.objects.annotate(
-                follower=Count("following", distinct=True),
-                following=Count("followers", distinct=True),
+                follower_count=Count("following", distinct=True),
+                following_count=Count("followers", distinct=True),
                 posts_count=Count("posts", distinct=True),
                 is_following=Exists(
                     Follows.objects.filter(
