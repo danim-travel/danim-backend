@@ -35,7 +35,13 @@ THIRD_APPS = [
     "drf_spectacular",
 ]
 
-OWN_APPS: list[str] = ["apps.users", "apps.posts", "apps.comments", "apps.follows"]
+OWN_APPS: list[str] = [
+    "apps.users",
+    "apps.posts",
+    "apps.comments",
+    "apps.follows",
+    "apps.notifications",
+]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_APPS + OWN_APPS
 
