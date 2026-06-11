@@ -119,6 +119,7 @@ class UserInfoViewTest(BaseTestCase):
         self.assertEqual(response.data["name"], self.user1.name)
         self.assertEqual(response.data["birth_day"], str(self.user1.birth_day))
         self.assertEqual(response.data["phone_number"], self.user1.phone_number)
+        self.assertEqual(response.data["intro"], self.user1.intro)
 
     def test_user_info_unauthenticated(self) -> None:
         """인증 없이 요청 시 401"""
