@@ -24,6 +24,7 @@ class BaseTestCase(APITestCase):
             intro="test_intro",
             birth_day=date(1970, 1, 1),
             profile_img="test_key",
+            phone_number="01012345678",
         )
 
         # 프로필 이미지가 None인 유저
@@ -115,6 +116,10 @@ class UserInfoViewTest(BaseTestCase):
         self.assertEqual(response.data["nickname"], self.user1.nickname)
         self.assertEqual(response.data["profile_img"], s3_svc.create_img_url("test_key"))
         self.assertEqual(response.data["user_id"], self.user1.id)
+        self.assertEqual(response.data["email"], self.user1.email)
+        self.assertEqual(response.data["name"], self.user1.name)
+        self.assertEqual(response.data["birth_day"], str(self.user1.birth_day))
+        self.assertEqual(response.data["phone_number"], self.user1.phone_number)
 
     def test_user_info_unauthenticated(self) -> None:
         """인증 없이 요청 시 401"""

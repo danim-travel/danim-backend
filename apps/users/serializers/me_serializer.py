@@ -26,6 +26,10 @@ class UserInfoResponseSerializer(serializers.Serializer):
     profile_img = serializers.CharField(
         source="profile_img_url", read_only=True, allow_null=True
     )
+    email = serializers.EmailField(read_only=True)
+    birth_day = serializers.DateField(read_only=True)
+    name = serializers.CharField(read_only=True)
+    phone_number = serializers.CharField(read_only=True, allow_null=True)
 
 
 class UserDeleteRequestSerializer(serializers.Serializer):
