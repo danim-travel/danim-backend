@@ -6,6 +6,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.posts.schemas.create_view_schema import post_create_schema
 from apps.posts.serializers.create_serializer import PostCreateSerializer
 from apps.posts.services.create_service import PostCreateService
 from apps.users.models import User
@@ -20,6 +21,7 @@ class PostCreateView(APIView):
     permission_classes = [IsAuthenticated]
     service = PostCreateService()
 
+    @post_create_schema
     def post(self, request: Request) -> Response:
         """
         user로 부터 data를 받아 게시글을 생성하는 view
