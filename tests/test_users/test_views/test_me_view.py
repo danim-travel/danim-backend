@@ -120,3 +120,48 @@ class UserInfoViewTest(BaseTestCase):
         """인증 없이 요청 시 401"""
         response = self.client.get(reverse("users:me"), format="json")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class UserDeleteViewTest(BaseTestCase):
+
+    def test_delete_success(self) -> None:
+        """회원탈퇴 성공 (204) 및 DB에서 삭제 확인"""
+        self.client.force_authenticate(user=self.user1)
+        response = self.client.delete(
+            reverse("users:me"),
+            data={"password": "Password@1"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(User.objects.filter(id=self.user1.id).exists())
+
+    def test_delete_wrong_password(self) -> None:
+        """비밀번호 불일치 (401), 유저는 삭제되지 않음"""
+        self.client.force_authenticate(user=self.user1)
+        response = self.client.delete(
+            reverse("users:me"),
+            data={"password": "WrongPassword@1"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertTrue(User.objects.filter(id=self.user1.id).exists())
+
+    def test_delete_no_password(self) -> None:
+        """비밀번호 미입력 (400), 유저는 삭제되지 않음"""
+        self.client.force_authenticate(user=self.user1)
+        response = self.client.delete(
+            reverse("users:me"),
+            data={},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(User.objects.filter(id=self.user1.id).exists())
+
+    def test_delete_unauthenticated(self) -> None:
+        """인증 없이 요청 시 (401)"""
+        response = self.client.delete(
+            reverse("users:me"),
+            data={"password": "Password@1"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
