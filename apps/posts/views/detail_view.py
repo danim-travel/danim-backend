@@ -6,6 +6,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.posts.schemas.detail_view_schema import post_detail_schema
 from apps.posts.serializers.detail_serializer import PostDetailSerializer
 from apps.posts.services.detail_service import PostDetailService
 from apps.users.models import User
@@ -20,6 +21,7 @@ class PostDetailView(APIView):
     permission_classes = [IsAuthenticated]
     service = PostDetailService()
 
+    @post_detail_schema
     def get(self, request: Request, post_id: str) -> Response:
         """
         post_id에 해당하는 게시글 상세 정보를 조회하는 view

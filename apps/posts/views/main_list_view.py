@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.utils.pagination import paginate
+from apps.posts.schemas.main_list_view_schema import post_main_list_schema
 from apps.posts.serializers.main_list_serializer import PostMainListSerializer
 from apps.posts.services.main_list_service import PostMainListService
 from apps.users.models import User
@@ -20,6 +21,7 @@ class PostMainListView(APIView):
     permission_classes = [IsAuthenticated]
     service = PostMainListService()
 
+    @post_main_list_schema
     def get(self, request: Request) -> Response:
         """
         팔로잉 피드 게시글 목록을 조회하는 view
