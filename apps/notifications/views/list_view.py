@@ -10,5 +10,5 @@ class NotificationListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        queryset = get_notification_list(request.user.id)
+        queryset = get_notification_list(request.user)
         return paginate(queryset, request, NotificationListSerializer)
