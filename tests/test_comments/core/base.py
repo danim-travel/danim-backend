@@ -1,16 +1,14 @@
-from datetime import date
-
-from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.comments.models import Comment, CommentLike
 from apps.posts.models import Post
-from apps.users.models.models import LoginType, User
+from apps.users.models.models import User
+from tests.core.base import BaseUser
 
 
-class CommentBaseTest(TestCase):
+class CommentBaseTest(BaseUser):
     client: APIClient
-    user: User
+    user_1: User
     user_2: User
     post: Post
     comment_content: Comment
@@ -33,53 +31,28 @@ class CommentBaseTest(TestCase):
     none_comment_id: str
 
     def setUp(self):
-
-        self.client = APIClient()
-        self.user = User.objects.create(
-            email="test@example.com",
-            name="test",
-            nickname="testnickname",
-            password="Password@123",
-            phone_number="01012345678",
-            birth_day=date(1970, 1, 1),
-            is_email_verified=True,
-            is_phone_verified=True,
-            is_active=True,
-            login_type=LoginType.EMAIL,
-        )
-        self.user_2 = User.objects.create(
-            email="test_2@example.com",
-            name="test_2",
-            nickname="test_2_nickname",
-            password="Password@123test",
-            phone_number="01009002829",
-            birth_day=date(1970, 1, 2),
-            is_email_verified=True,
-            is_phone_verified=True,
-            is_active=True,
-            login_type=LoginType.EMAIL,
-        )
+        super().setUp()
         self.post = Post.objects.create(
             title="test_title",
             description="test",
-            user=self.user,
+            user=self.user_1,
         )
         self.comment_content = Comment.objects.create(
             post=self.post,
-            user=self.user,
+            user=self.user_1,
             content="test_1",
             img_key=None,
             original_img=None,
         )
         self.comment_image = Comment.objects.create(
-            user=self.user,
+            user=self.user_1,
             post=self.post,
             content=None,
             img_key="dev/comments/uuid.png",
             original_img="uuid.png",
         )
         self.comment_like = CommentLike.objects.create(
-            user=self.user,
+            user=self.user_1,
             comment=self.comment_content,
         )
         self.data_for_content = {"post_id": self.post.id, "content": "test_content"}

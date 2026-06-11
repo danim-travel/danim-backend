@@ -10,7 +10,7 @@ class TestCommentDeleteService(CommentBaseTest):
 
     def test_delete_comment(self) -> None:
         """로그인한 유저의 본인이 작성한 댓글 삭제 service 성공 테스트"""
-        delete_comment(self.comment_content.id, self.user)
+        delete_comment(self.comment_content.id, self.user_1)
         self.assertEqual(Comment.objects.count(), 1)
 
     def test_fail_other_user_comment(self) -> None:
@@ -24,5 +24,5 @@ class TestCommentDeleteService(CommentBaseTest):
         """로그인한 유저의 존재하지 않는 댓글 삭제 service 실패 테스트"""
         with self.assertRaises(NotFoundException):
             with transaction.atomic():
-                delete_comment(self.none_comment_id, self.user)
+                delete_comment(self.none_comment_id, self.user_1)
         self.assertEqual(Comment.objects.count(), 2)

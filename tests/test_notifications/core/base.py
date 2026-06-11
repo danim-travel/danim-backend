@@ -1,38 +1,11 @@
-from datetime import date
-
-from django.test import TestCase
-
 from apps.notifications.models.model import NotificationType, TargetChoices
-from apps.users.models.models import LoginType, User
+from tests.core.base import BaseUser
 
 
-class NotificationsBaseTest(TestCase):
+class NotificationsBaseTest(BaseUser):
 
     def setUp(self):
-        self.user_1 = User.objects.create(
-            email="test_1@example.com",
-            name="test_1",
-            nickname="test_1nickname",
-            password="Password_1@123",
-            phone_number="01012345678",
-            birth_day=date(1971, 1, 1),
-            is_email_verified=True,
-            is_phone_verified=True,
-            is_active=True,
-            login_type=LoginType.EMAIL,
-        )
-        self.user_2 = User.objects.create(
-            email="test_2@example.com",
-            name="test_2",
-            nickname="test_2nickname",
-            password="Password_2@123",
-            phone_number="01022345678",
-            birth_day=date(1972, 1, 1),
-            is_email_verified=True,
-            is_phone_verified=True,
-            is_active=True,
-            login_type=LoginType.EMAIL,
-        )
+        super().setUp()
         self.data_for_follow_noti = {
             "sender": self.user_1,
             "receiver": self.user_2,

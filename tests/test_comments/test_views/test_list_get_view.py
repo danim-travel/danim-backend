@@ -13,7 +13,7 @@ class TestListGetView(CommentBaseTest):
             mock_data.append(
                 Comment(
                     post=self.post,
-                    user=self.user,
+                    user=self.user_1,
                     content=f"test{n}",
                     img_key=None,
                     original_img=None,
@@ -43,7 +43,7 @@ class TestListGetView(CommentBaseTest):
 
     def test_authenticated_user_get_list_view(self) -> None:
         """로그인한 유저 댓글 목록조회 view 테스트"""
-        self.client.force_authenticate(user=self.user)
+        self.client.force_authenticate(user=self.user_1)
         response = self.client.get(self.url, self.query_params_1)
         self.assertIn("results", response.data)
         self.assertEqual(len(response.data["results"]), 10)
@@ -69,13 +69,13 @@ class TestListGetView(CommentBaseTest):
 
     def test_fail_none_post_list_view(self) -> None:
         """없는 게시글 댓글 목록 조회 view 테스트"""
-        self.client.force_authenticate(user=self.user)
+        self.client.force_authenticate(user=self.user_1)
         response = self.client.get(self.url, self.none_post_query_params)
         self.assertEqual(response.status_code, 404)
 
     def test_string_page_size_get_list_view(self) -> None:
         """page_size가 문자열일때 목록 조회 view 테스트"""
-        self.client.force_authenticate(user=self.user)
+        self.client.force_authenticate(user=self.user_1)
         response = self.client.get(self.url, self.string_page_params)
         self.assertIn("results", response.data)
         self.assertEqual(len(response.data["results"]), 10)
@@ -85,7 +85,7 @@ class TestListGetView(CommentBaseTest):
 
     def test_under_page_size_get_list_view(self) -> None:
         """page_size가 음수 일떄 맷글 목록 조회 pagination 테스트"""
-        self.client.force_authenticate(user=self.user)
+        self.client.force_authenticate(user=self.user_1)
         response = self.client.get(self.url, self.under_page_size_params)
         self.assertIn("results", response.data)
         self.assertEqual(len(response.data["results"]), 10)
@@ -95,7 +95,7 @@ class TestListGetView(CommentBaseTest):
 
     def test_over_page_size_get_list_view(self) -> None:
         """page_size가 max_page_size의 초과할때 로그인한 유저의 댓글 목록 조회 view 테스트"""
-        self.client.force_authenticate(user=self.user)
+        self.client.force_authenticate(user=self.user_1)
         response = self.client.get(self.url, self.over_page_size_params)
         self.assertIn("results", response.data)
         self.assertEqual(len(response.data["results"]), 52)

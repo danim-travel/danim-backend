@@ -10,7 +10,7 @@ class TestCommentDeleteView(CommentBaseTest):
 
     def test_delete_comment_view(self) -> None:
         """로그인 유저 본인이 작성한 댓글 삭제 view 성공 테스트"""
-        self.client.force_authenticate(user=self.user)
+        self.client.force_authenticate(user=self.user_1)
         response = self.client.delete(self.detail_url_content)
         self.assertEqual(response.status_code, 204)
         self.assertEqual(Comment.objects.count(), 1)
@@ -30,7 +30,7 @@ class TestCommentDeleteView(CommentBaseTest):
 
     def test_fail_none_comment_delete_view(self) -> None:
         """로그인한 유저의 없는 댓글 삭제 view 실패 테스트"""
-        self.client.force_authenticate(user=self.user)
+        self.client.force_authenticate(user=self.user_1)
         response = self.client.delete(self.none_comment_url)
         self.assertEqual(response.status_code, 404)
         self.assertEqual(Comment.objects.count(), 2)

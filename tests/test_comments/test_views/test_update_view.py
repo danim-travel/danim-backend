@@ -5,7 +5,7 @@ class TestCommentUpdateView(CommentBaseTest):
 
     def test_update_content_view(self) -> None:
         """이미지 없는 댓글 수정 시도 view 성공 테스트"""
-        self.client.force_authenticate(user=self.user)
+        self.client.force_authenticate(user=self.user_1)
         response = self.client.patch(
             self.detail_url_content, self.data_for_update_content, format="json"
         )
@@ -13,7 +13,7 @@ class TestCommentUpdateView(CommentBaseTest):
 
     def test_update_img_view(self) -> None:
         """이미지 있는 댓글 수정 시도 view 성공 테스트"""
-        self.client.force_authenticate(user=self.user)
+        self.client.force_authenticate(user=self.user_1)
         response = self.client.patch(
             self.detail_url_img, self.data_for_update_img, format="json"
         )
