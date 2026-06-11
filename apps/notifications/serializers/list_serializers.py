@@ -29,5 +29,5 @@ class NotificationListSerializer(serializers.ModelSerializer):
         return {
             "id": obj.sender.id,
             "nickname": obj.sender.nickname,
-            "profile_img": obj.sender.profile_img,
+            "profile_img": obj.sender.profile_img_url,
         }
