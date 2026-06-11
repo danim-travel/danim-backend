@@ -9,6 +9,7 @@ from apps.users.views import (
     signup_view,
     token_view,
     user_search_view,
+    profile_view,
 )
 
 app_name = "users"
@@ -38,4 +39,5 @@ urlpatterns: list[URLPattern] = [
     ),
     path("me", me_view.UserMeView.as_view(), name="me"),
     path("", user_search_view.UserSearchView.as_view(), name="user_search"),
+    path("<str:user_id>/profile", profile_view.ProfileView.as_view(), name="profile"),
 ]
