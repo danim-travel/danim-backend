@@ -1,7 +1,7 @@
 from typing import cast
 
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -17,7 +17,7 @@ class PostDetailView(APIView):
     게시글 상세 조회에 관한 class
     """
 
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticated]
     service = PostDetailService()
 
     def get(self, request: Request, post_id: str) -> Response:

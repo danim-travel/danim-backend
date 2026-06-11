@@ -51,9 +51,9 @@ class PostDetailViewTest(APITestCase):
         self.assertIn("spots", response.data)
 
     def test_get_post_detail_view_unauthenticated(self) -> None:
-        """로그인 하지 않은 유저의 게시글 상세 조회 성공 테스트"""
+        """비로그인 유저의 게시글 상세 조회 시 401 테스트"""
         response = self.client.get(self.url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_fail_get_post_detail_view_not_found(self) -> None:
         """존재하지 않는 게시글 조회 시 404 테스트"""
