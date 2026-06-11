@@ -1,6 +1,7 @@
 from rest_framework import serializers
-from apps.posts.models import Post
+
 from apps.core.storage import s3
+from apps.posts.models import Post
 
 
 class PostSimpleSerializer(serializers.ModelSerializer):
@@ -12,7 +13,7 @@ class PostSimpleSerializer(serializers.ModelSerializer):
         model = Post
         fields = ["post_id", "title", "thumbnail"]
 
-    def get_thumbnail(self, obj: Post) -> str|None:
+    def get_thumbnail(self, obj: Post) -> str | None:
         if not obj.thumbnail:
             return None
         return s3.s3_svc.create_img_url(obj.thumbnail)

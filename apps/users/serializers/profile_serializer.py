@@ -2,11 +2,8 @@ from typing import Any, cast
 
 from rest_framework import serializers
 
-from apps.users.models import User
 from apps.posts.serializers.post_simple_serializer import PostSimpleSerializer
-
-
-
+from apps.users.models import User
 
 
 class ProfileResponseSerializer(serializers.Serializer):
@@ -18,7 +15,6 @@ class ProfileResponseSerializer(serializers.Serializer):
     is_following = serializers.BooleanField()
     posts = serializers.SerializerMethodField()
     posts_count = serializers.IntegerField()
-
 
     def get_posts(self, obj: User) -> list[dict[str, Any]]:
         qs = obj.posts.all()
