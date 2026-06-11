@@ -8,7 +8,7 @@ from apps.users.views import (
     presigned_url_view,
     signup_view,
     token_view,
-    user_search_view
+    user_search_view,
 )
 
 app_name = "users"
