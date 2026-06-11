@@ -6,10 +6,10 @@ from apps.users.views import (
     login_logout_view,
     me_view,
     presigned_url_view,
+    profile_view,
     signup_view,
     token_view,
     user_search_view,
-    profile_view,
 )
 
 app_name = "users"
