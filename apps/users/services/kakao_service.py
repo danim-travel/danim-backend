@@ -15,20 +15,24 @@ from apps.users.redis_keys import SocialRedisKey
 
 class KakaoService:
     """
-         카카오 소셜 로그인 (2단계 가입 방식)
+     카카오 소셜 로그인 (2단계 가입 방식)
 
-         [왜 2단계인가]
-         - 개인 앱(비즈니스 앱 아님)이라 카카오에서 email을 받을 수 없음
-         - User 모델의 email/birth_day가 NOT null이라 카카오 정보만으론 가입 불가
-         - 따라서 신규 유저는 추가 정보(email, birth_day 등)를 폼으로 입력받아 가입
+     [이메일 처리]
+     - 카카오 이메일 동의 시 받은 email 사용, 미제공 시 더미(kakao_{id}@social.danim.kr) 폴백
 
-         [개선 여지]
-         - 비즈니스 앱 전환 시 email 동의 가능 → 1단계 가입 단순화 검토
-    """
+     [왜 2단계인가]
+     - nickname은 영문/숫자/_만 허용 → 카카오 닉네임(한글)을 그대로 못 씀
+     - nickname/birth_day가 NOT null인데 카카오가 안 줌
+     - 따라서 신규 유저는 nickname/birth_day를 폼으로 입력받아 가입
+
+     [개선 여지]
+     - birth_day nullable 완화 + nickname 자동 생성 시 1단계(원클릭) 가입 검토
+     """
 
     AUTHORIZE_URL = "https://kauth.kakao.com/oauth/authorize"
     TOKEN_URL = "https://kauth.kakao.com/oauth/token"
     PROFILE_URL = "https://kapi.kakao.com/v2/user/me"
+    SOCIAL_EMAIL_DOMAIN = "social.danim.kr"
 
     STATE_TTL = 300
     SIGNUP_TTL = 600
@@ -106,11 +110,12 @@ class KakaoService:
         }
 
     def complete_signup(
-        self, signup_token: str, email: str, nickname: str, name: str, birth_day
+        self, signup_token: str, nickname: str, name: str, birth_day
     ) -> tuple[str, str]:
         profile = cache.get(SocialRedisKey.signup(signup_token))
         if not profile:
             raise ValidationException("가입 시간이 만료되었습니다. 다시 시도해주세요.")
+        email = profile.get("email") or f"kakao_{profile['social_id']}@{self.SOCIAL_EMAIL_DOMAIN}"
         try:
             with transaction.atomic():
                 user = User.objects.create_social_user(
