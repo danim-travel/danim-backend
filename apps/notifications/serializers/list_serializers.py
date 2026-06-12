@@ -4,7 +4,7 @@ from apps.notifications.models import Notification
 
 
 class NotificationListSerializer(serializers.ModelSerializer):
-    notification_id = serializers.IntegerField(source="id")
+    notification_id = serializers.CharField(source="id")
     sender = serializers.SerializerMethodField()
 
     class Meta:
