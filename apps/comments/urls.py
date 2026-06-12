@@ -6,6 +6,6 @@ app_name = "comments"
 
 urlpatterns: list[URLPattern] = [
     path("", CommentView.as_view(), name="Comments"),
-    path("/presigned_url", CommentPresignedURLView.as_view(), name="PresignedUrl"),
+    path("/presigned-url", CommentPresignedURLView.as_view(), name="PresignedUrl"),
     path("/<str:comment_id>", CommentDetailView.as_view(), name="CommentDetail"),
 ]
