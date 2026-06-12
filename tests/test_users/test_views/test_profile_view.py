@@ -56,10 +56,10 @@ class ProfileViewTest(APITestCase):
     def _url(self, user_id: str) -> str:
         return reverse("users:profile", kwargs={"user_id": user_id})
 
-    @patch("apps.core.storage.s3.services.s3_svc.create_img_url")
-    def test_profile_success(self, mock_create_img_url) -> None:
+    @patch("apps.core.storage.s3.services.s3_svc.create_download_presigned_url")
+    def test_profile_success(self, mock_create_download_presigned_url) -> None:
         """프로필 조회 성공 (200) 및 응답 필드 검증"""
-        mock_create_img_url.return_value = "https://s3.example.com/img.png"
+        mock_create_download_presigned_url.return_value = "https://s3.example.com/img.png"
         self.client.force_authenticate(user=self.viewer)
 
         response = self.client.get(self._url(self.owner.id))

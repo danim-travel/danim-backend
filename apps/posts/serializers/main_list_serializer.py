@@ -39,7 +39,11 @@ class PostMainListSerializer(serializers.ModelSerializer):
     def get_post(self, obj):
         return {
             "post_id": obj.id,
-            "thumbnail": s3_svc.create_img_url(obj.thumbnail) if obj.thumbnail else None,
+            "thumbnail": (
+                s3_svc.create_download_presigned_url(obj.thumbnail)
+                if obj.thumbnail
+                else None
+            ),
             "description": obj.description,
         }
 

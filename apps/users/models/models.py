@@ -65,4 +65,4 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampModel):
         if not self.profile_img:
             return None
 
-        return s3_svc.create_img_url(self.profile_img)
+        return s3_svc.create_download_presigned_url(self.profile_img)

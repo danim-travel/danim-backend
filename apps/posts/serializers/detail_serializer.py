@@ -34,7 +34,11 @@ class PostDetailSerializer(serializers.ModelSerializer):
             "post_id": obj.id,
             "title": obj.title,
             "description": obj.description,
-            "thumbnail": s3_svc.create_img_url(obj.thumbnail) if obj.thumbnail else None,
+            "thumbnail": (
+                s3_svc.create_download_presigned_url(obj.thumbnail)
+                if obj.thumbnail
+                else None
+            ),
             "created_at": obj.created_at,
         }
 
@@ -58,7 +62,7 @@ class PostDetailSerializer(serializers.ModelSerializer):
                 },
                 "images": [
                     {
-                        "img_url": s3_svc.create_img_url(image.img_key),
+                        "img_url": s3_svc.create_download_presigned_url(image.img_key),
                         "original_img": image.original_img,
                         "img_order": image.img_order,
                     }

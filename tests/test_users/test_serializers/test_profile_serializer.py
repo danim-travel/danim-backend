@@ -63,10 +63,10 @@ class ProfileResponseSerializerTest(TestCase):
         Post.objects.create(user=cls.owner, title="t1", description="d1")
         Post.objects.create(user=cls.owner, title="t2", description="d2")
 
-    @patch("apps.core.storage.s3.services.s3_svc.create_img_url")
-    def test_profile_serializer(self, mock_create_img_url) -> None:
+    @patch("apps.core.storage.s3.services.s3_svc.create_download_presigned_url")
+    def test_profile_serializer(self, mock_create_download_presigned_url) -> None:
         """프로필 조회 직렬화 성공 + 카운트/팔로우 방향 검증"""
-        mock_create_img_url.return_value = "https://s3.example.com/img.png"
+        mock_create_download_presigned_url.return_value = "https://s3.example.com/img.png"
 
         user = self.service.get_profile(user_id=self.owner.id, request_user=self.viewer)
         data = ProfileResponseSerializer(user).data
@@ -81,10 +81,10 @@ class ProfileResponseSerializerTest(TestCase):
         self.assertEqual(data["posts_count"], 2)
         self.assertEqual(len(data["posts"]), 2)
 
-    @patch("apps.core.storage.s3.services.s3_svc.create_img_url")
-    def test_is_following_false(self, mock_create_img_url) -> None:
+    @patch("apps.core.storage.s3.services.s3_svc.create_download_presigned_url")
+    def test_is_following_false(self, mock_create_download_presigned_url) -> None:
         """owner를 팔로우하지 않은 유저가 조회하면 is_following=False"""
-        mock_create_img_url.return_value = "https://s3.example.com/img.png"
+        mock_create_download_presigned_url.return_value = "https://s3.example.com/img.png"
 
         stranger = User.objects.create_user(
             email="stranger@example.com",
@@ -98,11 +98,11 @@ class ProfileResponseSerializerTest(TestCase):
 
         self.assertFalse(data["is_following"])
 
-    @patch("apps.core.storage.s3.services.s3_svc.create_img_url")
-    def test_profile_img_none(self, mock_create_img_url) -> None:
+    @patch("apps.core.storage.s3.services.s3_svc.create_download_presigned_url")
+    def test_profile_img_none(self, mock_create_download_presigned_url) -> None:
         """프로필 이미지가 없으면 profile_img는 None"""
         user = self.service.get_profile(user_id=self.viewer.id, request_user=self.owner)
         data = ProfileResponseSerializer(user).data
 
         self.assertIsNone(data["profile_img"])
-        mock_create_img_url.assert_not_called()  # key 없으면 s3 호출 안 함
+        mock_create_download_presigned_url.assert_not_called()  # key 없으면 s3 호출 안 함

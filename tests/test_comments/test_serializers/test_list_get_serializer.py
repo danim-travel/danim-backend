@@ -1,5 +1,4 @@
 from apps.comments.serializers import CommentListSerializer
-from apps.core.storage.s3 import s3_svc
 from tests.test_comments.core import CommentBaseTest
 
 
@@ -27,10 +26,9 @@ class TestListGetSerializer(CommentBaseTest):
         self.assertEqual(serializer.data["comment_id"], self.comment_image.id)
         self.assertEqual(serializer.data["content"], self.comment_image.content)
         assert self.comment_image.img_key is not None
-        self.assertEqual(
-            serializer.data["comment_img"]["img_url"],
-            s3_svc.create_img_url(self.comment_image.img_key),
-        )
+        img_url = serializer.data["comment_img"]["img_url"]
+        self.assertIn(self.comment_image.img_key, img_url)
+        self.assertIn("X-Amz-Signature", img_url)
         self.assertEqual(
             serializer.data["comment_img"]["key"], self.comment_image.img_key
         )

@@ -16,4 +16,4 @@ class PostSimpleSerializer(serializers.ModelSerializer):
     def get_thumbnail(self, obj: Post) -> str | None:
         if not obj.thumbnail:
             return None
-        return s3.s3_svc.create_img_url(obj.thumbnail)
+        return s3.s3_svc.create_download_presigned_url(obj.thumbnail)

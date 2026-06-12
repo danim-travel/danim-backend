@@ -2,7 +2,6 @@ from datetime import date
 
 from django.test import TestCase
 
-from apps.core.storage.s3 import s3_svc
 from apps.users.models import User
 from apps.users.serializers.me_serializer import (
     UserInfoResponseSerializer,
@@ -104,9 +103,8 @@ class UserUpdateResponseSerializerTest(TestCase):
         serializer = UserUpdateResponseSerializer(self.user1)
         self.assertEqual(serializer.data["nickname"], "test")
         self.assertEqual(serializer.data["intro"], "test_intro")
-        self.assertEqual(
-            serializer.data["profile_img"], s3_svc.create_img_url("test_key")
-        )
+        self.assertIn("test_key", serializer.data["profile_img"])
+        self.assertIn("X-Amz-Signature", serializer.data["profile_img"])
 
     def test_update_response_profile_img_is_none(self) -> None:
         """프로필 이미지를 제외한 수정"""
@@ -140,7 +138,6 @@ class UserMeInfoResponseSerializerTest(TestCase):
         """GET 요청 응답 성공"""
         serializer = UserInfoResponseSerializer(self.user1)
         self.assertEqual(serializer.data["nickname"], "test")
-        self.assertEqual(
-            serializer.data["profile_img"], s3_svc.create_img_url("test_key")
-        )
+        self.assertIn("test_key", serializer.data["profile_img"])
+        self.assertIn("X-Amz-Signature", serializer.data["profile_img"])
         self.assertEqual(serializer.data["user_id"], self.user1.id)
