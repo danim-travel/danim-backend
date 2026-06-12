@@ -79,6 +79,8 @@ class ProfileResponseSerializerTest(TestCase):
         self.assertEqual(data["following"], 1)
         self.assertTrue(data["is_following"])  # viewer가 owner를 팔로우 중
         self.assertEqual(data["posts_count"], 2)
+        self.assertEqual(data["posts"][0]["title"], "t2")
+        self.assertEqual(data["posts"][1]["title"], "t1")
         self.assertEqual(len(data["posts"]), 2)
 
     @patch("apps.core.storage.s3.services.s3_svc.create_download_presigned_url")
