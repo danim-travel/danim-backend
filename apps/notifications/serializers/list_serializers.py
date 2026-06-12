@@ -32,3 +32,7 @@ class NotificationListSerializer(serializers.ModelSerializer):
             "nickname": obj.sender.nickname,
             "profile_img": obj.sender.profile_img_url,
         }
+
+
+class NotificationSwaggerSerializer(serializers.Serializer):
+    page_size = serializers.IntegerField()
