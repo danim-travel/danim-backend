@@ -4,7 +4,6 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.core.storage.s3 import s3_svc
 from apps.users.models import User
 
 
@@ -65,9 +64,8 @@ class UpdateViewTest(BaseTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["nickname"], "update_nickname")
         self.assertEqual(response.data["intro"], "update_intro")
-        self.assertEqual(
-            response.data["profile_img"], s3_svc.create_img_url("update_key")
-        )
+        self.assertIn("update_key", response.data["profile_img"])
+        self.assertIn("X-Amz-Signature", response.data["profile_img"])
 
     def test_user_not_unauthorized(self) -> None:
         """비 로그인 유저가 업데이트 보낼떄 (401)"""
@@ -114,7 +112,8 @@ class UserInfoViewTest(BaseTestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["nickname"], self.user1.nickname)
-        self.assertEqual(response.data["profile_img"], s3_svc.create_img_url("test_key"))
+        self.assertIn("test_key", response.data["profile_img"])
+        self.assertIn("X-Amz-Signature", response.data["profile_img"])
         self.assertEqual(response.data["user_id"], self.user1.id)
         self.assertEqual(response.data["email"], self.user1.email)
         self.assertEqual(response.data["name"], self.user1.name)

@@ -2,7 +2,6 @@ from datetime import date
 
 from django.test import TestCase
 
-from apps.core.storage.s3 import s3_svc
 from apps.users.models import User
 from apps.users.models.models import LoginType
 
@@ -73,7 +72,10 @@ class ProfileImgUrlTest(TestCase):
         key = "local/upload/image/user/profile/01KSHF7EQEGJRVED7VSHJQWBYX.jpg"
         user = self._create_user(profile_img=key)
 
-        self.assertEqual(user.profile_img_url, s3_svc.create_img_url(key))
+        img_url = user.profile_img_url
+        assert img_url is not None
+        self.assertIn(key, img_url)
+        self.assertIn("X-Amz-Signature", img_url)
 
     def test_returns_none_when_key_is_none(self) -> None:
         """profile_img가 None이면 None을 반환한다"""

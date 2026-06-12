@@ -22,7 +22,7 @@ class CommentImageURLMixin:
             return {
                 "key": obj.img_key,
                 "original_img": obj.original_img,
-                "img_url": s3_svc.create_img_url(obj.img_key),
+                "img_url": s3_svc.create_download_presigned_url(obj.img_key),
             }
         return {
             "key": None,
