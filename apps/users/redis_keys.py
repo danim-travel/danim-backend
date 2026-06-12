@@ -20,3 +20,13 @@ class LoginRedisKey:
     @staticmethod
     def blacklist(jti: str) -> str:
         return f"blacklist:refresh_token:{jti}"
+
+
+class SocialRedisKey:
+    @staticmethod
+    def state(state: str) -> str:
+        return f"social:state:{state}"
+
+    @staticmethod
+    def signup(token: str) -> str:
+        return f"social:signup:{token}"
