@@ -27,6 +27,8 @@ CACHES = {
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
+SPECTACULAR_SETTINGS["SWAGGER_UI_SETTINGS"] = {"filter": True}
+
 
 S3_CONFIG = Config(s3={"addressing_style": "virtual"})
 
