@@ -19,6 +19,10 @@ urlpatterns = [
         "api/v1/direct-messages/",
         include("apps.directmessages.urls", namespace="directmessages"),
     ),
+    path(
+        "api/v1/notifications",
+        include("apps.notifications.urls", namespace="notifications"),
+    ),
     path("hello/", hello),
 ]
 
