@@ -15,6 +15,10 @@ urlpatterns = [
     path("api/v1/comments", include("apps.comments.urls", namespace="comments")),
     path("api/v1/posts", include("apps.posts.urls", namespace="posts")),
     path("api/v1/follow/", include("apps.follows.urls", namespace="follows")),
+    path(
+        "api/v1/direct-messages/",
+        include("apps.directmessages.urls", namespace="directmessages"),
+    ),
     path("hello/", hello),
 ]
 
