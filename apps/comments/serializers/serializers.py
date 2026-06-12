@@ -119,7 +119,7 @@ class CommentListSerializer(CommentImageURLMixin, serializers.ModelSerializer):
             return {
                 "id": obj.user.id,
                 "nickname": obj.user.nickname,
-                "profile_img": obj.user.profile_img,
+                "profile_img": obj.user.profile_img_url,
                 "is_deleted": False,
             }
         return {
