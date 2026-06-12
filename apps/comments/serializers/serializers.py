@@ -34,8 +34,12 @@ class CommentImageURLMixin:
 class CommentImageSerializer(serializers.Serializer):
     """댓글 생성 Request Body의 comment_img의 구조 serializer"""
 
-    original_img = serializers.CharField(max_length=100)
-    key = serializers.CharField(max_length=255)
+    original_img = serializers.CharField(
+        max_length=100, required=False, allow_null=True, allow_blank=True
+    )
+    key = serializers.CharField(
+        max_length=255, required=False, allow_null=True, allow_blank=True
+    )
 
 
 class CommentCreateSerializer(serializers.Serializer):
@@ -50,6 +54,16 @@ class CommentCreateSerializer(serializers.Serializer):
         댓글 Request Body의 데이터 비지니스 검증 메서드
         content와 comment_img 두 필드둥 하나는 필수로 입력을 해야한다
         """
+        comment_img = data.get("comment_img")
+        if comment_img is not None:
+            has_key = bool(comment_img.get("key"))
+            has_original = bool(comment_img.get("original_img"))
+            if not has_key and not has_original:
+                data["comment_img"] = None
+            elif has_key != has_original:
+                raise serializers.ValidationError(
+                    "key와 original_img 두 항목 모두 입력해야합니다."
+                )
         if not data.get("content") and not data.get("comment_img"):
             raise serializers.ValidationError(
                 "content와 comment_img 두 항목 중 하나는 입력해야합니다."
