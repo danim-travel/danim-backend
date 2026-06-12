@@ -38,3 +38,5 @@ CORS_ALLOWED_ORIGINS = [
     "https://dev-api.danim.kr",
 ]
 CORS_ALLOW_CREDENTIALS = True
+
+SHOW_SWAGGER = True

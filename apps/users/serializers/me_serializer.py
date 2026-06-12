@@ -30,6 +30,7 @@ class UserInfoResponseSerializer(serializers.Serializer):
     birth_day = serializers.DateField(read_only=True)
     name = serializers.CharField(read_only=True)
     phone_number = serializers.CharField(read_only=True, allow_null=True)
+    intro = serializers.CharField(read_only=True, allow_null=True)
 
 
 class UserDeleteRequestSerializer(serializers.Serializer):
