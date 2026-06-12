@@ -1,6 +1,7 @@
 from datetime import date
 
 from django.test import TestCase
+from rest_framework.test import APIClient
 
 from apps.notifications.models.model import NotificationType, TargetChoices
 from apps.users.models.models import LoginType, User
@@ -9,6 +10,7 @@ from apps.users.models.models import LoginType, User
 class NotificationsBaseTest(TestCase):
 
     def setUp(self):
+        self.client = APIClient()
         self.user_1 = User.objects.create(
             email="test_1@example.com",
             name="test_1",
@@ -42,3 +44,4 @@ class NotificationsBaseTest(TestCase):
             "message": f"{self.user_1.nickname}님이 팔로우 했습니다",
             "is_read": False,
         }
+        self.noti_url_list = "/api/v1/notifications"
