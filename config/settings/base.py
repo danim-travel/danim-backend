@@ -154,3 +154,9 @@ S3_SECRET_ACCESS_KEY = env(
 S3_BUCKET_NAME = env("S3_BUCKET_NAME", default="danim_local")
 S3_PREFIX = env("S3_PREFIX", default="local/")
 S3_PATH = env("S3_PATH", default="{action}/image/{category}/{suffix}")
+
+
+# Kakao OAuth
+KAKAO_REST_API_KEY = env("KAKAO_REST_API_KEY", default="")
+KAKAO_REDIRECT_URI = env("KAKAO_REDIRECT_URI", default="")
+FRONT_REDIRECT_URI = env("FRONT_REDIRECT_URI", default="")
