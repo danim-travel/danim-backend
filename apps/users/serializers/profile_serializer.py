@@ -17,5 +17,5 @@ class ProfileResponseSerializer(serializers.Serializer):
     posts_count = serializers.IntegerField()
 
     def get_posts(self, obj: User) -> list[dict[str, Any]]:
-        qs = obj.posts.all()
+        qs = obj.posts.order_by("-id")
         return cast(list[dict[str, Any]], PostSimpleSerializer(qs, many=True).data)
