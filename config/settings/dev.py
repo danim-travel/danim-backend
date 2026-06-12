@@ -28,6 +28,8 @@ CACHES = {
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 
+SPECTACULAR_SETTINGS["SWAGGER_UI_SETTINGS"] = {"filter": True}
+
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS")
 
 CORS_ALLOW_CREDENTIALS = True
