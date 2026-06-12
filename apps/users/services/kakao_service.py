@@ -15,19 +15,19 @@ from apps.users.redis_keys import SocialRedisKey
 
 class KakaoService:
     """
-     카카오 소셜 로그인 (2단계 가입 방식)
+    카카오 소셜 로그인 (2단계 가입 방식)
 
-     [이메일 처리]
-     - 카카오 이메일 동의 시 받은 email 사용, 미제공 시 더미(kakao_{id}@social.danim.kr) 폴백
+    [이메일 처리]
+    - 카카오 이메일 동의 시 받은 email 사용, 미제공 시 더미(kakao_{id}@social.danim.kr) 폴백
 
-     [왜 2단계인가]
-     - nickname은 영문/숫자/_만 허용 → 카카오 닉네임(한글)을 그대로 못 씀
-     - nickname/birth_day가 NOT null인데 카카오가 안 줌
-     - 따라서 신규 유저는 nickname/birth_day를 폼으로 입력받아 가입
+    [왜 2단계인가]
+    - nickname은 영문/숫자/_만 허용 → 카카오 닉네임(한글)을 그대로 못 씀
+    - nickname/birth_day가 NOT null인데 카카오가 안 줌
+    - 따라서 신규 유저는 nickname/birth_day를 폼으로 입력받아 가입
 
-     [개선 여지]
-     - birth_day nullable 완화 + nickname 자동 생성 시 1단계(원클릭) 가입 검토
-     """
+    [개선 여지]
+    - birth_day nullable 완화 + nickname 자동 생성 시 1단계(원클릭) 가입 검토
+    """
 
     AUTHORIZE_URL = "https://kauth.kakao.com/oauth/authorize"
     TOKEN_URL = "https://kauth.kakao.com/oauth/token"
@@ -115,7 +115,10 @@ class KakaoService:
         profile = cache.get(SocialRedisKey.signup(signup_token))
         if not profile:
             raise ValidationException("가입 시간이 만료되었습니다. 다시 시도해주세요.")
-        email = profile.get("email") or f"kakao_{profile['social_id']}@{self.SOCIAL_EMAIL_DOMAIN}"
+        email = (
+            profile.get("email")
+            or f"kakao_{profile['social_id']}@{self.SOCIAL_EMAIL_DOMAIN}"
+        )
         try:
             with transaction.atomic():
                 user = User.objects.create_social_user(
