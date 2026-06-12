@@ -6,6 +6,7 @@ from apps.comments.serializers import (
     CommentListSerializer,
     CommentListSwaggerSerializer,
     CommentUpdateResponseSerializer,
+    CommentUpdateSerializer,
 )
 from apps.core.storage.s3.serializers import (
     PresignedUrlRequestSerializer,
@@ -39,7 +40,7 @@ comment_list_schema = extend_schema(
     summary="댓글 목록 조회",
 )
 comment_update_schema = extend_schema(
-    request=CommentUpdateResponseSerializer,
+    request=CommentUpdateSerializer,
     responses={
         200: CommentUpdateResponseSerializer,
         400: OpenApiResponse(
