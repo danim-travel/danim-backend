@@ -158,5 +158,6 @@ S3_PATH = env("S3_PATH", default="{action}/image/{category}/{suffix}")
 
 # Kakao OAuth
 KAKAO_REST_API_KEY = env("KAKAO_REST_API_KEY", default="")
+KAKAO_CLIENT_SECRET = env("KAKAO_CLIENT_SECRET", default="")
 KAKAO_REDIRECT_URI = env("KAKAO_REDIRECT_URI", default="")
 FRONT_REDIRECT_URI = env("FRONT_REDIRECT_URI", default="")
