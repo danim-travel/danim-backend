@@ -19,6 +19,7 @@ from apps.comments.serializers import (
 from apps.comments.serializers.serializers import CommentUpdateSerializer
 from apps.comments.services import (
     create_comment,
+    create_comment_like,
     delete_comment,
     get_comment_list,
     update_comment,
