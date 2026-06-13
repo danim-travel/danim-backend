@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 
 from apps.core.utils.pagination import paginate
 from apps.users.models import User
+from apps.users.schemas.follow_schema import follower_list_schema
 from apps.users.serializers.follow_serializer import FollowerResponseSerializer
 from apps.users.services.follow_service import FollowService
 
@@ -16,6 +17,7 @@ class Followers(APIView):
     permission_classes = [IsAuthenticated]
     service = FollowService()
 
+    @follower_list_schema
     def get(self, request: Request, user_id: str) -> Response:
 
         queryset = self.service.get_follower(
