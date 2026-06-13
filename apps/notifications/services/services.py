@@ -4,7 +4,7 @@ from apps.notifications.models import Notification
 
 def read_notification(notification_id, user):
     notification = Notification.objects.filter(id=notification_id, receiver=user).update(
-        is_read=False
+        is_read=True
     )
     if not notification:
         raise NotFoundException("해당 알림을 찾지 못했습니다.")
