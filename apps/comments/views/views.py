@@ -74,3 +74,11 @@ class CommentPresignedURLView(PresignedUrlView):
     action = ActionEnum.UPLOAD
     category = CategoryEnum.COMMENT
     suffix = SuffixEnum.NONE
+
+
+class CommentLikeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, comment_id):
+        result = create_comment_like(comment_id, request.user)
+        return Response(result, status=status.HTTP_201_CREATED)
