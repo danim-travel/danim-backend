@@ -1,4 +1,6 @@
+from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.utils.pagination import paginate
@@ -14,3 +16,9 @@ class NotificationListView(APIView):
     def get(self, request):
         queryset = get_notification_list(request.user)
         return paginate(queryset, request, NotificationListSerializer)
+
+    def patch(self, request):
+        read_all_notifications(request.user)
+        return Response(
+            {"message": "모든 알림이 읽음 처리 되었습니다."}, status=status.HTTP_200_OK
+        )
