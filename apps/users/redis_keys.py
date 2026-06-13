@@ -26,7 +26,3 @@ class SocialRedisKey:
     @staticmethod
     def state(state: str) -> str:
         return f"social:state:{state}"
-
-    @staticmethod
-    def signup(token: str) -> str:
-        return f"social:signup:{token}"
