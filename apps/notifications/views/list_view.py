@@ -9,7 +9,11 @@ from apps.notifications.schemas import (
     notification_read_all_schema,
 )
 from apps.notifications.serializers import NotificationListSerializer
-from apps.notifications.services import get_notification_list, read_all_notifications
+from apps.notifications.services import (
+    delete_all_notifications,
+    get_notification_list,
+    read_all_notifications,
+)
 
 
 class NotificationListView(APIView):
@@ -28,7 +32,7 @@ class NotificationListView(APIView):
         )
 
     def delete(self, request):
-        delete_all_notification(request.user)
+        delete_all_notifications(request.user)
         return Response(
             {"message": "모든 알림이 삭제 체러 되었습니다."}, status=status.HTTP_200_OK
         )
