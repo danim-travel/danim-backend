@@ -14,3 +14,7 @@ class NotificationView(APIView):
     def patch(self, request, notification_id):
         result = read_notification(notification_id, request.user)
         return Response(result, status=status.HTTP_200_OK)
+
+    def delete(self, request, notification_id):
+        result = delete_notification(notification_id, request.user)
+        return Response(result, status=status.HTTP_200_OK)
