@@ -18,7 +18,9 @@ def read_notification(notification_id, user):
 
 
 def delete_notification(notification_id, user):
-    notification = Notification.objects.filter(id=notification_id, receiver=user).delete()
+    notification, _ = Notification.objects.filter(
+        id=notification_id, receiver=user
+    ).delete()
     if not notification:
         raise NotFoundException("해당 알림을 찾지 못했습니다.")
 

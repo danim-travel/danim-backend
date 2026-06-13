@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.notifications.schemas import notification_read_schema
-from apps.notifications.services import read_notification
+from apps.notifications.services import delete_notification, read_notification
 
 
 class NotificationView(APIView):
