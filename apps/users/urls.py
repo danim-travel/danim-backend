@@ -10,6 +10,7 @@ from apps.users.views import (
     signup_view,
     token_view,
     user_search_view,
+    follow_view,
 )
 
 app_name = "users"
@@ -39,5 +40,6 @@ urlpatterns: list[URLPattern] = [
     ),
     path("me", me_view.UserMeView.as_view(), name="me"),
     path("", user_search_view.UserSearchView.as_view(), name="user_search"),
+    path("<str:user_id>/followers",follow_view.Followers.as_view(), name="followers"),
     path("<str:user_id>/profile", profile_view.ProfileView.as_view(), name="profile"),
 ]
