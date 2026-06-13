@@ -34,5 +34,5 @@ class NotificationListView(APIView):
     def delete(self, request):
         delete_all_notifications(request.user)
         return Response(
-            {"message": "모든 알림이 삭제 체러 되었습니다."}, status=status.HTTP_200_OK
+            {"message": "모든 알림이 삭제 처리 되었습니다."}, status=status.HTTP_200_OK
         )
