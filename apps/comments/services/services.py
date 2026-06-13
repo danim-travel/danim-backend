@@ -1,7 +1,11 @@
 from django.db.models import BooleanField, Count, Exists, OuterRef, Value
 
 from apps.comments.models import Comment, CommentLike
-from apps.core.exceptions.exception import ForbiddenException, NotFoundException
+from apps.core.exceptions.exception import (
+    ConflictException,
+    ForbiddenException,
+    NotFoundException,
+)
 from apps.posts.models import Post
 
 
@@ -90,3 +94,24 @@ def delete_comment(comment_id, user):
         raise ForbiddenException("본인이 작성한 댓글만 삭제 할 수 있습니다.")
 
     target_comment.delete()
+
+
+def create_comment_like(comment_id, user):
+
+    if not Comment.objects.filter(id=comment_id).exists():
+        raise NotFoundException("해당 댓글을 찾을 수 없습니다.")
+
+    _, is_create = CommentLike.objects.get_or_create(
+        user=user,
+        comment_id=comment_id,
+    )
+
+    if not is_create:
+        raise ConflictException("이미 좋아요를 누른 댓글입니다.")
+
+    result = {
+        "is_liked": is_create,
+        "like_count": CommentLike.objects.filter(comment_id=comment_id).count(),
+    }
+
+    return result
