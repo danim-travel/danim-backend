@@ -15,3 +15,11 @@ def read_notification(notification_id, user):
     set_cache_noti_for_rd(user)
 
     return result
+
+
+def delete_notification(notification_id, user):
+    notification = Notification.objects.filter(id=notification_id, receiver=user).delete()
+    if not notification:
+        raise NotFoundException("해당 알림을 찾지 못했습니다.")
+
+    return {"notification_id": notification_id}
