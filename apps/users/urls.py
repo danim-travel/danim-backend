@@ -50,10 +50,5 @@ urlpatterns: list[URLPattern] = [
         kakao_view.KakaoCallbackView.as_view(),
         name="kakao_callback",
     ),
-    path(
-        "social-login/kakao/signup",
-        kakao_view.KakaoSignupView.as_view(),
-        name="kakao_signup",
-    ),
     path("<str:user_id>/profile", profile_view.ProfileView.as_view(), name="profile"),
 ]

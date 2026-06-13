@@ -1,3 +1,4 @@
+from datetime import date
 from urllib.parse import urlencode
 
 import httpx
@@ -6,7 +7,7 @@ from django.core.cache import cache
 from django.db import IntegrityError, transaction
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.core.exceptions.exception import ConflictException, ValidationException
+from apps.core.exceptions.exception import ValidationException
 from apps.core.utils.base62 import generate_token
 from apps.users.models import LoginType, User
 from apps.users.models.socialaccount import SocialAccount
@@ -15,18 +16,15 @@ from apps.users.redis_keys import SocialRedisKey
 
 class KakaoService:
     """
-    카카오 소셜 로그인 (2단계 가입 방식)
+    카카오 소셜 로그인 (1단계 자동 가입)
 
-    [이메일 처리]
-    - 카카오 이메일 동의 시 받은 email 사용, 미제공 시 더미(kakao_{id}@social.danim.kr) 폴백
+    [가입 방식]
+    - 신규 유저는 콜백에서 즉시 자동 가입 (추가 폼 없음)
+    - nickname/name/birth_day는 자동 기본값 → 가입 후 프로필 수정에서 변경 유도
+    - email은 카카오 동의 시 사용, 미제공 시 더미(kakao_{id}@social.danim.kr)
 
-    [왜 2단계인가]
-    - nickname은 영문/숫자/_만 허용 → 카카오 닉네임(한글)을 그대로 못 씀
-    - nickname/birth_day가 NOT null인데 카카오가 안 줌
-    - 따라서 신규 유저는 nickname/birth_day를 폼으로 입력받아 가입
-
-    [개선 여지]
-    - birth_day nullable 완화 + nickname 자동 생성 시 1단계(원클릭) 가입 검토
+    [한계/개선]
+    - nickname/birth_day가 기본값(더미)이라 유저가 프로필에서 수정 필요
     """
 
     AUTHORIZE_URL = "https://kauth.kakao.com/oauth/authorize"
@@ -35,7 +33,6 @@ class KakaoService:
     SOCIAL_EMAIL_DOMAIN = "social.danim.kr"
 
     STATE_TTL = 300
-    SIGNUP_TTL = 600
 
     def build_authorize_url(self) -> str:
         state = generate_token()
@@ -87,6 +84,27 @@ class KakaoService:
         token["login_type"] = user.login_type
         return str(token.access_token), str(token)
 
+    def _create_kakao_user(self, profile: dict) -> User:
+        email = (
+            profile.get("email")
+            or f"kakao_{profile['social_id']}@{self.SOCIAL_EMAIL_DOMAIN}"
+        )
+        with transaction.atomic():
+            user = User.objects.create_social_user(
+                email=email,
+                nickname=f"kakao_{profile['social_id']}",
+                name="카카오",
+                birth_day=date(2000, 1, 1),
+                login_type=LoginType.KAKAO,
+                is_active=True,
+            )
+            SocialAccount.objects.create(
+                user=user,
+                login_type=LoginType.KAKAO,
+                social_id=profile["social_id"],
+            )
+        return user
+
     def kakao_callback(self, code: str, state: str) -> dict:
         self._verify_state(state)
         access_token = self._get_kakao_token(code)
@@ -97,44 +115,22 @@ class KakaoService:
                 login_type=LoginType.KAKAO,
                 social_id=profile["social_id"],
             )
+            user = social.user
         except SocialAccount.DoesNotExist:
-            signup_token = generate_token()
-            cache.set(SocialRedisKey.signup(signup_token), profile, self.SIGNUP_TTL)
-            return {"is_new": True, "signup_token": signup_token}
+            try:
+                user = self._create_kakao_user(profile)
+            except IntegrityError:
+                user = (
+                    SocialAccount.objects.select_related("user")
+                    .get(
+                        login_type=LoginType.KAKAO,
+                        social_id=profile["social_id"],
+                    )
+                    .user
+                )
 
-        access, refresh = self._issue_jwt(social.user)
+        access, refresh = self._issue_jwt(user)
         return {
-            "is_new": False,
             "access_token": access,
             "refresh_token": refresh,
         }
-
-    def complete_signup(
-        self, signup_token: str, nickname: str, name: str, birth_day
-    ) -> tuple[str, str]:
-        profile = cache.get(SocialRedisKey.signup(signup_token))
-        if not profile:
-            raise ValidationException("가입 시간이 만료되었습니다. 다시 시도해주세요.")
-        email = (
-            profile.get("email")
-            or f"kakao_{profile['social_id']}@{self.SOCIAL_EMAIL_DOMAIN}"
-        )
-        try:
-            with transaction.atomic():
-                user = User.objects.create_social_user(
-                    email=email,
-                    nickname=nickname,
-                    name=name,
-                    birth_day=birth_day,
-                    login_type=LoginType.KAKAO,
-                    is_active=True,
-                )
-                SocialAccount.objects.create(
-                    user=user,
-                    login_type=LoginType.KAKAO,
-                    social_id=profile["social_id"],
-                )
-        except IntegrityError:
-            raise ConflictException("이미 가입된 이메일 또는 닉네임 입니다.")
-        cache.delete(SocialRedisKey.signup(signup_token))
-        return self._issue_jwt(user)
