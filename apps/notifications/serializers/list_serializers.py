@@ -36,3 +36,7 @@ class NotificationListSerializer(serializers.ModelSerializer):
 
 class NotificationSwaggerSerializer(serializers.Serializer):
     page_size = serializers.IntegerField()
+
+
+class NotificationListReadSwaggerSerializer(serializers.Serializer):
+    message = serializers.CharField()

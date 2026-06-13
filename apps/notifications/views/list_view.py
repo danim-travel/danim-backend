@@ -4,7 +4,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.utils.pagination import paginate
-from apps.notifications.schemas import notification_list_schema
+from apps.notifications.schemas import (
+    notification_list_schema,
+    notification_read_all_schema,
+)
 from apps.notifications.serializers import NotificationListSerializer
 from apps.notifications.services import get_notification_list, read_all_notifications
 
@@ -17,6 +20,7 @@ class NotificationListView(APIView):
         queryset = get_notification_list(request.user)
         return paginate(queryset, request, NotificationListSerializer)
 
+    @notification_read_all_schema
     def patch(self, request):
         read_all_notifications(request.user)
         return Response(

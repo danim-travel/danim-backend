@@ -1,6 +1,7 @@
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 
 from apps.notifications.serializers import (
+    NotificationListReadSwaggerSerializer,
     NotificationListSerializer,
     NotificationSwaggerSerializer,
 )
@@ -15,4 +16,13 @@ notification_list_schema = extend_schema(
     },
     tags=["notifications"],
     summary="알림 목록 조회 api",
+)
+
+notification_read_all_schema = extend_schema(
+    responses={
+        200: NotificationListReadSwaggerSerializer,
+        401: OpenApiResponse(description="로그인이 필요합니다."),
+    },
+    tags=["notifications"],
+    summary="전체 알림 읽음 처리 api",
 )
