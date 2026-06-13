@@ -4,6 +4,7 @@ from apps.users.views import (
     check_nickname_view,
     email_view,
     kakao_view,
+    follow_view,
     login_logout_view,
     me_view,
     presigned_url_view,
@@ -11,7 +12,6 @@ from apps.users.views import (
     signup_view,
     token_view,
     user_search_view,
-    follow_view,
 )
 
 app_name = "users"
@@ -51,6 +51,6 @@ urlpatterns: list[URLPattern] = [
         kakao_view.KakaoCallbackView.as_view(),
         name="kakao_callback",
     ),
-    path("<str:user_id>/followers",follow_view.Followers.as_view(), name="followers"),
+    path("<str:user_id>/followers", follow_view.Followers.as_view(), name="followers"),
     path("<str:user_id>/profile", profile_view.ProfileView.as_view(), name="profile"),
 ]
