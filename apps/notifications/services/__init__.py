@@ -1,4 +1,5 @@
 from apps.notifications.services.list_service import (
+    delete_all_notifications,
     get_notification_list,
     read_all_notifications,
 )
@@ -9,4 +10,5 @@ __all__ = [
     "read_notification",
     "read_all_notifications",
     "delete_notification",
+    "delete_all_notifications",
 ]
