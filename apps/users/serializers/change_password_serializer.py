@@ -7,5 +7,5 @@ class ChangePasswordRequestSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True)
     new_password = serializers.CharField(write_only=True)
 
-    def validate_new_password(self, value) -> str:
+    def validate_new_password(self, value: str) -> str:
         return validate_password_format(value)
