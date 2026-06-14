@@ -1,3 +1,3 @@
-from apps.users.models.models import User
+from apps.users.models.models import LoginType, User
 
-__all__ = ["User"]
+__all__ = ["User", "LoginType"]

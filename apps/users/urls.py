@@ -1,6 +1,7 @@
 from django.urls import URLPattern, path
 
 from apps.users.views import (
+    change_password_view,
     check_nickname_view,
     email_view,
     login_logout_view,
@@ -39,5 +40,10 @@ urlpatterns: list[URLPattern] = [
     ),
     path("me", me_view.UserMeView.as_view(), name="me"),
     path("", user_search_view.UserSearchView.as_view(), name="user_search"),
+    path(
+        "change-password",
+        change_password_view.ChangePasswordView.as_view(),
+        name="change_password",
+    ),
     path("<str:user_id>/profile", profile_view.ProfileView.as_view(), name="profile"),
 ]
