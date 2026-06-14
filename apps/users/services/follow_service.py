@@ -23,7 +23,7 @@ class FollowService:
         )
         return follower
 
-    def get_following(self,user_id:str,request_user:User):
+    def get_following(self, user_id: str, request_user: User):
         if not User.objects.filter(id=user_id).exists():
             raise NotFoundException("존재하지 않는 유저입니다.")
         following = (
