@@ -5,6 +5,7 @@ from apps.users.views import (
     check_nickname_view,
     email_view,
     follow_view,
+    google_view,
     kakao_view,
     login_logout_view,
     me_view,
@@ -65,5 +66,15 @@ urlpatterns: list[URLPattern] = [
         "/reset-password",
         reset_password_view.ResetPasswordView.as_view(),
         name="reset_password",
+        ),
+    path(
+        "/social-login/google/login",
+        google_view.GoogleLoginView.as_view(),
+        name="google_login",
+    ),
+    path(
+        "/social-login/google/callback",
+        google_view.GoogleCallbackView.as_view(),
+        name="google_callback",
     ),
 ]

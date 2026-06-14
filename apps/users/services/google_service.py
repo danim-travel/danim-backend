@@ -43,7 +43,7 @@ class GoogleService:
         cache.delete(SocialRedisKey.state(state))
 
     def _get_google_token(self, code: str) -> str:
-        """구글로 부터 jwt 토큰을 가져와 프로필정보를 가져오는 인증장치로 사용"""
+        """인가코드를 구글 access_token으로 교환한다"""
         response = httpx.post(
             self.TOKEN_URL,
             data={
@@ -88,7 +88,7 @@ class GoogleService:
         with transaction.atomic():
             user = User.objects.create_social_user(
                 email=email,
-                nickname=f"google_{profile['social_id']}",
+                nickname=f"google_{profile['social_id'][:10]}",
                 name="구글",
                 birth_day=date(2000, 1, 1),
                 login_type=LoginType.GOOGLE,
