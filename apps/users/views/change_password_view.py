@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.users.models import User
+from apps.users.schemas.change_password_schema import change_password_schema
 from apps.users.serializers.change_password_serializer import (
     ChangePasswordRequestSerializer,
 )
@@ -17,6 +18,7 @@ class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]
     service = ChangePasswordService()
 
+    @change_password_schema
     def post(self, request: Request) -> Response:
         serializer = ChangePasswordRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
