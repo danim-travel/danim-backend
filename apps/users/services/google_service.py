@@ -15,6 +15,19 @@ from apps.users.redis_keys import SocialRedisKey
 
 
 class GoogleService:
+    """
+    구글 소셜 로그인 (1단계 자동 가입)
+
+    [가입 방식]
+    - 신규 유저는 콜백에서 즉시 자동 가입 (추가 폼 없음)
+    - nickname/name/birth_day는 자동 기본값 → 가입 후 프로필 수정에서 변경 유도
+    - email은 구글 동의로 받음, 미제공 시 더미(google_{sub}@social.danim.kr)
+
+    [한계/개선]
+    - nickname/birth_day가 기본값(더미)이라 유저가 프로필에서 수정 필요
+    - 구글 sub가 길어 nickname은 sub 앞 10자만 사용 (google_{sub[:10]})
+    """
+
     AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth"
     TOKEN_URL = "https://oauth2.googleapis.com/token"
     PROFILE_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
@@ -43,7 +56,7 @@ class GoogleService:
         cache.delete(SocialRedisKey.state(state))
 
     def _get_google_token(self, code: str) -> str:
-        """인가코드를 구글 access_token으로 교환한다"""
+        """인가코드 (code)를 구글 access_token으로 교환한다"""
         response = httpx.post(
             self.TOKEN_URL,
             data={
