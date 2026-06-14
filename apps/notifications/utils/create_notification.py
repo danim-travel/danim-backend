@@ -1,0 +1,57 @@
+from apps.notifications.models.model import Notification, NotificationType, TargetChoices
+
+NOTIFICATION_MAP = {
+    NotificationType.COMMENT: (
+        TargetChoices.POST,
+        "{}님이 회원님의 게시글에 댓글을 작성했습니다.",
+    ),
+    NotificationType.COMMENT_LIKE: (
+        TargetChoices.POST,
+        "{}님이 회원님의 댓글에 좋아요를 눌렀습니다.",
+    ),
+    NotificationType.POST_LIKE: (
+        TargetChoices.POST,
+        "{}님이 회원님의 게시글에 좋아요를 눌렀습니다.",
+    ),
+    NotificationType.FOLLOW: (TargetChoices.USER, "{}님이 회원님을 팔로우 했습니다."),
+    NotificationType.DM: (TargetChoices.DM, "{}님이 회원님께 메세지를 보냈습니다."),
+}
+
+
+def create_notification(receiver, sender, noti_type, target_id):
+    """
+    알림 생성 함수
+    receiver = 알림을 받을 유저
+    sender = 알림을 보내는 유저 request.user
+    noti_type = 알림타입
+                댓글 생성 -> comment
+                댓글 좋아요 생성 -> comment_like
+                게시글 좋아요 생성 -> post_like
+                팔로우 -> follow
+                DM 전송 -> dm
+    target_id = 알림을 클릭했을때 이동해야할 페이지에 대한 target의 id
+    ex) 댓글 생성 상황
+        create_notification(
+            receiver = post.user,
+            sender = request.user,
+            noti_type = "comment",
+            target_id = post.id,
+        )
+    """
+    target_type, msg_base = NOTIFICATION_MAP[noti_type]
+    msg = msg_base.format(sender.nickname)
+    create_noti(sender, receiver, noti_type, target_id, target_type, msg)
+
+
+def create_noti(sender, receiver, noti_type, target_id, target_type, msg):
+    try:
+        Notification.objects.create(
+            sender=sender,
+            receiver=receiver,
+            notification_type=noti_type,
+            target_id=target_id,
+            target_type=target_type,
+            message=msg,
+        )
+    except Exception:
+        pass
