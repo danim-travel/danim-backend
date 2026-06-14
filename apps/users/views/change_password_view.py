@@ -1,5 +1,6 @@
 from typing import cast
 
+from django.conf import settings
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
@@ -22,11 +23,20 @@ class ChangePasswordView(APIView):
     def post(self, request: Request) -> Response:
         serializer = ChangePasswordRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
+        refresh_token = request.COOKIES.get("refresh_token", "")
+
         self.service.change_password(
             cast(User, request.user),
             serializer.validated_data["password"],
             serializer.validated_data["new_password"],
+            refresh_token,
         )
-        return Response(
+        response = Response(
             {"detail": "비밀번호 변경이 완료되었습니다."}, status=status.HTTP_200_OK
         )
+        response.delete_cookie(
+            "refresh_token",
+            samesite="Lax" if settings.DEBUG else "None",
+        )
+        return response
