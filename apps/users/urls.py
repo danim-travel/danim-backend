@@ -12,6 +12,7 @@ from apps.users.views import (
     signup_view,
     token_view,
     user_search_view,
+    change_password_view,
 )
 
 app_name = "users"
@@ -52,5 +53,6 @@ urlpatterns: list[URLPattern] = [
         name="kakao_callback",
     ),
     path("<str:user_id>/followers", follow_view.Followers.as_view(), name="followers"),
+    path("change-password",change_password_view.ChangePasswordView.as_view(),name ="change_password"),
     path("<str:user_id>/profile", profile_view.ProfileView.as_view(), name="profile"),
 ]
