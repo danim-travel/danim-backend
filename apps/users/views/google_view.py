@@ -5,6 +5,10 @@ from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.views import APIView
 
+from apps.users.schemas.google_schema import (
+    google_callback_schema,
+    google_login_schema,
+)
 from apps.users.services.google_service import GoogleService
 
 
@@ -12,6 +16,7 @@ class GoogleCallbackView(APIView):
     permission_classes = [AllowAny]
     service = GoogleService()
 
+    @google_callback_schema
     def get(self, request: Request) -> HttpResponseRedirect:
         code = request.GET.get("code", "")
         state = request.GET.get("state", "")
@@ -31,6 +36,7 @@ class GoogleLoginView(APIView):
     permission_classes = [AllowAny]
     service = GoogleService()
 
+    @google_login_schema
     def get(self, request: Request) -> HttpResponseRedirect:
         url = self.service.build_authorize_url()
         return redirect(url)
