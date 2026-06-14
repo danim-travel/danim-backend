@@ -42,6 +42,7 @@ OWN_APPS: list[str] = [
     "apps.follows",
     "apps.notifications",
     "apps.directmessages",
+    "apps.explores",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_APPS + OWN_APPS

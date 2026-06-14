@@ -22,6 +22,8 @@ class Post(TimeStampModel):
     title = models.CharField(max_length=100)
     description = models.TextField(blank=True, default="")
     thumbnail = models.TextField(blank=True, default="")
+    # # todo
+    # random_score = models.FloatField(default=get_random, db_index=True)
 
     class Meta:
         db_table = "posts"

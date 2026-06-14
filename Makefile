@@ -1,4 +1,5 @@
 .PHONY: format type test coverage check
+.PHONY: man
 
 format:
 	docker compose exec django uv run black .
@@ -15,3 +16,7 @@ coverage:
 	docker compose exec django uv run coverage report -m
 
 check: format type test coverage
+
+# misc
+man:
+	docker exec -it danim-backend-django-1 uv run python manage.py "$(a)"
