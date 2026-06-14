@@ -1,3 +1,4 @@
+from apps.comments.serializers.comment_like_serializer import CommentLikeCreateSerializer
 from apps.comments.serializers.serializers import (
     CommentCreateResponseSerializer,
     CommentCreateSerializer,
@@ -14,4 +15,5 @@ __all__ = [
     "CommentListSwaggerSerializer",
     "CommentUpdateResponseSerializer",
     "CommentUpdateSerializer",
+    "CommentLikeCreateSerializer",
 ]

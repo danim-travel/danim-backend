@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 from apps.comments.schemas import (
     comment_create_schema,
     comment_delete_schema,
+    comment_like_create_schema,
     comment_list_schema,
     comment_presigned_urls_schema,
     comment_update_schema,
@@ -19,6 +20,7 @@ from apps.comments.serializers import (
 from apps.comments.serializers.serializers import CommentUpdateSerializer
 from apps.comments.services import (
     create_comment,
+    create_comment_like,
     delete_comment,
     get_comment_list,
     update_comment,
@@ -74,3 +76,12 @@ class CommentPresignedURLView(PresignedUrlView):
     action = ActionEnum.UPLOAD
     category = CategoryEnum.COMMENT
     suffix = SuffixEnum.NONE
+
+
+class CommentLikeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @comment_like_create_schema
+    def post(self, request, comment_id):
+        result = create_comment_like(comment_id, request.user)
+        return Response(result, status=status.HTTP_201_CREATED)
