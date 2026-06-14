@@ -1,6 +1,9 @@
-from apps.notifications.models.model import Notification, NotificationType, TargetChoices
+from typing import Literal
 
-NOTIFICATION_MAP = {
+from apps.notifications.models.model import Notification, NotificationType, TargetChoices
+from apps.users.models import User
+
+NOTIFICATION_MAP: dict[str, tuple[str, str]] = {
     NotificationType.COMMENT: (
         TargetChoices.POST,
         "{}님이 회원님의 게시글에 댓글을 작성했습니다.",
@@ -18,7 +21,12 @@ NOTIFICATION_MAP = {
 }
 
 
-def create_notification(receiver, sender, noti_type, target_id):
+def create_notification(
+    receiver: User,
+    sender: User,
+    noti_type: Literal["post_like", "comment", "comment_like", "follow", "dm"],
+    target_id: str,
+):
     """
     알림 생성 함수
     receiver = 알림을 받을 유저
