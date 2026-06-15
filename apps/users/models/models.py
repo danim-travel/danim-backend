@@ -24,6 +24,13 @@ class UserManager(BaseUserManager):
         user.save()
         return user
 
+    def create_social_user(self, email, **extra_fields):
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.set_unusable_password()
+        user.save()
+        return user
+
 
 class LoginType(models.TextChoices):
     EMAIL = "email"
