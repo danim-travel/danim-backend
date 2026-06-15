@@ -46,5 +46,5 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             count = Notification.objects.filter(
                 receiver_id=self.user_id, is_read=False
             ).count()
-            cache.set(f"user_{self.user_id}_unread_count", count)
+            cache.set(f"user_{self.user_id}_unread_count", count, timeout=None)
         return count
