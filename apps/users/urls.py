@@ -10,10 +10,10 @@ from apps.users.views import (
     me_view,
     presigned_url_view,
     profile_view,
+    reset_password_view,
     signup_view,
     token_view,
     user_search_view,
-    reset_password_view,
 )
 
 app_name = "users"
