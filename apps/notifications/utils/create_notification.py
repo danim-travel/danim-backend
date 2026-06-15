@@ -78,12 +78,20 @@ def create_noti(sender, receiver, noti_type, target_id, target_type, msg):
                 ).count(),
                 timeout=None,
             )
-        channel_layer = get_channel_layer()
-        unread_count = cache.get(f"user_{receiver.id}_unread_count")
-        async_to_sync(channel_layer.group_send)(
-            f"user_{receiver.id}",
-            {"type": "send_unread_count", "count": unread_count},
-        )
+        push_channel_noti(receiver.id)
 
     except Exception:
         pass
+
+
+def push_channel_noti(receiver_id: str):
+    """
+    WebSocket을 통해 유저의 읽지 않은 알림 개수를 실시간으로 전송하는 함수
+      receiver = 알림을 수신할 유저
+    """
+    channel_layer = get_channel_layer()
+    unread_count = cache.get(f"user_{receiver_id}_unread_count")
+    async_to_sync(channel_layer.group_send)(
+        f"user_{receiver_id}",
+        {"type": "send_unread_count", "count": unread_count},
+    )
