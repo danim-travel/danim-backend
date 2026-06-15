@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.directmessages.models import Conversation
@@ -42,6 +43,7 @@ class ConversationResponseSerializer(serializers.ModelSerializer):
         model = Conversation
         fields = ["conversation_id", "opponent", "created_at"]
 
+    @extend_schema_field(OpponentSerializer)
     def get_opponent(self, obj: Conversation) -> dict:
         request_user = self.context["request"].user
         opponent = obj.user2 if obj.user1_id == request_user.id else obj.user1
