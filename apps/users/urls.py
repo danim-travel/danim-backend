@@ -3,6 +3,7 @@ from django.urls import URLPattern, path
 from apps.users.views import (
     check_nickname_view,
     email_view,
+    follow_view,
     kakao_view,
     login_logout_view,
     me_view,
@@ -50,5 +51,6 @@ urlpatterns: list[URLPattern] = [
         kakao_view.KakaoCallbackView.as_view(),
         name="kakao_callback",
     ),
+    path("<str:user_id>/followers", follow_view.Followers.as_view(), name="followers"),
     path("<str:user_id>/profile", profile_view.ProfileView.as_view(), name="profile"),
 ]
