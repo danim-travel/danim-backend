@@ -1,4 +1,10 @@
-from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
+from drf_spectacular.utils import (
+    OpenApiParameter,
+    OpenApiResponse,
+    extend_schema,
+    inline_serializer,
+)
+from rest_framework import serializers
 
 from apps.users.serializers.follow_serializer import (
     FollowerResponseSerializer,
@@ -32,7 +38,13 @@ follower_list_schema = extend_schema(
     ),
     parameters=_cursor_params,
     responses={
-        200: FollowerResponseSerializer,
+        200: inline_serializer(
+            name="FollowerListResponse",
+            fields={
+                "next": serializers.CharField(allow_null=True),
+                "results": FollowerResponseSerializer(many=True),
+            },
+        ),
         401: OpenApiResponse(description="자격 인증 데이터가 제공되지 않았습니다."),
         404: OpenApiResponse(description="존재하지 않는 유저입니다."),
     },
@@ -48,7 +60,13 @@ following_list_schema = extend_schema(
     ),
     parameters=_cursor_params,
     responses={
-        200: FollowingResponseSerializer,
+        200: inline_serializer(
+            name="FollowingListResponse",
+            fields={
+                "next": serializers.CharField(allow_null=True),
+                "results": FollowingResponseSerializer(many=True),
+            },
+        ),
         401: OpenApiResponse(description="자격 인증 데이터가 제공되지 않았습니다."),
         404: OpenApiResponse(description="존재하지 않는 유저입니다."),
     },
