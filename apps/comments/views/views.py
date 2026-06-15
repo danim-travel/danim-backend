@@ -22,6 +22,7 @@ from apps.comments.services import (
     create_comment,
     create_comment_like,
     delete_comment,
+    delete_comment_like,
     get_comment_list,
     update_comment,
 )
@@ -87,5 +88,5 @@ class CommentLikeView(APIView):
         return Response(result, status=status.HTTP_201_CREATED)
 
     def delete(self, request, comment_id):
-        result = delete_comment(comment_id, request.user)
+        result = delete_comment_like(comment_id, request.user)
         return Response(result, status=status.HTTP_200_OK)
