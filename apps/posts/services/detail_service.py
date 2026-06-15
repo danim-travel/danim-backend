@@ -1,9 +1,10 @@
 from typing import Any, cast
 
-from django.db.models import BooleanField, Count, Exists, OuterRef, Value
+from django.db import transaction
+from django.db.models import BooleanField, Count, Exists, F, OuterRef, Value
 
 from apps.core.exceptions.exception import NotFoundException
-from apps.posts.models import Post, PostLike
+from apps.posts.models import Post, PostClick, PostLike
 from apps.posts.models.bookmark_model import BookMark
 from apps.users.models import User
 
@@ -15,6 +16,10 @@ class PostDetailService:
 
         if not Post.objects.filter(id=post_id).exists():
             raise NotFoundException("게시글을 찾을 수 없습니다.")
+
+        with transaction.atomic():
+            PostClick.objects.create(user=user, post_id=post_id)
+            Post.objects.filter(id=post_id).update(view_count=F("view_count") + 1)
 
         queryset = cast(Any, Post.objects.filter(id=post_id))
         queryset = queryset.select_related("user").prefetch_related(
@@ -42,3 +47,6 @@ class PostDetailService:
         post = queryset.first()
 
         return post
+
+
+# todo: view_count delete
