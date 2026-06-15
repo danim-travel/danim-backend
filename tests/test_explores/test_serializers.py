@@ -9,30 +9,14 @@ from apps.explores.serializers import (
 )
 from apps.posts.models import Post
 from apps.users.models import LoginType, User
+from tests.test_explores.utils import user_and_post
 
 
 class ExploreSerializerTest(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create(
-            email="test@example.com",
-            name="test",
-            nickname="testnickname",
-            password="Password@123",
-            phone_number="01012345678",
-            birth_day=date(1970, 1, 1),
-            is_email_verified=True,
-            is_phone_verified=True,
-            is_active=True,
-            login_type=LoginType.EMAIL,
-        )
-        cls.post = Post.objects.create(
-            user=cls.user,
-            title="testtitle",
-            description="testdescription",
-            thumbnail="prod/posts/thumbnail/uuid.jpg",
-        )
+        cls.user, cls.post = user_and_post()
         cls.instance = {
             "id": cls.post.id,
             "thumbnail": cls.post.thumbnail,
