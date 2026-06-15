@@ -1,7 +1,5 @@
 from rest_framework import serializers
 
-from apps.posts.models import Post
-
 
 class ExploreQuerySerializer(serializers.Serializer):
     search = serializers.CharField(required=False, default=None, allow_blank=True)
@@ -15,13 +13,14 @@ class ExploreQuerySerializer(serializers.Serializer):
         return value
 
 
-class ExploreResponseSerializer(serializers.ModelSerializer):
+class ExploreFeedsSerializer(serializers.Serializer):
     post_id = serializers.CharField(source="id")
     thumbnail = serializers.URLField()
     like_count = serializers.IntegerField()
     comment_count = serializers.IntegerField()
-    seed = serializers.IntegerField()
 
-    class Meta:
-        model = Post
-        fields = ["post_id", "thumbnail", "like_count", "comment_count", "seed"]
+
+class ExploreResponseSerializer(serializers.Serializer):
+    next = serializers.URLField(allow_null=True)
+    seed = serializers.IntegerField()
+    results = ExploreFeedsSerializer(many=True)
