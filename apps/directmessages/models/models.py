@@ -15,6 +15,8 @@ class Conversation(BaseModel):
     user2_left_at = models.DateTimeField(null=True, blank=True)
     user1_last_read_at = models.DateTimeField(null=True, blank=True)
     user2_last_read_at = models.DateTimeField(null=True, blank=True)
+    user1_unread_count = models.PositiveIntegerField(default=0)
+    user2_unread_count = models.PositiveIntegerField(default=0)
     last_message_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
