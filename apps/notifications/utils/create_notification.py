@@ -95,3 +95,28 @@ def push_channel_noti(receiver_id: str):
         f"user_{receiver_id}",
         {"type": "send_unread_count", "count": unread_count},
     )
+
+
+def set_cache_noti_for_rd(receiver: User):
+    """개별 알림 읽음 처리 및 개별 알림 삭제 처리 redis cache 갱신 함수"""
+    try:
+        cache.decr(f"user_{receiver.id}_unread_count")
+    except ValueError:
+        cache.set(
+            f"user_{receiver.id}_unread_count",
+            Notification.objects.filter(receiver=receiver, is_read=False).count(),
+            timeout=None,
+        )
+    try:
+        push_channel_noti(receiver.id)
+    except Exception:
+        pass
+
+
+def reset_cache_noti(receiver: User):
+    """전체 읽음 처리 및 전체 삭제 처리 redis 초기화 함수"""
+    cache.set(f"user_{receiver.id}_unread_count", 0, timeout=None)
+    try:
+        push_channel_noti(receiver.id)
+    except Exception:
+        pass
