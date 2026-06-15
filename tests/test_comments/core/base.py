@@ -112,3 +112,55 @@ class CommentBaseTest(TestCase):
             }
         }
         self.none_comment_id = "없는 댓글 아이디"
+
+
+class CommentLikeBaseTest(TestCase):
+    client: APIClient
+    user: User
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user_1 = User.objects.create(
+            email="test_1@example.com",
+            name="test_1",
+            nickname="test_1nickname",
+            password="Password_1@123",
+            phone_number="01011345678",
+            birth_day=date(1971, 1, 1),
+            is_email_verified=True,
+            is_phone_verified=True,
+            is_active=True,
+            login_type=LoginType.EMAIL,
+        )
+        self.user_2 = User.objects.create(
+            email="test_2@example.com",
+            name="test_2",
+            nickname="test_2_nickname",
+            password="Password@123test",
+            phone_number="01009002829",
+            birth_day=date(1970, 1, 2),
+            is_email_verified=True,
+            is_phone_verified=True,
+            is_active=True,
+            login_type=LoginType.EMAIL,
+        )
+        self.post = Post.objects.create(
+            title="test_title",
+            description="test",
+            user=self.user_1,
+        )
+        self.comment_content = Comment.objects.create(
+            post=self.post,
+            user=self.user_1,
+            content="test_1",
+            img_key=None,
+            original_img=None,
+        )
+        self.comment_image = Comment.objects.create(
+            user=self.user_1,
+            post=self.post,
+            content=None,
+            img_key="dev/comments/uuid.png",
+            original_img="uuid.png",
+        )
+        self.url = f"/api/v1/comments/{self.comment_content.id}/like"
