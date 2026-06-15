@@ -44,7 +44,7 @@ jobs:
 
     services:
       db:
-        image: pgvector/pgvector:16-pgorg
+        image: pgvector/pgvector:16-pg16
         env:
           POSTGRES_DB: danim
           POSTGRES_USER: danim
