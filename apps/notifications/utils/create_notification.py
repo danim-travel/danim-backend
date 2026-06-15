@@ -1,5 +1,9 @@
 from typing import Literal
 
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+from django.core.cache import cache
+
 from apps.notifications.models.model import Notification, NotificationType, TargetChoices
 from apps.users.models import User
 
@@ -46,6 +50,8 @@ def create_notification(
             target_id = post.id,
         )
     """
+    if receiver == sender:
+        return
     target_type, msg_base = NOTIFICATION_MAP[noti_type]
     msg = msg_base.format(sender.nickname)
     create_noti(sender, receiver, noti_type, target_id, target_type, msg)
@@ -61,5 +67,23 @@ def create_noti(sender, receiver, noti_type, target_id, target_type, msg):
             target_type=target_type,
             message=msg,
         )
+        try:
+            cache.incr(f"user_{receiver.id}_unread_count")
+        except ValueError:
+            cache.set(
+                f"user_{receiver.id}_unread_count",
+                Notification.objects.filter(
+                    receiver=receiver,
+                    is_read=False,
+                ).count(),
+                timeout=None,
+            )
+        channel_layer = get_channel_layer()
+        unread_count = cache.get(f"user_{receiver.id}_unread_count")
+        async_to_sync(channel_layer.group_send)(
+            f"user_{receiver.id}",
+            {"type": "send_unread_count", "count": unread_count},
+        )
+
     except Exception:
         pass
