@@ -7,6 +7,7 @@ from apps.comments.schemas import (
     comment_create_schema,
     comment_delete_schema,
     comment_like_create_schema,
+    comment_like_delete_schema,
     comment_list_schema,
     comment_presigned_urls_schema,
     comment_update_schema,
@@ -87,6 +88,7 @@ class CommentLikeView(APIView):
         result = create_comment_like(comment_id, request.user)
         return Response(result, status=status.HTTP_201_CREATED)
 
+    @comment_like_delete_schema
     def delete(self, request, comment_id):
         result = delete_comment_like(comment_id, request.user)
         return Response(result, status=status.HTTP_200_OK)

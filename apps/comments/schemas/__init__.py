@@ -1,4 +1,7 @@
-from apps.comments.schemas.comment_like_schemas import comment_like_create_schema
+from apps.comments.schemas.comment_like_schemas import (
+    comment_like_create_schema,
+    comment_like_delete_schema,
+)
 from apps.comments.schemas.comment_schema import (
     comment_create_schema,
     comment_delete_schema,
@@ -14,4 +17,5 @@ __all__ = [
     "comment_delete_schema",
     "comment_presigned_urls_schema",
     "comment_like_create_schema",
+    "comment_like_delete_schema",
 ]

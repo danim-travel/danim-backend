@@ -14,3 +14,12 @@ comment_like_create_schema = extend_schema(
     tags=["comment_likes"],
     summary="댓글 좋아요 생성 api",
 )
+comment_like_delete_schema = extend_schema(
+    responses={
+        200: CommentLikeCreateSerializer,
+        401: OpenApiResponse(description="로그인이 필요합니다."),
+        404: OpenApiResponse(description="해당 댓글을 찾을 수 없습니다."),
+    },
+    tags=["comment_likes"],
+    summary="댓글 좋아요 취소 api",
+)
