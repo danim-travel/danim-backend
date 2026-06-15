@@ -85,3 +85,7 @@ class CommentLikeView(APIView):
     def post(self, request, comment_id):
         result = create_comment_like(comment_id, request.user)
         return Response(result, status=status.HTTP_201_CREATED)
+
+    def delete(self, request, comment_id):
+        result = delete_comment(comment_id, request.user)
+        return Response(result, status=status.HTTP_200_OK)
