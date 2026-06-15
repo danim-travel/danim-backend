@@ -3,8 +3,8 @@ from django.urls import URLPattern, path
 from apps.users.views import (
     check_nickname_view,
     email_view,
-    kakao_view,
     follow_view,
+    kakao_view,
     login_logout_view,
     me_view,
     presigned_url_view,
