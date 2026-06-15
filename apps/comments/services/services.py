@@ -122,3 +122,18 @@ def create_comment_like(comment_id, user):
     }
 
     return result
+
+
+def delete_comment_like(comment_id, user):
+
+    comment = Comment.objects.filter(id=comment_id).first()
+    if not comment:
+        raise NotFoundException("해당 댓글을 찾을 수 없습니다.")
+
+    CommentLike.objects.filter(comment=comment, user=user).delete()
+
+    result = {
+        "is_liked": False,
+        "like_count": CommentLike.objects.filter(comment=comment).count(),
+    }
+    return result
