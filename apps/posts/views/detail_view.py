@@ -6,10 +6,12 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.posts.schemas.delete_view_schema import post_delete_schema
 from apps.posts.schemas.detail_view_schema import post_detail_schema
 from apps.posts.schemas.update_view_schema import post_update_schema
 from apps.posts.serializers.detail_serializer import PostDetailSerializer
 from apps.posts.serializers.update_serializer import PostUpdateSerializer
+from apps.posts.services.delete_service import PostDeleteService
 from apps.posts.services.detail_service import PostDetailService
 from apps.posts.services.update_service import PostUpdateService
 from apps.users.models import User
@@ -24,6 +26,7 @@ class PostDetailView(APIView):
     permission_classes = [IsAuthenticated]
     service = PostDetailService()
     update_service = PostUpdateService()
+    delete_service = PostDeleteService()
 
     @post_detail_schema
     def get(self, request: Request, post_id: str) -> Response:
@@ -41,3 +44,8 @@ class PostDetailView(APIView):
             post_id, serializer.validated_data, cast(User, request.user)
         )
         return Response({"detail": "게시글이 수정되었습니다."}, status=status.HTTP_200_OK)
+
+    @post_delete_schema
+    def delete(self, request: Request, post_id: str) -> Response:
+        self.delete_service.delete_post(post_id, cast(User, request.user))
+        return Response({"detail": "게시글이 삭제되었습니다."}, status=status.HTTP_200_OK)
