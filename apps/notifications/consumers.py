@@ -38,7 +38,9 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             return
 
     async def disconnect(self, close_code):
-        if hasattr(self, "group_name"):
+        if hasattr(self, "_auth_timeout_task") and not self._auth_timeout_task.done():
+            self._auth_timeout_task.cancel()
+        if self.group_name:
             await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
     async def send_unread_count(self, event):
