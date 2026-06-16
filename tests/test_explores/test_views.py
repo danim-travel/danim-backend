@@ -16,7 +16,7 @@ class ExploresViewTest(APITestCase):
 
     def setUp(self):
         self.url = reverse(
-            "explores:explores"
+            "explores:explore"
         )  # urls.py의 name으로. 없으면 "/api/explores/"
         self.client.force_authenticate(user=self.user)
 
