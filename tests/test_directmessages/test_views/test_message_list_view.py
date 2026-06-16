@@ -50,7 +50,7 @@ class TestMessageListView(ConversationBaseTest):
         """존재하지 않는 대화방 id 요청 시 404 반환"""
         self.client.force_authenticate(user=self.user_1)
         response = self.client.get(
-            "/api/v1/direct-messages/conversations/notexistid0000000000000000/messages/"
+            "/api/v1/direct-messages/conversations/notexistid0000000000000000/messages"
         )
         self.assertEqual(response.status_code, 404)
 
@@ -58,7 +58,7 @@ class TestMessageListView(ConversationBaseTest):
         """26자 미만 id 요청 시 404 반환"""
         self.client.force_authenticate(user=self.user_1)
         response = self.client.get(
-            "/api/v1/direct-messages/conversations/tooshort/messages/"
+            "/api/v1/direct-messages/conversations/tooshort/messages"
         )
         self.assertEqual(response.status_code, 404)
 
@@ -66,7 +66,7 @@ class TestMessageListView(ConversationBaseTest):
         """26자 초과 id 요청 시 404 반환"""
         self.client.force_authenticate(user=self.user_1)
         response = self.client.get(
-            "/api/v1/direct-messages/conversations/toolongid000000000000000000/messages/"
+            "/api/v1/direct-messages/conversations/toolongid000000000000000000/messages"
         )
         self.assertEqual(response.status_code, 404)
 
@@ -97,26 +97,17 @@ class TestMessageListView(ConversationBaseTest):
         self.assertEqual(len(response.data["results"]), 1)
         self.assertIsNotNone(response.data["next"])
 
-    def test_left_at_filters_messages_in_response(self):
-        """나간 시각 이후 메시지는 응답에 포함되지 않음"""
+    def test_left_user_returns_404(self):
+        """대화방을 나간 유저는 메시지 목록 조회 시 404 반환"""
         u1, u2 = sorted([self.user_1, self.user_2], key=lambda u: u.id)
-        left_at = self.message_2.created_at
         if self.conversation.user1_id == u1.id:
-            self.conversation.user1_left_at = left_at
+            self.conversation.user1_left_at = self.message_2.created_at
         else:
-            self.conversation.user2_left_at = left_at
+            self.conversation.user2_left_at = self.message_2.created_at
         self.conversation.save()
-
-        Message.objects.create(
-            conversation=self.conversation,
-            sender=u2,
-            content="나간 이후 메시지",
-        )
-
         self.client.force_authenticate(user=u1)
         response = self.client.get(self.url)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data["results"]), 2)
+        self.assertEqual(response.status_code, 404)
 
     def test_deleted_message_content_is_none_in_response(self):
         """삭제된 메시지는 응답에서 content가 None"""
