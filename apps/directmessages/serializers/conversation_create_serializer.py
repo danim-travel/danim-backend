@@ -1,8 +1,8 @@
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
+from apps.directmessages.core.serializers import UserBriefSerializer
 from apps.directmessages.models import Conversation
-from apps.users.models import User
 
 
 class ConversationCreateSerializer(serializers.Serializer):
@@ -12,21 +12,6 @@ class ConversationCreateSerializer(serializers.Serializer):
     """
 
     receiver_id = serializers.CharField(max_length=26)
-
-
-class OpponentSerializer(serializers.Serializer):
-    """
-    - 중첩 serializer로 출력해줘야하는 데이터 정리
-    - S3 DB에 저장된 str그대로 반환할 경우 프론트에서 S3에서 찾을 수 없기에
-      user model에 @property를 사용해 url로 변환 후 반환
-    """
-
-    user_id = serializers.CharField(source="id")
-    nickname = serializers.CharField()
-    profile_img = serializers.SerializerMethodField()
-
-    def get_profile_img(self, obj: User) -> str | None:
-        return obj.profile_img_url
 
 
 class ConversationResponseSerializer(serializers.ModelSerializer):
@@ -43,8 +28,8 @@ class ConversationResponseSerializer(serializers.ModelSerializer):
         model = Conversation
         fields = ["conversation_id", "opponent", "created_at"]
 
-    @extend_schema_field(OpponentSerializer)
+    @extend_schema_field(UserBriefSerializer)
     def get_opponent(self, obj: Conversation) -> dict:
         request_user = self.context["request"].user
         opponent = obj.user2 if obj.user1_id == request_user.id else obj.user1
-        return OpponentSerializer(opponent).data
+        return UserBriefSerializer(opponent).data
