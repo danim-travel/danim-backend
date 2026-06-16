@@ -54,3 +54,13 @@ class TestDeleteMessageService(ConversationBaseTest):
         )
         with self.assertRaises(NotFound):
             delete_message(self.conversation.id, other_message.id, self.user_1)
+
+    def test_left_user_cannot_delete_message(self):
+        """대화방을 나간 유저는 메시지 삭제 불가"""
+        from django.utils import timezone
+
+        user1 = self.conversation.user1
+        self.conversation.user1_left_at = timezone.now()
+        self.conversation.save()
+        with self.assertRaises(NotFound):
+            delete_message(self.conversation.id, self.message.id, user1)

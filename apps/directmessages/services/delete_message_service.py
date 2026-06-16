@@ -8,7 +8,8 @@ from apps.users.models import User
 def delete_message(conversation_id: str, message_id: str, request_user: User) -> None:
     try:
         Conversation.objects.get(
-            Q(user1=request_user) | Q(user2=request_user),
+            Q(user1=request_user, user1_left_at__isnull=True)
+            | Q(user2=request_user, user2_left_at__isnull=True),
             pk=conversation_id,
         )
     except Conversation.DoesNotExist:
