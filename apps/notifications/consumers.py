@@ -1,32 +1,41 @@
+import asyncio
 import json
 
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+from rest_framework_simplejwt.tokens import AccessToken
 
 from apps.notifications.models import Notification
 
 User = get_user_model()
 
+AUTH_TIMEOUT = 10
+
 
 class NotificationConsumer(AsyncWebsocketConsumer):
 
     async def connect(self):
-        self.user_id = self.scope["url_route"]["kwargs"]["user_id"]
+        self.user_id = None
+        self.authenticated = False
+        self.group_name = None
+        await self.accept()
+        self._auth_timeout_task = asyncio.create_task(self._close_if_not_authenticated())
 
-        if not await self.user_exists():
-            await self.accept()
-            await self.send(json.dumps({"error_detail": "해당 유저를 찾지 못했습니다."}))
-            await self.close()
+    async def receive(self, text_data):
+        try:
+            data = json.loads(text_data)
+        except json.JSONDecodeError:
             return
 
-        self.group_name = f"user_{self.user_id}"
-        await self.channel_layer.group_add(self.group_name, self.channel_name)
-        await self.accept()
-
-        unread_count = await self.get_unread_count()
-        await self.send(json.dumps({"unread_count": unread_count}))
+        if not self.authenticated:
+            if data.get("type") == "auth":
+                await self._handle_auth(data)
+            else:
+                await self.close()
+            return
 
     async def disconnect(self, close_code):
         if hasattr(self, "group_name"):
@@ -35,9 +44,35 @@ class NotificationConsumer(AsyncWebsocketConsumer):
     async def send_unread_count(self, event):
         await self.send(json.dumps({"unread_count": event["count"]}))
 
+    async def _close_if_not_authenticated(self):
+        await asyncio.sleep(AUTH_TIMEOUT)
+        if not self.authenticated:
+            await self.close()
+
+    async def _handle_auth(self, data):
+        user = await self._authenticate(data.get("token", ""))
+        if not user:
+            await self.send(
+                json.dumps({"type": "error", "detail": "인증에 실패했습니다."})
+            )
+            await self.close()
+            return
+
+        self.user_id = user.id
+        self.authenticated = True
+        self._auth_timeout_task.cancel()
+        self.group_name = f"user_{self.user_id}"
+        await self.channel_layer.group_add(self.group_name, self.channel_name)
+        unread_count = await self.get_unread_count()
+        await self.send(json.dumps({"unread_count": unread_count}))
+
     @database_sync_to_async
-    def user_exists(self):
-        return User.objects.filter(id=self.user_id).exists()
+    def _authenticate(self, token):
+        try:
+            token = AccessToken(token)
+            return User.objects.get(id=token["user_id"])
+        except (InvalidToken, TokenError, User.DoesNotExist, KeyError):
+            return None
 
     @database_sync_to_async
     def get_unread_count(self):
