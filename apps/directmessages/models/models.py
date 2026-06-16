@@ -13,6 +13,8 @@ class Conversation(BaseModel):
     )
     user1_left_at = models.DateTimeField(null=True, blank=True)
     user2_left_at = models.DateTimeField(null=True, blank=True)
+    user1_rejoin_at = models.DateTimeField(null=True, blank=True)
+    user2_rejoin_at = models.DateTimeField(null=True, blank=True)
     user1_last_read_at = models.DateTimeField(null=True, blank=True)
     user2_last_read_at = models.DateTimeField(null=True, blank=True)
     user1_unread_count = models.PositiveIntegerField(default=0)
