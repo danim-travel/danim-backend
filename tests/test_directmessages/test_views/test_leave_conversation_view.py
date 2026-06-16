@@ -7,7 +7,7 @@ class TestLeaveConversationView(ConversationBaseTest):
 
     def setUp(self):
         super().setUp()
-        self.url = f"/api/v1/direct-messages/conversations/{self.conversation.id}/"
+        self.url = f"/api/v1/direct-messages/conversations/{self.conversation.id}"
 
     def test_user1_can_leave_returns_204(self):
         """user1이 대화방 나가기 성공 시 204 반환"""

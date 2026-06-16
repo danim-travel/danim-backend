@@ -55,4 +55,4 @@ class ConversationBaseTest(TestCase):
         )
         u1, u2 = sorted([self.user_1, self.user_2], key=lambda u: u.id)
         self.conversation = Conversation.objects.create(user1=u1, user2=u2)
-        self.url = "/api/v1/direct-messages/conversations/"
+        self.url = "/api/v1/direct-messages/conversations"
