@@ -25,3 +25,8 @@ jobs:
           context: .
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/danim-backend:dev
+
+  deploy:
+    needs: build
+    uses: ./.github/workflows/deploy-dev.yml
+    secrets: inherit
