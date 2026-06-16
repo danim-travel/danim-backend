@@ -25,12 +25,12 @@ def get_or_create_conversation(
     if not created:
         if conversation.user1_id == request_user.id and conversation.user1_left_at:
             conversation.user1_left_at = None
-            conversation.user1_rejoin_at = timezone.now()  # type: ignore[attr-defined]
+            conversation.user1_rejoin_at = timezone.now()
             conversation.save(update_fields=["user1_left_at", "user1_rejoin_at"])
             return conversation, True
         elif conversation.user2_id == request_user.id and conversation.user2_left_at:
             conversation.user2_left_at = None
-            conversation.user2_rejoin_at = timezone.now()  # type: ignore[attr-defined]
+            conversation.user2_rejoin_at = timezone.now()
             conversation.save(update_fields=["user2_left_at", "user2_rejoin_at"])
             return conversation, True
 
