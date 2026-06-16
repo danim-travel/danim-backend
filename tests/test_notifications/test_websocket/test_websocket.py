@@ -1,7 +1,9 @@
 from datetime import date
 
+from channels.db import database_sync_to_async
 from channels.testing.websocket import WebsocketCommunicator
 from django.test import TransactionTestCase
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.notifications.models.model import Notification, NotificationType, TargetChoices
 from apps.users.models.models import LoginType, User
@@ -43,25 +45,30 @@ class TestNotificationConsumer(TransactionTestCase):
             notification_type=NotificationType.COMMENT,
             message=f"{self.user_2.nickname}님이 회원님의 게시글에 댓글을 작성했습니다.",
         )
-        self.url = f"ws/notifications/{self.user_1.id}"
-        self.url_none_id = "ws/notifications/없는아이디"
+        self.url = "ws/notifications"
 
     async def test_connect(self):
-        """웹소켓 연결 성공 테스트"""
+        """토큰 인증 성공 후 웹소켓 연결 테스트"""
         communicator = WebsocketCommunicator(application, self.url)
         connected, _ = await communicator.connect()
         self.assertTrue(connected)
+
+        refresh = await database_sync_to_async(RefreshToken.for_user)(self.user_1)
+        access_token = refresh.access_token
+        await communicator.send_json_to({"type": "auth", "token": str(access_token)})
         response = await communicator.receive_json_from()
         self.assertEqual(response["unread_count"], 1)
 
         await communicator.disconnect()
 
-    async def test_non_user_id_connect(self):
-        """없는 유저 아이디 웹소켓 연결 실패 테스트"""
-        communicator = WebsocketCommunicator(application, self.url_none_id)
+    async def test_invalid_token_connect(self):
+        """잘못된 토큰으로 인증 실패 테스트"""
+        communicator = WebsocketCommunicator(application, self.url)
         connected, _ = await communicator.connect()
         self.assertTrue(connected)
+
+        await communicator.send_json_to({"type": "auth", "token": "유효하지않은토큰"})
         response = await communicator.receive_json_from()
-        self.assertIn("error_detail", response)
+        self.assertEqual(response["type"], "error")
 
         await communicator.disconnect()
