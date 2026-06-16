@@ -1,17 +1,17 @@
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
+from apps.core.utils.validators import validate_ulid
 from apps.directmessages.core.serializers import UserBriefSerializer
 from apps.directmessages.models import Conversation
 
 
 class ConversationCreateSerializer(serializers.Serializer):
-    """
-    - 대화방 생성 Request Body 검증 serializer
-    - 입력 serializer(사용자로 부터 받아오는 데이터)
-    """
-
     receiver_id = serializers.CharField(max_length=26)
+
+    def validate_receiver_id(self, value: str) -> str:
+        validate_ulid(value)
+        return value
 
 
 class ConversationResponseSerializer(serializers.ModelSerializer):

@@ -19,7 +19,7 @@ def get_or_create_conversation(
         raise ValidationException("자기 자신과는 대화방을 생성할 수 없습니다.")
 
     try:
-        receiver = User.objects.get(id=receiver_id)
+        receiver = User.objects.get(id=receiver_id, is_active=True)
     except User.DoesNotExist:
         raise NotFoundException("존재하지 않는 유저입니다.")
 
