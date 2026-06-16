@@ -6,10 +6,10 @@ from rest_framework.views import APIView
 
 from apps.core.utils.pagination import paginate
 from apps.directmessages.schemas.message_list_schema import message_list_schema
-from apps.directmessages.serializers.message_list_path_serializer import (
+from apps.directmessages.serializers.message_list_serializer import (
     MessageListPathSerializer,
+    MessageListSerializer,
 )
-from apps.directmessages.serializers.message_list_serializer import MessageListSerializer
 from apps.directmessages.services.message_list_service import get_message_list
 from apps.users.models import User
 

@@ -1,6 +1,6 @@
 from django.test import TestCase
 
-from apps.directmessages.serializers.message_list_path_serializer import (
+from apps.directmessages.serializers.message_list_serializer import (
     MessageListPathSerializer,
 )
 

@@ -1,8 +1,17 @@
 from rest_framework import serializers
 
 from apps.core.storage.s3 import s3_svc
+from apps.core.utils.validators import validate_ulid
 from apps.directmessages.core.serializers import UserBriefSerializer
 from apps.directmessages.models import Message
+
+
+class MessageListPathSerializer(serializers.Serializer):
+    conversation_id = serializers.CharField()
+
+    def validate_conversation_id(self, value: str) -> str:
+        validate_ulid(value)
+        return value
 
 
 class MessageListSerializer(serializers.Serializer):
