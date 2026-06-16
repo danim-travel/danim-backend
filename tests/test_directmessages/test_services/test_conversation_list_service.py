@@ -55,3 +55,27 @@ class TestConversationListService(ConversationBaseTest):
         result = get_conversation_list(self.user_3)
         ids = list(result.values_list("id", flat=True))
         self.assertNotIn(self.conversation.id, ids)
+
+    def test_left_at_excludes_conversation_for_user1(self):
+        """user1이 나간 대화방은 목록에서 제외"""
+        user1 = self.conversation.user1
+        self.conversation.user1_left_at = timezone.now()
+        self.conversation.save()
+        result = get_conversation_list(user1)
+        self.assertEqual(result.count(), 0)
+
+    def test_left_at_excludes_conversation_for_user2(self):
+        """user2가 나간 대화방은 목록에서 제외"""
+        user2 = self.conversation.user2
+        self.conversation.user2_left_at = timezone.now()
+        self.conversation.save()
+        result = get_conversation_list(user2)
+        self.assertEqual(result.count(), 0)
+
+    def test_opponent_left_at_does_not_affect_my_list(self):
+        """상대방이 나간 대화방은 내 목록에서 유지"""
+        user1 = self.conversation.user1
+        self.conversation.user2_left_at = timezone.now()
+        self.conversation.save()
+        result = get_conversation_list(user1)
+        self.assertEqual(result.count(), 1)

@@ -137,3 +137,35 @@ class TestConversationListResponseSerializer(ConversationBaseTest):
             context={"request": self._make_request(user2)},
         )
         self.assertEqual(serializer.data["unread_count"], 5)
+
+    def test_deleted_last_message_content_is_none(self):
+        """삭제된 마지막 메시지의 content는 None"""
+        Message.objects.create(
+            conversation=self.conversation,
+            sender=self.user_1,
+            content="삭제될 메시지",
+            is_deleted=True,
+        )
+        user1 = self.conversation.user1
+        obj = self._get_annotated_conversation(user1)
+        serializer = ConversationListResponseSerializer(
+            obj,
+            context={"request": self._make_request(user1)},
+        )
+        self.assertIsNone(serializer.data["last_message"]["content"])
+
+    def test_deleted_last_message_img_url_is_none(self):
+        """삭제된 마지막 메시지의 img_url은 None"""
+        Message.objects.create(
+            conversation=self.conversation,
+            sender=self.user_1,
+            img_key="some/key.jpg",
+            is_deleted=True,
+        )
+        user1 = self.conversation.user1
+        obj = self._get_annotated_conversation(user1)
+        serializer = ConversationListResponseSerializer(
+            obj,
+            context={"request": self._make_request(user1)},
+        )
+        self.assertIsNone(serializer.data["last_message"]["img_url"])

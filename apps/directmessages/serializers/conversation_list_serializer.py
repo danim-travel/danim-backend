@@ -30,11 +30,12 @@ class ConversationListResponseSerializer(serializers.Serializer):
     def get_last_message(self, obj: Conversation) -> dict | None:
         if obj.last_msg_created_at is None:  # type: ignore[attr-defined]
             return None
+        is_deleted = obj.last_msg_is_deleted  # type: ignore[attr-defined]
         return {
-            "content": obj.last_msg_content,  # type: ignore[attr-defined]
+            "content": None if is_deleted else obj.last_msg_content,  # type: ignore[attr-defined]
             "img_url": (
                 s3_svc.create_download_presigned_url(obj.last_msg_img_key)  # type: ignore[attr-defined]
-                if obj.last_msg_img_key  # type: ignore[attr-defined]
+                if not is_deleted and obj.last_msg_img_key  # type: ignore[attr-defined]
                 else None
             ),
             "created_at": obj.last_msg_created_at,  # type: ignore[attr-defined]

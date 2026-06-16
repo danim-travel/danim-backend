@@ -119,6 +119,40 @@ class TestConversationListView(ConversationBaseTest):
         response = self.client.get(self.url)
         self.assertEqual(response.data["results"][0]["unread_count"], 5)
 
+    def test_left_at_hides_conversation_in_list(self):
+        """나간 대화방은 목록에서 제외"""
+        from django.utils import timezone
+
+        user1 = self.conversation.user1
+        self.conversation.user1_left_at = timezone.now()
+        self.conversation.save()
+        self.client.force_authenticate(user=user1)
+        response = self.client.get(self.url)
+        self.assertEqual(response.data["results"], [])
+
+    def test_opponent_left_does_not_hide_my_conversation(self):
+        """상대방이 나간 대화방은 내 목록에서 유지"""
+        from django.utils import timezone
+
+        user1 = self.conversation.user1
+        self.conversation.user2_left_at = timezone.now()
+        self.conversation.save()
+        self.client.force_authenticate(user=user1)
+        response = self.client.get(self.url)
+        self.assertEqual(len(response.data["results"]), 1)
+
+    def test_deleted_last_message_content_is_none_in_response(self):
+        """삭제된 마지막 메시지는 content가 None"""
+        Message.objects.create(
+            conversation=self.conversation,
+            sender=self.user_1,
+            content="삭제됨",
+            is_deleted=True,
+        )
+        self.client.force_authenticate(user=self.user_1)
+        response = self.client.get(self.url)
+        self.assertIsNone(response.data["results"][0]["last_message"]["content"])
+
     def test_ordering_by_last_message_at(self):
         """last_message_at 내림차순 정렬 확인"""
         u1, u3 = sorted([self.user_1, self.user_3], key=lambda u: u.id)

@@ -19,6 +19,10 @@ def get_conversation_list(request_user: User) -> QuerySet[Conversation]:
 
     base_qs: Any = (
         Conversation.objects.filter(Q(user1=request_user) | Q(user2=request_user))
+        .exclude(
+            Q(user1=request_user, user1_left_at__isnull=False)
+            | Q(user2=request_user, user2_left_at__isnull=False)
+        )
         .select_related("user1", "user2")
         .order_by(F("last_message_at").desc(nulls_last=True))
     )
@@ -29,5 +33,6 @@ def get_conversation_list(request_user: User) -> QuerySet[Conversation]:
             last_msg_content=Subquery(last_message.values("content")[:1]),
             last_msg_img_key=Subquery(last_message.values("img_key")[:1]),
             last_msg_created_at=Subquery(last_message.values("created_at")[:1]),
+            last_msg_is_deleted=Subquery(last_message.values("is_deleted")[:1]),
         ),
     )
