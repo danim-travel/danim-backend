@@ -61,5 +61,9 @@ urlpatterns: list[URLPattern] = [
     ),
     path("/<str:user_id>/following", follow_view.Following.as_view(), name="following"),
     path("/<str:user_id>/profile", profile_view.ProfileView.as_view(), name="profile"),
-    path("/reset-password", reset_password_view.ResetPasswordView.as_view(), name="reset_password"),
+    path(
+        "/reset-password",
+        reset_password_view.ResetPasswordView.as_view(),
+        name="reset_password",
+    ),
 ]
