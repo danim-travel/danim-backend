@@ -122,8 +122,8 @@ class DMConsumer(AsyncWebsocketConsumer):
         )
 
     async def broadcast_receive_message(self, event: dict) -> None:
-        event.pop("type")
-        await self.send(json.dumps({"type": "receive_message", **event}))
+        payload = {k: v for k, v in event.items() if k != "type"}
+        await self.send(json.dumps({"type": "receive_message", **payload}))
 
     async def broadcast_read_receipt(self, event: dict) -> None:
         await self.send(

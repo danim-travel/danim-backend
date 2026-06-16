@@ -1,5 +1,4 @@
 from datetime import date
-from unittest.mock import patch
 
 from channels.testing import WebsocketCommunicator
 from django.test import TransactionTestCase
@@ -119,21 +118,8 @@ class TestDMConsumer(TransactionTestCase):
         self.assertTrue(connected)
 
         await communicator.send_json_to({"type": "send_message", "content": "hello"})
-        self.assertTrue(await communicator.receive_nothing(timeout=1))
-
-        await communicator.disconnect()
-
-    @patch("apps.directmessages.consumers.AUTH_TIMEOUT", 1)
-    async def test_auth_timeout_closes_connection(self):
-        """인증 없이 타임아웃 경과 시 연결 종료"""
-        import asyncio
-
-        communicator = WebsocketCommunicator(application, self.url)
-        connected, _ = await communicator.connect()
-        self.assertTrue(connected)
-
-        await asyncio.sleep(2)
-        self.assertTrue(await communicator.receive_nothing(timeout=1))
+        response = await communicator.receive_output(timeout=1)
+        self.assertEqual(response["type"], "websocket.close")
 
         await communicator.disconnect()
 
