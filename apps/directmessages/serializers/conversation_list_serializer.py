@@ -2,10 +2,8 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.core.storage.s3 import s3_svc
+from apps.directmessages.core.serializers import UserBriefSerializer
 from apps.directmessages.models import Conversation
-from apps.directmessages.serializers.conversation_create_serializer import (
-    OpponentSerializer,
-)
 
 
 class LastMessageSerializer(serializers.Serializer):
@@ -20,11 +18,11 @@ class ConversationListResponseSerializer(serializers.Serializer):
     last_message = serializers.SerializerMethodField()
     unread_count = serializers.SerializerMethodField()
 
-    @extend_schema_field(OpponentSerializer)
+    @extend_schema_field(UserBriefSerializer)
     def get_opponent(self, obj: Conversation) -> dict:
         request_user = self.context["request"].user
         opponent = obj.user2 if obj.user1_id == request_user.id else obj.user1
-        return OpponentSerializer(opponent).data
+        return UserBriefSerializer(opponent).data
 
     @extend_schema_field(LastMessageSerializer)
     def get_last_message(self, obj: Conversation) -> dict | None:
