@@ -16,6 +16,8 @@ class TestCommentLikeDeleteService(CommentLikeBaseTest):
             comment=self.comment_content,
             user=self.user_2,
         )
+        self.comment_content.like_count = 2
+        self.comment_content.save()
 
     def test_delete_like(self):
         """댓글 좋아요 취소 service 성공 테스트"""
