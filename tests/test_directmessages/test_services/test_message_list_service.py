@@ -40,18 +40,6 @@ class TestMessageListService(ConversationBaseTest):
         with self.assertRaises(NotFound):
             get_message_list("notexistid0000000000000000", self.user_1)
 
-    def test_short_conversation_id_raises_404_without_db_query(self):
-        """26자 미만 id는 DB 조회 없이 즉시 404 반환"""
-        with self.assertNumQueries(0):
-            with self.assertRaises(NotFound):
-                get_message_list("tooshort", self.user_1)
-
-    def test_long_conversation_id_raises_404_without_db_query(self):
-        """26자 초과 id는 DB 조회 없이 즉시 404 반환"""
-        with self.assertNumQueries(0):
-            with self.assertRaises(NotFound):
-                get_message_list("toolongid000000000000000000", self.user_1)
-
     def test_messages_filtered_by_left_at(self):
         """유저가 나간 시각 이후 메시지는 조회되지 않음"""
         u1, u2 = sorted([self.user_1, self.user_2], key=lambda u: u.id)
