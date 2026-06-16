@@ -17,9 +17,9 @@ def get_message_list(conversation_id: str, request_user: User) -> QuerySet[Messa
 
     qs = Message.objects.filter(conversation_id=conversation_id).select_related("sender")
 
-    if conversation.user1_id == request_user.id and conversation.user1_rejoin_at:  # type: ignore[attr-defined]
-        qs = qs.filter(created_at__gte=conversation.user1_rejoin_at)  # type: ignore[attr-defined]
-    elif conversation.user2_id == request_user.id and conversation.user2_rejoin_at:  # type: ignore[attr-defined]
-        qs = qs.filter(created_at__gte=conversation.user2_rejoin_at)  # type: ignore[attr-defined]
+    if conversation.user1_id == request_user.id and conversation.user1_rejoin_at:
+        qs = qs.filter(created_at__gte=conversation.user1_rejoin_at)
+    elif conversation.user2_id == request_user.id and conversation.user2_rejoin_at:
+        qs = qs.filter(created_at__gte=conversation.user2_rejoin_at)
 
     return qs

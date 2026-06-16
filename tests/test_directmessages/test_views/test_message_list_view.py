@@ -112,11 +112,11 @@ class TestMessageListView(ConversationBaseTest):
     def test_rejoined_user_only_sees_messages_after_rejoin(self):
         """재입장한 유저는 rejoin_at 이후 메시지만 응답에 포함"""
         if self.conversation.user1_id == self.user_1.id:
-            self.conversation.user1_rejoin_at = self.message_2.created_at  # type: ignore[attr-defined]
+            self.conversation.user1_rejoin_at = self.message_2.created_at
             self.conversation.save(update_fields=["user1_rejoin_at"])
             rejoining_user = self.user_1
         else:
-            self.conversation.user2_rejoin_at = self.message_2.created_at  # type: ignore[attr-defined]
+            self.conversation.user2_rejoin_at = self.message_2.created_at
             self.conversation.save(update_fields=["user2_rejoin_at"])
             rejoining_user = self.user_2
         self.client.force_authenticate(user=rejoining_user)
