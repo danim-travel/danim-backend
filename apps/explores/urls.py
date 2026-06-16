@@ -5,5 +5,5 @@ from apps.explores.views import ExploresView
 app_name = "explores"
 
 urlpatterns: list[URLPattern] = [
-    path("", ExploresView.as_view(), name="explores"),
+    path("", ExploresView.as_view(), name="explore"),
 ]
