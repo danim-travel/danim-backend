@@ -1,4 +1,8 @@
-from apps.core.exceptions.exception import NotFoundException
+from apps.core.exceptions.exception import (
+    ConflictException,
+    NotFoundException,
+    ValidationException,
+)
 from apps.follows.models.models import Follows
 from apps.follows.services import create_follow
 from tests.test_follows.core.base import FollowBaseTest
@@ -18,3 +22,16 @@ class TestFollowService(FollowBaseTest):
         """없는 유저 팔로잉 시도 service 실패 테스트"""
         with self.assertRaises(NotFoundException):
             result = create_follow("없는아이디", self.user_1)
+
+    def test_self_follow_service(self):
+        """자기 자신 팔로우 시도 service 실패 테스트 (ValidationException)"""
+        with self.assertRaises(ValidationException):
+            create_follow(self.user_1.id, self.user_1)
+        self.assertEqual(Follows.objects.count(), 0)
+
+    def test_duplicate_follow_service(self):
+        """이미 팔로우한 유저 재팔로우 시도 service 실패 테스트 (ConflictException)"""
+        create_follow(self.user_2.id, self.user_1)
+        with self.assertRaises(ConflictException):
+            create_follow(self.user_2.id, self.user_1)
+        self.assertEqual(Follows.objects.filter(follower_id=self.user_1.id).count(), 1)

@@ -18,6 +18,11 @@ class TestFollowDeleteService(FollowBaseTest):
         self.assertEqual(Follows.objects.filter(following=self.user_2).count(), 0)
 
     def test_fail_follow_delete_service(self):
-        """유저 기록이 없는 팔로우 취소 요청 service 실패 테스트"""
+        """팔로우하지 않은 유저 취소 요청 service 실패 테스트 (유저는 존재)"""
         with self.assertRaises(NotFoundException):
             delete_follow(self.user_3.id, self.user_2)
+
+    def test_delete_non_user_follow_service(self):
+        """존재하지 않는 유저 팔로우 취소 요청 service 실패 테스트"""
+        with self.assertRaises(NotFoundException):
+            delete_follow("없는아이디", self.user_1)

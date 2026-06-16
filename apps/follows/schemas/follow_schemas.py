@@ -11,9 +11,10 @@ follow_create_schema = extend_schema(
                 },
             }
         ),
+        400: OpenApiResponse(description="자기 자신은 팔로우할 수 없습니다."),
         401: OpenApiResponse(description="로그인이 필요합니다."),
         404: OpenApiResponse(description="해당 유저를 찾을 수 없습니다."),
-        409: OpenApiResponse(description="이미 팔로우 중입니다."),
+        409: OpenApiResponse(description="이미 팔로우한 유저입니다."),
     },
     tags=["follows"],
     summary="팔로우 API,팔로우 생성",
