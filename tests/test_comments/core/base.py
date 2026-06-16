@@ -112,6 +112,7 @@ class CommentBaseTest(TestCase):
             }
         }
         self.none_comment_id = "없는 댓글 아이디"
+        Post.objects.update(comment_count=2)
 
 
 class CommentLikeBaseTest(TestCase):
@@ -164,3 +165,4 @@ class CommentLikeBaseTest(TestCase):
             original_img="uuid.png",
         )
         self.url = f"/api/v1/comments/{self.comment_content.id}/like"
+        Post.objects.update(comment_count=2)

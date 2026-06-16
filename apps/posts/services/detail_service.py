@@ -26,8 +26,6 @@ class PostDetailService:
             "spots__location", "spots__images"
         )
         queryset = queryset.annotate(
-            like_count=Count("post_likes", distinct=True),
-            comment_count=Count("comment", distinct=True),
             is_liked=(
                 Exists(PostLike.objects.filter(user=user, post_id=OuterRef("pk")))
                 if user.is_authenticated
