@@ -1,9 +1,9 @@
 from unittest.mock import MagicMock
 
+from apps.directmessages.core.serializers import UserBriefSerializer
 from apps.directmessages.serializers.conversation_create_serializer import (
     ConversationCreateSerializer,
     ConversationResponseSerializer,
-    OpponentSerializer,
 )
 from tests.test_core.bases.conversation_base import ConversationBaseTest
 
@@ -34,11 +34,11 @@ class TestConversationCreateSerializer(ConversationBaseTest):
         self.assertIn("receiver_id", serializer.errors)
 
 
-class TestOpponentSerializer(ConversationBaseTest):
+class TestUserBriefSerializer(ConversationBaseTest):
 
     def test_opponent_fields(self):
-        """OpponentSerializer 필드 직렬화 성공 테스트"""
-        serializer = OpponentSerializer(self.user_1)
+        """UserBriefSerializer 필드 직렬화 성공 테스트"""
+        serializer = UserBriefSerializer(self.user_1)
         data = serializer.data
         self.assertEqual(data["user_id"], self.user_1.id)
         self.assertEqual(data["nickname"], self.user_1.nickname)
