@@ -10,6 +10,8 @@ class TestCommentLikeDeleteView(CommentLikeBaseTest):
             comment=self.comment_content,
             user=self.user_1,
         )
+        self.comment_content.like_count = 1
+        self.comment_content.save()
         self.none_comment_url = f"/api/v1/comments/없는아이디/like"
 
     def test_delete_like(self):

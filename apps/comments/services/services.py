@@ -1,5 +1,5 @@
 from django.db import transaction
-from django.db.models import BooleanField, Count, Exists, F, OuterRef, Value
+from django.db.models import BooleanField, Exists, F, OuterRef, Value
 
 from apps.comments.models import Comment, CommentLike
 from apps.core.exceptions.exception import (
@@ -54,8 +54,7 @@ def get_comment_list(post_id, user):
                 Exists(CommentLike.objects.filter(user=user, comment_id=OuterRef("pk")))
                 if user.is_authenticated
                 else Value(False, output_field=BooleanField())
-            ),
-            like_count=Count("comment_likes"),
+            )
         )
     )
     return query_set
@@ -105,20 +104,23 @@ def delete_comment(comment_id, user):
 
 def create_comment_like(comment_id, user):
 
-    if not Comment.objects.filter(id=comment_id).exists():
+    comment = Comment.objects.filter(id=comment_id).first()
+    if not comment:
         raise NotFoundException("해당 댓글을 찾을 수 없습니다.")
 
-    _, is_create = CommentLike.objects.get_or_create(
-        user=user,
-        comment_id=comment_id,
-    )
+    with transaction.atomic():
+        _, is_create = CommentLike.objects.get_or_create(
+            user=user,
+            comment_id=comment_id,
+        )
 
-    if not is_create:
-        raise ConflictException("이미 좋아요를 누른 댓글입니다.")
+        if not is_create:
+            raise ConflictException("이미 좋아요를 누른 댓글입니다.")
+        Comment.objects.filter(id=comment.id).update(like_count=F("like_count") + 1)
 
     result = {
         "is_liked": is_create,
-        "like_count": CommentLike.objects.filter(comment_id=comment_id).count(),
+        "like_count": comment.like_count + 1,
     }
 
     return result
@@ -130,10 +132,16 @@ def delete_comment_like(comment_id, user):
     if not comment:
         raise NotFoundException("해당 댓글을 찾을 수 없습니다.")
 
-    CommentLike.objects.filter(comment=comment, user=user).delete()
+    with transaction.atomic():
+        deleted_count, _ = CommentLike.objects.filter(comment=comment, user=user).delete()
+
+        if deleted_count == 0:
+            raise NotFoundException("좋아요를 누르지 않은 댓글입니다.")
+
+        Comment.objects.filter(id=comment.id).update(like_count=F("like_count") - 1)
 
     result = {
         "is_liked": False,
-        "like_count": CommentLike.objects.filter(comment=comment).count(),
+        "like_count": comment.like_count - 1,
     }
     return result

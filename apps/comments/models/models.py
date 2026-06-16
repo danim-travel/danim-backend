@@ -16,6 +16,7 @@ class Comment(TimeStampModel):
     content = models.CharField(max_length=100, null=True, blank=True)
     img_key = models.CharField(max_length=255, null=True, blank=True)
     original_img = models.CharField(max_length=100, null=True, blank=True)
+    like_count = models.PositiveIntegerField(default=0)
 
     class Meta:
         db_table = "comment"
