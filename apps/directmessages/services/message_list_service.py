@@ -1,14 +1,11 @@
 from django.db.models import Q, QuerySet
 from rest_framework.exceptions import NotFound
 
-from apps.core.utils.validators import validate_ulid
 from apps.directmessages.models import Conversation, Message
 from apps.users.models import User
 
 
 def get_message_list(conversation_id: str, request_user: User) -> QuerySet[Message]:
-    validate_ulid(conversation_id)
-
     try:
         conversation = Conversation.objects.get(
             Q(user1=request_user) | Q(user2=request_user),
