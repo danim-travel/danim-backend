@@ -1,6 +1,7 @@
 from django.urls import URLPattern, path
 
 from apps.posts.views import (
+    bookmark_view,
     create_view,
     detail_view,
     main_list_view,
@@ -18,4 +19,7 @@ urlpatterns: list[URLPattern] = [
         name="presigned_url_post",
     ),
     path("/<str:post_id>", detail_view.PostDetailView.as_view(), name="post_detail"),
+    path(
+        "/<str:post_id>/bookmark", bookmark_view.BookmarkView.as_view(), name="bookmark"
+    ),
 ]
