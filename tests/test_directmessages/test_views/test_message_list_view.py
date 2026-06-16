@@ -7,7 +7,7 @@ class TestMessageListView(ConversationBaseTest):
     def setUp(self):
         super().setUp()
         self.url = (
-            f"/api/v1/direct-messages/conversations/{self.conversation.id}/messages/"
+            f"/api/v1/direct-messages/conversations/{self.conversation.id}/messages"
         )
         self.message_1 = Message.objects.create(
             conversation=self.conversation,
