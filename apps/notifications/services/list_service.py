@@ -1,6 +1,5 @@
-from django.core.cache import cache
-
 from apps.notifications.models import Notification
+from apps.notifications.utils import reset_cache_noti
 
 
 def get_notification_list(user):
@@ -11,4 +10,4 @@ def get_notification_list(user):
 def read_all_notifications(user):
     Notification.objects.filter(receiver=user, is_read=False).update(is_read=True)
 
-    cache.set(f"user_{user.id}_unread_count", 0, timeout=None)
+    reset_cache_noti(user)
