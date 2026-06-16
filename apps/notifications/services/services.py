@@ -1,7 +1,6 @@
-from django.core.cache import cache
-
 from apps.core.exceptions.exception import NotFoundException
 from apps.notifications.models import Notification
+from apps.notifications.utils import set_cache_noti_for_rd
 
 
 def read_notification(notification_id, user):
@@ -13,13 +12,6 @@ def read_notification(notification_id, user):
 
     result = {"notification_id": notification_id, "is_read": True}
 
-    try:
-        cache.decr(f"user_{user.id}_unread_count")
-    except ValueError:
-        cache.set(
-            f"user_{user.id}_unread_count",
-            Notification.objects.filter(receiver=user, is_read=False).count(),
-            timeout=None,
-        )
+    set_cache_noti_for_rd(user)
 
     return result
