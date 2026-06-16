@@ -23,7 +23,7 @@ urlpatterns = [
         "api/v1/notifications",
         include("apps.notifications.urls", namespace="notifications"),
     ),
-    path("api/v1/posts/explore/", include("apps.explores.urls", namespace="explores")),
+    path("api/v1/explore", include("apps.explores.urls", namespace="explores")),
     path("hello/", hello),
 ]
 
