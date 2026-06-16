@@ -1,4 +1,5 @@
-from django.db.models import BooleanField, Count, Exists, OuterRef, Value
+from django.db import transaction
+from django.db.models import BooleanField, Count, Exists, F, OuterRef, Value
 
 from apps.comments.models import Comment, CommentLike
 from apps.core.exceptions.exception import (
@@ -26,13 +27,15 @@ def create_comment(data, user):
         img_key = None
         original_img = None
 
-    new_comment = Comment.objects.create(
-        user=user,
-        post_id=post_id,
-        content=content,
-        img_key=img_key,
-        original_img=original_img,
-    )
+    with transaction.atomic():
+        new_comment = Comment.objects.create(
+            user=user,
+            post_id=post_id,
+            content=content,
+            img_key=img_key,
+            original_img=original_img,
+        )
+        Post.objects.filter(id=post_id).update(comment_count=F("comment_count") + 1)
 
     return new_comment
 
@@ -93,7 +96,11 @@ def delete_comment(comment_id, user):
     if target_comment.user != user:
         raise ForbiddenException("본인이 작성한 댓글만 삭제 할 수 있습니다.")
 
-    target_comment.delete()
+    with transaction.atomic():
+        target_comment.delete()
+        Post.objects.filter(id=target_comment.post_id).update(
+            comment_count=F("comment_count") - 1
+        )
 
 
 def create_comment_like(comment_id, user):

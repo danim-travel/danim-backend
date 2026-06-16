@@ -1,3 +1,5 @@
+import random
+
 from django.conf import settings
 from django.db import models
 
@@ -15,6 +17,10 @@ class Location(BaseModel):
         db_table = "locations"
 
 
+def _get_random():
+    return random.random()
+
+
 class Post(TimeStampModel):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="posts"
@@ -22,8 +28,10 @@ class Post(TimeStampModel):
     title = models.CharField(max_length=100)
     description = models.TextField(blank=True, default="")
     thumbnail = models.TextField(blank=True, default="")
-    # # todo
-    # random_score = models.FloatField(default=get_random, db_index=True)
+    like_count = models.PositiveIntegerField(default=0)
+    comment_count = models.PositiveIntegerField(default=0)
+    view_count = models.PositiveIntegerField(default=0)
+    random_score = models.FloatField(default=_get_random, db_index=True)
 
     class Meta:
         db_table = "posts"

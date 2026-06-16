@@ -21,8 +21,6 @@ class PostMainListService:
         queryset = queryset.select_related("user").prefetch_related("spots__location")
         queryset = queryset.annotate(
             spot_count=Count("spots", distinct=True),
-            comment_count=Count("comment", distinct=True),
-            like_count=Count("post_likes", distinct=True),
             is_liked=Exists(PostLike.objects.filter(user=user, post_id=OuterRef("pk"))),
             is_bookmarked=Exists(
                 BookMark.objects.filter(user=user, post_id=OuterRef("pk"))
