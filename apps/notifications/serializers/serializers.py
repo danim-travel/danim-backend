@@ -6,3 +6,9 @@ class NotificationReadSerializer(serializers.Serializer):
 
     notification_id = serializers.CharField()
     is_read = serializers.BooleanField()
+
+
+class NotificationDeleteSerializer(serializers.Serializer):
+    """Swagger를 위한 serializer"""
+
+    notification_id = serializers.CharField()
