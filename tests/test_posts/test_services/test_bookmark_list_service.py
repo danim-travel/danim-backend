@@ -56,7 +56,9 @@ class BookmarkListServiceTest(TestCase):
     def test_is_liked_annotation(self) -> None:
         """is_liked가 요청 유저 기준으로 annotate된다"""
         PostLike.objects.create(user=self.user, post=self.post2)
-        liked_map = {bm.post_id: bm.is_liked for bm in self.service.get_bookmark_list(self.user)}
+        liked_map = {
+            bm.post_id: bm.is_liked for bm in self.service.get_bookmark_list(self.user)
+        }
         self.assertTrue(liked_map[self.post2.id])
         self.assertFalse(liked_map[self.post1.id])
 

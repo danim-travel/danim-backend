@@ -1,8 +1,8 @@
-from django.db.models import Exists,OuterRef
+from django.db.models import Exists, OuterRef
 
 from apps.posts.models import PostLike
-from apps.users.models import User
 from apps.posts.models.bookmark_model import BookMark
+from apps.users.models import User
 
 
 class BookmarkListService:
@@ -19,4 +19,3 @@ class BookmarkListService:
             )
             .order_by("-id")
         )
-
