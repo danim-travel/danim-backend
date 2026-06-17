@@ -16,4 +16,4 @@ def read_all_notifications(user):
 def delete_all_notifications(user):
     Notification.objects.filter(receiver=user).delete()
 
-    cache.set(f"user_{user.id}_unread_count", 0, timeout=None)
+    reset_cache_noti(user)
