@@ -7,7 +7,7 @@ from django.core.cache import cache
 from django.db import IntegrityError, transaction
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.core.exceptions.exception import ValidationException
+from apps.core.exceptions.exception import ConflictException, ValidationException
 from apps.core.utils.base62 import generate_token
 from apps.users.models import LoginType, User
 from apps.users.models.socialaccount import SocialAccount
@@ -32,7 +32,6 @@ class GoogleService:
     TOKEN_URL = "https://oauth2.googleapis.com/token"
     PROFILE_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
     SCOPE = "openid email profile"
-    SOCIAL_EMAIL_DOMAIN = "social.danim.kr"
     STATE_TTL = 300
 
     def build_authorize_url(self) -> str:
@@ -94,13 +93,10 @@ class GoogleService:
 
     def _create_google_user(self, profile: dict) -> User:
         """유저 데이터가 존재하지 않으면 회원가입 시키는 함수"""
-        email = (
-            profile.get("email")
-            or f"google_{profile['social_id']}@{self.SOCIAL_EMAIL_DOMAIN}"
-        )
+
         with transaction.atomic():
             user = User.objects.create_social_user(
-                email=email,
+                email=profile["email"],
                 nickname=f"google_{profile['social_id'][:10]}",
                 name="구글",
                 birth_day=date(2000, 1, 1),
@@ -127,11 +123,17 @@ class GoogleService:
             try:
                 user = self._create_google_user(profile)
             except IntegrityError:
-                user = (
-                    SocialAccount.objects.select_related("user")
-                    .get(login_type=LoginType.GOOGLE, social_id=profile["social_id"])
-                    .user
-                )
+                try:
+                    user = (
+                        SocialAccount.objects.select_related("user")
+                        .get(
+                            login_type=LoginType.GOOGLE,
+                            social_id=profile["social_id"],
+                        )
+                        .user
+                    )
+                except SocialAccount.DoesNotExist:
+                    raise ConflictException("이미 존재하는 이메일입니다.")
 
         access, refresh = self._issue_jwt(user)
         return {

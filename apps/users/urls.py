@@ -66,7 +66,7 @@ urlpatterns: list[URLPattern] = [
         "/reset-password",
         reset_password_view.ResetPasswordView.as_view(),
         name="reset_password",
-        ),
+    ),
     path(
         "/social-login/google/login",
         google_view.GoogleLoginView.as_view(),

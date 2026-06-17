@@ -93,14 +93,14 @@ class GoogleServiceTest(TestCase):
         with self.assertRaises(ValidationException):
             self.service.google_callback("code", "state")
 
-    def test_email_fallback_to_dummy(self):
-        """구글이 이메일을 안 주면 더미 이메일로 가입"""
-        self._set_google_response(sub="123123123123", email=None)
-
-        self.service.google_callback("code", "state")
-
-        user = User.objects.get(login_type=LoginType.GOOGLE)
-        self.assertEqual(user.email, "google_123123123123@social.danim.kr")
+    # def test_email_fallback_to_dummy(self):
+    #     """구글이 이메일을 안 주면 더미 이메일로 가입"""
+    #     self._set_google_response(sub="123123123123", email=None)
+    #
+    #     self.service.google_callback("code", "state")
+    #
+    #     user = User.objects.get(login_type=LoginType.GOOGLE)
+    #     self.assertEqual(user.email, "google_123123123123@social.danim.kr")
 
     def test_build_authorize_url(self):
         """authorize URL에 필수 파라미터(scope 포함) + state 저장"""
