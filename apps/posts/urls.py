@@ -4,6 +4,7 @@ from apps.posts.views import (
     bookmark_view,
     create_view,
     detail_view,
+    like_view,
     main_list_view,
     presigned_url_post_view,
 )
@@ -19,6 +20,7 @@ urlpatterns: list[URLPattern] = [
         name="presigned_url_post",
     ),
     path("/<str:post_id>", detail_view.PostDetailView.as_view(), name="post_detail"),
+    path("/<str:post_id>/like", like_view.PostLikeView.as_view(), name="post_like"),
     path(
         "/<str:post_id>/bookmark", bookmark_view.BookmarkView.as_view(), name="bookmark"
     ),
