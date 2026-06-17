@@ -62,6 +62,8 @@ jobs:
             echo "KAKAO_CLIENT_SECRET=${{ secrets.KAKAO_CLIENT_SECRET }}" >> envs/.env.prod
             echo "KAKAO_REDIRECT_URI=${{ secrets.KAKAO_REDIRECT_URI }}" >> envs/.env.prod
             echo "FRONT_REDIRECT_URI=${{ secrets.FRONT_REDIRECT_URI }}" >> envs/.env.prod
+            echo "SENTRY_DSN=${{ secrets.SENTRY_DSN }}" >> envs/.env.prod
+            echo "DJANGO_ENV=prod" >> envs/.env.prod
 
             # 새 이미지 pull 및 재시작
             echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
