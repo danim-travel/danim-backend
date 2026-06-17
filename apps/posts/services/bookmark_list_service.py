@@ -9,7 +9,7 @@ class BookmarkListService:
     def get_bookmark_list(self, request_user: User):
         return (
             BookMark.objects.filter(user=request_user)
-            .select_related("post", "post__user")
+            .select_related("post")
             .annotate(
                 is_liked=Exists(
                     PostLike.objects.filter(
