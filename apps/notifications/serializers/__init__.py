@@ -1,4 +1,5 @@
 from apps.notifications.serializers.list_serializers import (
+    NotificationListReadSwaggerSerializer,
     NotificationListSerializer,
     NotificationSwaggerSerializer,
 )
@@ -8,4 +9,5 @@ __all__ = [
     "NotificationListSerializer",
     "NotificationSwaggerSerializer",
     "NotificationReadSerializer",
+    "NotificationListReadSwaggerSerializer",
 ]
