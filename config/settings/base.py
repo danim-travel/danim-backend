@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import environ
+import sentry_sdk
 from botocore.config import Config
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -162,6 +163,16 @@ KAKAO_REST_API_KEY = env("KAKAO_REST_API_KEY", default="")
 KAKAO_CLIENT_SECRET = env("KAKAO_CLIENT_SECRET", default="")
 KAKAO_REDIRECT_URI = env("KAKAO_REDIRECT_URI", default="")
 FRONT_REDIRECT_URI = env("FRONT_REDIRECT_URI", default="")
+
+# Sentry (DSN이 비어있으면 자동 비활성화 → 로컬/dev/prod 한 곳에서 제어)
+SENTRY_DSN = env("SENTRY_DSN", default="")
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=env("DJANGO_ENV", default="local"),
+        traces_sample_rate=0.1,
+        send_default_pii=False,
+    )
 
 CACHES = {
     "default": {
