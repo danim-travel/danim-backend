@@ -1,6 +1,7 @@
+from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.views import APIView, status
+from rest_framework.views import APIView
 
 from apps.core.websocket.websocket_key.service import make_socket_key
 
