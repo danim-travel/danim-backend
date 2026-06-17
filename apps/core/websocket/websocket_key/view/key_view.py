@@ -8,6 +8,6 @@ from apps.core.websocket.websocket_key.service import make_socket_key
 class WebSocketKey(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
+    def post(self, request):
         socket_key = make_socket_key(request.user)
         return Response({"socket_key": socket_key})
