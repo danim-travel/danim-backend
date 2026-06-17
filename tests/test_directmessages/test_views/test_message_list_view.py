@@ -109,6 +109,22 @@ class TestMessageListView(ConversationBaseTest):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 404)
 
+    def test_rejoined_user_only_sees_messages_after_rejoin(self):
+        """재입장한 유저는 rejoin_at 이후 메시지만 응답에 포함"""
+        if self.conversation.user1_id == self.user_1.id:
+            self.conversation.user1_rejoin_at = self.message_2.created_at
+            self.conversation.save(update_fields=["user1_rejoin_at"])
+            rejoining_user = self.user_1
+        else:
+            self.conversation.user2_rejoin_at = self.message_2.created_at
+            self.conversation.save(update_fields=["user2_rejoin_at"])
+            rejoining_user = self.user_2
+        self.client.force_authenticate(user=rejoining_user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["message_id"], self.message_2.id)
+
     def test_deleted_message_content_is_none_in_response(self):
         """삭제된 메시지는 응답에서 content가 None"""
         self.message_1.is_deleted = True

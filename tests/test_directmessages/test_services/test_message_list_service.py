@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework.exceptions import NotFound
 
 from apps.directmessages.models import Message
@@ -50,6 +51,20 @@ class TestMessageListService(ConversationBaseTest):
         self.conversation.save()
         with self.assertRaises(NotFound):
             get_message_list(self.conversation.id, u1)
+
+    def test_rejoined_user_only_sees_messages_after_rejoin(self):
+        """재입장한 유저는 rejoin_at 이후 메시지만 조회 가능"""
+        if self.conversation.user1_id == self.user_1.id:
+            self.conversation.user1_rejoin_at = self.message_2.created_at
+            self.conversation.save(update_fields=["user1_rejoin_at"])
+            rejoining_user = self.user_1
+        else:
+            self.conversation.user2_rejoin_at = self.message_2.created_at
+            self.conversation.save(update_fields=["user2_rejoin_at"])
+            rejoining_user = self.user_2
+        qs = get_message_list(self.conversation.id, rejoining_user)
+        self.assertEqual(qs.count(), 1)
+        self.assertEqual(qs.first().id, self.message_2.id)
 
     def test_select_related_sender(self):
         """select_related로 sender N+1 방지 - 쿼리셋 평가 1회(JOIN 포함) 후 sender 접근 시 추가 쿼리 없음"""
