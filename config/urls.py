@@ -4,6 +4,8 @@ from django.http import JsonResponse
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+from apps.core.websocket.websocket_key.view import WebSocketKey
+
 
 def hello(request):
     return JsonResponse({"hello": True})
@@ -25,6 +27,7 @@ urlpatterns = [
     ),
     path("api/v1/explore", include("apps.explores.urls", namespace="explores")),
     path("hello/", hello),
+    path("api/v1/websocket-key", WebSocketKey.as_view(), name="websocket_key"),
 ]
 
 if getattr(settings, "SHOW_SWAGGER", False):
