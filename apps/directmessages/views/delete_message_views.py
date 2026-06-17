@@ -1,5 +1,7 @@
 from typing import cast
 
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
@@ -23,9 +25,15 @@ class DeleteMessageView(APIView):
             data={"conversation_id": conversation_id, "message_id": message_id}
         )
         serializer.is_valid(raise_exception=True)
+        validated_conversation_id = serializer.validated_data["conversation_id"]
+        validated_message_id = serializer.validated_data["message_id"]
         delete_message(
-            serializer.validated_data["conversation_id"],
-            serializer.validated_data["message_id"],
+            validated_conversation_id,
+            validated_message_id,
             cast(User, request.user),
+        )
+        async_to_sync(get_channel_layer().group_send)(
+            f"conversation_{validated_conversation_id}",
+            {"type": "broadcast_message_deleted", "message_id": validated_message_id},
         )
         return Response(status=status.HTTP_204_NO_CONTENT)
