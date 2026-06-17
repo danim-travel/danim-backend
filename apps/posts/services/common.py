@@ -1,3 +1,5 @@
+from django.db.models import F
+
 from apps.posts.models import Location, Post, PostSpot, PostSpotImage
 
 
@@ -16,6 +18,8 @@ def create_spot_with_location_and_images(post: Post, spot_data: dict) -> None:
         content=spot_data.get("content", ""),
         order=spot_data["order"],
     )
+    Post.objects.filter(id=post.id).update(spot_count=F("spot_count") + 1)
+
     for img_order, image_data in enumerate(spot_data.get("images", []), start=1):
         PostSpotImage.objects.create(
             post_spot=post_spot,

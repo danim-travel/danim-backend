@@ -30,5 +30,6 @@ class PostUpdateService:
 
             if "spots" in data:
                 post.spots.all().delete()
+                Post.objects.filter(id=post.id).update(spot_count=0)
                 for spot_data in data["spots"]:
                     create_spot_with_location_and_images(post, spot_data)
