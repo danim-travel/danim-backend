@@ -12,7 +12,9 @@ from apps.core.utils.base62 import generate_token
 from apps.users.models import LoginType, User
 from apps.users.models.socialaccount import SocialAccount
 from apps.users.redis_keys import SocialRedisKey
+import logging
 
+logger = logging.getLogger(__name__)
 
 class KakaoService:
     """
@@ -120,7 +122,7 @@ class KakaoService:
         except SocialAccount.DoesNotExist:
             try:
                 user = self._create_kakao_user(profile)
-            except IntegrityError:
+            except IntegrityError as e:
                 user = (
                     SocialAccount.objects.select_related("user")
                     .get(
@@ -129,6 +131,7 @@ class KakaoService:
                     )
                     .user
                 )
+                logger.error(f"에러위치:{e}")
 
         access, refresh = self._issue_jwt(user)
         return {
