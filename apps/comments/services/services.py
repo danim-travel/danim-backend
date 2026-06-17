@@ -7,6 +7,7 @@ from apps.core.exceptions.exception import (
     ForbiddenException,
     NotFoundException,
 )
+from apps.notifications.utils import create_notification
 from apps.posts.models import Post
 
 
@@ -14,7 +15,8 @@ def create_comment(data, user):
     """댓글 생성 및 응답을 위한 img_url 자체 생성 후 응답하는 서비스 로직"""
 
     post_id = data["post_id"]
-    if not Post.objects.filter(id=post_id).exists():
+    post = Post.objects.filter(id=post_id).first()
+    if not post:
         raise NotFoundException("게시글에 대한 정보를 찾지 못했습니다.")
 
     content = data.get("content")
@@ -36,6 +38,10 @@ def create_comment(data, user):
             original_img=original_img,
         )
         Post.objects.filter(id=post_id).update(comment_count=F("comment_count") + 1)
+
+    create_notification(
+        receiver=post.user, sender=user, noti_type="comment", target_id=post.id
+    )
 
     return new_comment
 
@@ -122,6 +128,13 @@ def create_comment_like(comment_id, user):
         "is_liked": is_create,
         "like_count": comment.like_count + 1,
     }
+
+    create_notification(
+        receiver=comment.user,
+        sender=user,
+        noti_type="comment_like",
+        target_id=comment.post_id,
+    )
 
     return result
 

@@ -1,6 +1,7 @@
 from django.db.models import F
 
 from apps.core.exceptions.exception import ConflictException, NotFoundException
+from apps.notifications.utils import create_notification
 from apps.posts.models import Post, PostLike
 from apps.users.models import User
 
@@ -20,6 +21,14 @@ class PostLikeService:
         PostLike.objects.create(post=post, user=user)
         Post.objects.filter(id=post_id).update(like_count=F("like_count") + 1)
         post.refresh_from_db()
+
+        create_notification(
+            receiver=post.user,
+            sender=user,
+            noti_type="post_like",
+            target_id=post_id,
+        )
+
         return post
 
     def unlike_post(self, post_id: str, user: User) -> Post:

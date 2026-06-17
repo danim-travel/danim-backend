@@ -4,6 +4,7 @@ from apps.core.exceptions.exception import (
     ValidationException,
 )
 from apps.follows.models.models import Follows
+from apps.notifications.utils import create_notification
 from apps.users.models import User
 
 
@@ -11,7 +12,8 @@ def create_follow(target_user_id, request_user):
     if str(target_user_id) == str(request_user.id):
         raise ValidationException("자기 자신은 팔로우할 수 없습니다.")
 
-    if not User.objects.filter(id=target_user_id).exists():
+    target_user = User.objects.filter(id=target_user_id).first()
+    if not target_user:
         raise NotFoundException("해당 유저를 찾을 수 없습니다.")
 
     _, created = Follows.objects.get_or_create(
@@ -23,6 +25,14 @@ def create_follow(target_user_id, request_user):
     follow_count = Follows.objects.filter(following_id=target_user_id).count()
 
     result = {"follower_count": follow_count, "is_followed": True}
+
+    create_notification(
+        receiver=target_user,
+        sender=request_user,
+        noti_type="follow",
+        target_id=target_user_id,
+    )
+
     return result
 
 
