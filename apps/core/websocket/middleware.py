@@ -1,6 +1,7 @@
 from urllib.parse import parse_qs
 
 from asgiref.sync import sync_to_async
+from django.contrib.auth.models import AnonymousUser
 from django.core.cache import cache
 
 from apps.users.models import User
@@ -24,6 +25,6 @@ class WebsocketMiddleware:
                 await sync_to_async(cache.delete)(f"socket_key_{socket_key}")
                 scope["user"] = await get_user(user_id)
             else:
-                scope["user"] = None
+                scope["user"] = AnonymousUser
 
         return await self.app(scope, receive, send)
