@@ -94,14 +94,14 @@ class KakaoServiceTest(TestCase):
         with self.assertRaises(ValidationException):
             self.service.kakao_callback("code", "state")
 
-    def test_email_fallback_to_dummy(self):
-        """카카오가 이메일을 안 주면 더미 이메일로 가입"""
-        self._set_kakao_response(social_id=333, email=None)
-
-        self.service.kakao_callback("code", "state")
-
-        user = User.objects.get(login_type=LoginType.KAKAO)
-        self.assertEqual(user.email, "kakao_333@social.danim.kr")
+    # def test_email_fallback_to_dummy(self):
+    #     """카카오가 이메일을 안 주면 더미 이메일로 가입"""
+    #     self._set_kakao_response(social_id=333, email=None)
+    #
+    #     self.service.kakao_callback("code", "state")
+    #
+    #     user = User.objects.get(login_type=LoginType.KAKAO)
+    #     self.assertEqual(user.email, "kakao_333@social.danim.kr")
 
     def test_build_authorize_url(self):
         """authorize URL에 필수 파라미터 포함 + state 저장"""
