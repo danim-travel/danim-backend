@@ -7,7 +7,7 @@ from django.core.cache import cache
 from django.db import IntegrityError, transaction
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.core.exceptions.exception import ValidationException
+from apps.core.exceptions.exception import ConflictException, ValidationException
 from apps.core.utils.base62 import generate_token
 from apps.users.models import LoginType, User
 from apps.users.models.socialaccount import SocialAccount
@@ -88,13 +88,9 @@ class KakaoService:
         return str(token.access_token), str(token)
 
     def _create_kakao_user(self, profile: dict) -> User:
-        email = (
-            profile.get("email")
-            or f"kakao_{profile['social_id']}@{self.SOCIAL_EMAIL_DOMAIN}"
-        )
         with transaction.atomic():
             user = User.objects.create_social_user(
-                email=email,
+                email=profile["email"],
                 nickname=f"kakao_{profile['social_id']}",
                 name="카카오",
                 birth_day=date(2000, 1, 1),
@@ -122,16 +118,19 @@ class KakaoService:
         except SocialAccount.DoesNotExist:
             try:
                 user = self._create_kakao_user(profile)
-            except IntegrityError as e:
-                user = (
-                    SocialAccount.objects.select_related("user")
-                    .get(
-                        login_type=LoginType.KAKAO,
-                        social_id=profile["social_id"],
+            except IntegrityError:
+                try:
+
+                    user = (
+                        SocialAccount.objects.select_related("user")
+                        .get(
+                            login_type=LoginType.KAKAO,
+                            social_id=profile["social_id"],
+                        )
+                        .user
                     )
-                    .user
-                )
-                logger.error(f"에러위치:{e}")
+                except SocialAccount.DoesNotExist:
+                    raise ConflictException("이미 존재하는 이메일 입니다.")
 
         access, refresh = self._issue_jwt(user)
         return {
