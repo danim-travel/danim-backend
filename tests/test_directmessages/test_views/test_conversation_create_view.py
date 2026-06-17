@@ -1,3 +1,5 @@
+from django.utils import timezone
+
 from apps.directmessages.models import Conversation
 from tests.test_core.bases.conversation_base import ConversationBaseTest
 
@@ -51,6 +53,21 @@ class TestConversationCreateView(ConversationBaseTest):
         response = self.client.post(self.url, {"receiver_id": self.user_1.id})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["conversation_id"], self.conversation.id)
+        self.assertEqual(Conversation.objects.count(), 1)
+
+    def test_rejoin_returns_201(self):
+        """나갔다가 재입장 시 201 반환"""
+        if self.conversation.user1_id == self.user_1.id:
+            self.conversation.user1_left_at = timezone.now()
+            self.conversation.save(update_fields=["user1_left_at"])
+            rejoining_user, other_user = self.user_1, self.user_2
+        else:
+            self.conversation.user2_left_at = timezone.now()
+            self.conversation.save(update_fields=["user2_left_at"])
+            rejoining_user, other_user = self.user_2, self.user_1
+        self.client.force_authenticate(user=rejoining_user)
+        response = self.client.post(self.url, {"receiver_id": other_user.id})
+        self.assertEqual(response.status_code, 201)
         self.assertEqual(Conversation.objects.count(), 1)
 
     def test_opponent_data_in_response(self):
