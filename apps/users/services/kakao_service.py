@@ -1,3 +1,4 @@
+import logging
 from datetime import date
 from urllib.parse import urlencode
 
@@ -12,9 +13,9 @@ from apps.core.utils.base62 import generate_token
 from apps.users.models import LoginType, User
 from apps.users.models.socialaccount import SocialAccount
 from apps.users.redis_keys import SocialRedisKey
-import logging
 
 logger = logging.getLogger(__name__)
+
 
 class KakaoService:
     """
@@ -32,7 +33,6 @@ class KakaoService:
     AUTHORIZE_URL = "https://kauth.kakao.com/oauth/authorize"
     TOKEN_URL = "https://kauth.kakao.com/oauth/token"
     PROFILE_URL = "https://kapi.kakao.com/v2/user/me"
-    SOCIAL_EMAIL_DOMAIN = "social.danim.kr"
 
     STATE_TTL = 300
 
@@ -137,5 +137,6 @@ class KakaoService:
             "access_token": access,
             "refresh_token": refresh,
         }
+
 
 #
