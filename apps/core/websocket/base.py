@@ -14,9 +14,8 @@ class BaseConsumer(AsyncWebsocketConsumer):
     user: User | None
 
     async def connect(self):
-        self.user = self.scope.get("user")
-
-        if not self.user:
+        user = self.scope.get("user")
+        if not user.is_authenticated:
             await self.close()
             return
 
