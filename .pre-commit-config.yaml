@@ -48,3 +48,5 @@ repos:
           - boto3-stubs[s3]
           - Pillow
           - pgvector
+          - httpx
+          - sentry-sdk
