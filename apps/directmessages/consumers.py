@@ -1,69 +1,29 @@
-import asyncio
 import json
 
 from channels.db import database_sync_to_async
-from channels.generic.websocket import AsyncWebsocketConsumer
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Q
 from django.utils import timezone
-from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
-from rest_framework_simplejwt.tokens import AccessToken
 
 from apps.core.storage.s3 import s3_svc
+from apps.core.websocket.base import BaseConsumer
 from apps.directmessages.models import Conversation, Message
 from apps.users.models import User
 
-AUTH_TIMEOUT = 10
 
+class DMConsumer(BaseConsumer):
 
-class DMConsumer(AsyncWebsocketConsumer):
-
-    async def connect(self) -> None:
+    async def on_connect(self) -> None:
         self.conversation_id: str = self.scope["url_route"]["kwargs"]["conversation_id"]
-        self.authenticated: bool = False
-        self.user: User | None = None
-        self.conversation: Conversation | None = None
-        self.group_name: str | None = None
-        await self.accept()
-        self._auth_timeout_task = asyncio.create_task(self._close_if_not_authenticated())
 
-    async def disconnect(self, close_code: int) -> None:
-        if hasattr(self, "_auth_timeout_task") and not self._auth_timeout_task.done():
-            self._auth_timeout_task.cancel()
-        if self.group_name:
-            await self.channel_layer.group_discard(self.group_name, self.channel_name)
-
-    async def receive(self, text_data: str) -> None:
-        try:
-            data = json.loads(text_data)
-        except json.JSONDecodeError:
-            return
-
-        if not self.authenticated:
-            if data.get("type") == "auth":
-                await self._handle_auth(data)
-            else:
-                await self.close()
-            return
-
-        if data.get("type") == "send_message":
-            await self._handle_send_message(data)
-
-    async def _close_if_not_authenticated(self) -> None:
-        await asyncio.sleep(AUTH_TIMEOUT)
-        if not self.authenticated:
-            await self.close()
-
-    async def _handle_auth(self, data: dict) -> None:
-        user = await self._authenticate(data.get("token", ""))
-        if not user:
+        if len(self.conversation_id) != 26:
             await self.send(
-                json.dumps({"type": "error", "detail": "인증에 실패했습니다."})
+                json.dumps({"type": "error", "detail": "잘못된 대화방 ID입니다."})
             )
             await self.close()
             return
 
-        conversation = await self._get_conversation(self.conversation_id, user)
+        conversation = await self._get_conversation(self.conversation_id, self.user)
         if not conversation:
             await self.send(
                 json.dumps({"type": "error", "detail": "대화방을 찾을 수 없습니다."})
@@ -71,24 +31,28 @@ class DMConsumer(AsyncWebsocketConsumer):
             await self.close()
             return
 
-        self.user = user
-        self.conversation = conversation
-        self.authenticated = True
-        self._auth_timeout_task.cancel()
+        self.conversation: Conversation = conversation
         self.group_name = f"conversation_{self.conversation_id}"
         await self.channel_layer.group_add(self.group_name, self.channel_name)
 
-        message_ids = await self._mark_messages_as_read(conversation, user)
+        message_ids = await self._mark_messages_as_read(conversation, self.user)
         if message_ids:
             await self.channel_layer.group_send(
                 self.group_name,
                 {"type": "broadcast_read_receipt", "message_ids": message_ids},
             )
 
+    async def receive(self, text_data: str) -> None:
+        try:
+            data = json.loads(text_data)
+        except json.JSONDecodeError:
+            return
+
+        if data.get("type") == "send_message":
+            await self._handle_send_message(data)
+
     async def _handle_send_message(self, data: dict) -> None:
         user: User = self.user  # type: ignore[assignment]
-        conversation: Conversation = self.conversation  # type: ignore[assignment]
-
         content: str | None = data.get("content")
         img_key: str | None = data.get("img_key")
         original_img: str | None = data.get("original_img")
@@ -96,10 +60,9 @@ class DMConsumer(AsyncWebsocketConsumer):
         if not content and not img_key:
             return
 
-        message = await self._create_message(
-            conversation, user, content, img_key, original_img
+        message = await self._create_message_and_update_conversation(
+            self.conversation, user, content, img_key, original_img
         )
-        await self._update_conversation_on_send(conversation, user)
 
         img_url = s3_svc.create_download_presigned_url(img_key) if img_key else None
 
@@ -136,14 +99,6 @@ class DMConsumer(AsyncWebsocketConsumer):
         )
 
     @database_sync_to_async
-    def _authenticate(self, token_str: str) -> User | None:
-        try:
-            token = AccessToken(token_str)  # type: ignore[arg-type]
-            return User.objects.get(id=token["user_id"])
-        except (InvalidToken, TokenError, User.DoesNotExist, KeyError):
-            return None
-
-    @database_sync_to_async
     def _get_conversation(self, conversation_id: str, user: User) -> Conversation | None:
         try:
             return Conversation.objects.get(
@@ -151,7 +106,7 @@ class DMConsumer(AsyncWebsocketConsumer):
                 | Q(user2=user, user2_left_at__isnull=True),
                 pk=conversation_id,
             )
-        except Conversation.DoesNotExist:
+        except (Conversation.DoesNotExist, ValueError):
             return None
 
     @database_sync_to_async
@@ -176,7 +131,7 @@ class DMConsumer(AsyncWebsocketConsumer):
         return [str(msg_id) for msg_id in qs.values_list("id", flat=True)]
 
     @database_sync_to_async
-    def _create_message(
+    def _create_message_and_update_conversation(
         self,
         conv: Conversation,
         user: User,
@@ -184,26 +139,25 @@ class DMConsumer(AsyncWebsocketConsumer):
         img_key: str | None,
         original_img: str | None,
     ) -> Message:
-        img_url = s3_svc.create_img_url(img_key) if img_key else None
-        return Message.objects.create(
-            conversation=conv,
-            sender=user,
-            content=content,
-            img_key=img_key,
-            img_url=img_url,
-            original_img=original_img,
-        )
-
-    @database_sync_to_async
-    def _update_conversation_on_send(self, conv: Conversation, user: User) -> None:
-        now = timezone.now()
-        if conv.user1_id == user.id:
-            Conversation.objects.filter(pk=conv.id).update(
-                last_message_at=now,
-                user2_unread_count=models.F("user2_unread_count") + 1,
+        with transaction.atomic():
+            img_url = s3_svc.create_img_url(img_key) if img_key else None
+            message = Message.objects.create(
+                conversation=conv,
+                sender=user,
+                content=content,
+                img_key=img_key,
+                img_url=img_url,
+                original_img=original_img,
             )
-        else:
-            Conversation.objects.filter(pk=conv.id).update(
-                last_message_at=now,
-                user1_unread_count=models.F("user1_unread_count") + 1,
-            )
+            now = timezone.now()
+            if conv.user1_id == user.id:
+                Conversation.objects.filter(pk=conv.id).update(
+                    last_message_at=now,
+                    user2_unread_count=models.F("user2_unread_count") + 1,
+                )
+            else:
+                Conversation.objects.filter(pk=conv.id).update(
+                    last_message_at=now,
+                    user1_unread_count=models.F("user1_unread_count") + 1,
+                )
+            return message

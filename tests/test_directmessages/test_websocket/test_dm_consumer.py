@@ -1,17 +1,21 @@
+import uuid
 from datetime import date
 
+from asgiref.sync import sync_to_async
 from channels.testing import WebsocketCommunicator
+from django.core.cache import cache
 from django.test import TransactionTestCase
 from django.utils import timezone
-from rest_framework_simplejwt.tokens import AccessToken
 
 from apps.directmessages.models import Conversation, Message
 from apps.users.models.models import LoginType, User
 from config.asgi import application
 
 
-def get_token(user: User) -> str:
-    return str(AccessToken.for_user(user))
+def make_test_socket_key(user: User) -> str:
+    socket_key = str(uuid.uuid4())
+    cache.set(f"socket_key_{socket_key}", user.id, timeout=30)
+    return socket_key
 
 
 class TestDMConsumer(TransactionTestCase):
@@ -55,39 +59,44 @@ class TestDMConsumer(TransactionTestCase):
         )
         u1, u2 = sorted([self.user_1, self.user_2], key=lambda u: u.id)
         self.conversation = Conversation.objects.create(user1=u1, user2=u2)
-        self.url = f"ws/conversations/{self.conversation.id}"
+        self.base_url = f"ws/conversations/{self.conversation.id}"
+
+    async def _make_communicator(self, user: User) -> WebsocketCommunicator:
+        socket_key = await sync_to_async(make_test_socket_key)(user)
+        return WebsocketCommunicator(
+            application, f"{self.base_url}?socket_key={socket_key}"
+        )
 
     async def test_auth_success(self):
-        """인증 성공 시 정상 연결"""
-        communicator = WebsocketCommunicator(application, self.url)
+        """유효한 socket_key로 정상 연결"""
+        communicator = await self._make_communicator(self.user_1)
         connected, _ = await communicator.connect()
         self.assertTrue(connected)
-
-        await communicator.send_json_to({"type": "auth", "token": get_token(self.user_1)})
         self.assertTrue(await communicator.receive_nothing())
-
         await communicator.disconnect()
 
-    async def test_auth_invalid_token(self):
-        """잘못된 토큰으로 인증 시 에러 후 연결 종료"""
-        communicator = WebsocketCommunicator(application, self.url)
+    async def test_auth_invalid_socket_key(self):
+        """잘못된 socket_key로 연결 시 즉시 종료"""
+        communicator = WebsocketCommunicator(
+            application, f"{self.base_url}?socket_key=invalid-key"
+        )
         connected, _ = await communicator.connect()
-        self.assertTrue(connected)
+        self.assertFalse(connected)
+        await communicator.disconnect()
 
-        await communicator.send_json_to({"type": "auth", "token": "invalid_token"})
-        response = await communicator.receive_json_from()
-        self.assertEqual(response["type"], "error")
-        self.assertIn("인증", response["detail"])
-
+    async def test_auth_no_socket_key(self):
+        """socket_key 없이 연결 시 즉시 종료"""
+        communicator = WebsocketCommunicator(application, self.base_url)
+        connected, _ = await communicator.connect()
+        self.assertFalse(connected)
         await communicator.disconnect()
 
     async def test_auth_non_participant(self):
-        """대화 참여자가 아닌 유저 인증 시 에러 후 연결 종료"""
-        communicator = WebsocketCommunicator(application, self.url)
+        """대화 참여자가 아닌 유저 연결 시 에러 후 연결 종료"""
+        communicator = await self._make_communicator(self.user_3)
         connected, _ = await communicator.connect()
         self.assertTrue(connected)
 
-        await communicator.send_json_to({"type": "auth", "token": get_token(self.user_3)})
         response = await communicator.receive_json_from()
         self.assertEqual(response["type"], "error")
         self.assertIn("대화방", response["detail"])
@@ -95,48 +104,26 @@ class TestDMConsumer(TransactionTestCase):
         await communicator.disconnect()
 
     async def test_auth_already_left(self):
-        """대화방 나간 유저 인증 시 에러 후 연결 종료"""
+        """대화방 나간 유저 연결 시 에러 후 연결 종료"""
         self.conversation.user1_left_at = timezone.now()
         await self.conversation.asave()
 
-        communicator = WebsocketCommunicator(application, self.url)
+        communicator = await self._make_communicator(self.conversation.user1)
         connected, _ = await communicator.connect()
         self.assertTrue(connected)
 
-        await communicator.send_json_to(
-            {"type": "auth", "token": get_token(self.conversation.user1)}
-        )
         response = await communicator.receive_json_from()
         self.assertEqual(response["type"], "error")
 
         await communicator.disconnect()
 
-    async def test_message_before_auth_closes_connection(self):
-        """인증 전에 다른 메시지 전송 시 연결 종료"""
-        communicator = WebsocketCommunicator(application, self.url)
-        connected, _ = await communicator.connect()
-        self.assertTrue(connected)
-
-        await communicator.send_json_to({"type": "send_message", "content": "hello"})
-        response = await communicator.receive_output(timeout=1)
-        self.assertEqual(response["type"], "websocket.close")
-
-        await communicator.disconnect()
-
     async def test_send_message_broadcast(self):
         """send_message 시 양측에 receive_message 브로드캐스트"""
-        communicator1 = WebsocketCommunicator(application, self.url)
-        communicator2 = WebsocketCommunicator(application, self.url)
+        communicator1 = await self._make_communicator(self.user_1)
+        communicator2 = await self._make_communicator(self.user_2)
 
         await communicator1.connect()
         await communicator2.connect()
-
-        await communicator1.send_json_to(
-            {"type": "auth", "token": get_token(self.user_1)}
-        )
-        await communicator2.send_json_to(
-            {"type": "auth", "token": get_token(self.user_2)}
-        )
 
         await communicator1.send_json_to(
             {
@@ -166,9 +153,8 @@ class TestDMConsumer(TransactionTestCase):
             content="읽어봐",
         )
 
-        communicator = WebsocketCommunicator(application, self.url)
+        communicator = await self._make_communicator(self.user_2)
         await communicator.connect()
-        await communicator.send_json_to({"type": "auth", "token": get_token(self.user_2)})
 
         response = await communicator.receive_json_from()
         self.assertEqual(response["type"], "read_receipt")
@@ -178,9 +164,8 @@ class TestDMConsumer(TransactionTestCase):
 
     async def test_no_read_receipt_when_no_unread(self):
         """미읽음 메시지 없으면 read_receipt 전송 안 함"""
-        communicator = WebsocketCommunicator(application, self.url)
+        communicator = await self._make_communicator(self.user_1)
         await communicator.connect()
-        await communicator.send_json_to({"type": "auth", "token": get_token(self.user_1)})
 
         self.assertTrue(await communicator.receive_nothing(timeout=1))
 
