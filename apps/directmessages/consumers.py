@@ -8,6 +8,7 @@ from django.utils import timezone
 from apps.core.storage.s3 import s3_svc
 from apps.core.websocket.base import BaseConsumer
 from apps.directmessages.models import Conversation, Message
+from apps.notifications.utils import create_notification
 from apps.users.models import User
 
 
@@ -82,6 +83,18 @@ class DMConsumer(BaseConsumer):
                 "is_read": False,
                 "created_at": message.created_at.isoformat(),
             },
+        )
+
+        receiver_id = (
+            self.conversation.user2_id
+            if self.conversation.user1_id == user.id
+            else self.conversation.user1_id
+        )
+        await database_sync_to_async(create_notification)(
+            receiver_id=receiver_id,
+            sender=user,
+            noti_type="dm",
+            target_id=str(self.conversation.id),
         )
 
     async def broadcast_receive_message(self, event: dict) -> None:
