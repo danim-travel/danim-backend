@@ -11,3 +11,9 @@ def read_all_notifications(user):
     Notification.objects.filter(receiver=user, is_read=False).update(is_read=True)
 
     reset_cache_noti(user)
+
+
+def delete_all_notifications(user):
+    Notification.objects.filter(receiver=user).delete()
+
+    reset_cache_noti(user)
