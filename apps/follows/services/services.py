@@ -12,8 +12,7 @@ def create_follow(target_user_id, request_user):
     if str(target_user_id) == str(request_user.id):
         raise ValidationException("자기 자신은 팔로우할 수 없습니다.")
 
-    target_user = User.objects.filter(id=target_user_id).first()
-    if not target_user:
+    if not User.objects.filter(id=target_user_id).exists():
         raise NotFoundException("해당 유저를 찾을 수 없습니다.")
 
     _, created = Follows.objects.get_or_create(
