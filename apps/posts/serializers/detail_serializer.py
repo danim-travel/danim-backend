@@ -65,6 +65,7 @@ class PostDetailSerializer(serializers.ModelSerializer):
                         "img_url": s3_svc.create_download_presigned_url(image.img_key),
                         "original_img": image.original_img,
                         "img_order": image.img_order,
+                        "key": image.img_key,
                     }
                     for image in spot.images.all()
                 ],
