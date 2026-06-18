@@ -58,6 +58,9 @@ jobs:
             echo "KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}" >> envs/.env.dev
             echo "KAKAO_CLIENT_SECRET=${{ secrets.KAKAO_CLIENT_SECRET }}" >> envs/.env.dev
             echo "KAKAO_REDIRECT_URI=${{ secrets.DEV_KAKAO_REDIRECT_URI }}" >> envs/.env.dev
+            echo "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}" >> envs/.env.dev
+            echo "GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}" >> envs/.env.dev
+            echo "GOOGLE_REDIRECT_URI=${{ secrets.DEV_GOOGLE_REDIRECT_URI }}" >> envs/.env.dev
             echo "FRONT_REDIRECT_URI=${{ secrets.DEV_FRONT_REDIRECT_URI }}" >> envs/.env.dev
             echo "SENTRY_DSN=${{ secrets.SENTRY_DSN }}" >> envs/.env.dev
             echo "DJANGO_ENV=dev" >> envs/.env.dev
