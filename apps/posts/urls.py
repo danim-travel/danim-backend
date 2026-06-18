@@ -8,6 +8,7 @@ from apps.posts.views import (
     like_view,
     main_list_view,
     presigned_url_post_view,
+    share_view,
 )
 
 app_name = "posts"
@@ -28,4 +29,5 @@ urlpatterns: list[URLPattern] = [
     path(
         "/<str:post_id>/bookmark", bookmark_view.BookmarkView.as_view(), name="bookmark"
     ),
+    path("/<str:post_id>/share", share_view.PostShareView.as_view(), name="post_share"),
 ]
