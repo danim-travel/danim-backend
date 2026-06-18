@@ -1,5 +1,3 @@
-from time import sleep
-
 from django.core.cache import cache
 from rest_framework import status
 
