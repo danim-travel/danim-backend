@@ -1,8 +1,10 @@
 from datetime import date
 
 from channels.testing.websocket import WebsocketCommunicator
+from django.core.cache import cache
 from django.test import TransactionTestCase
 
+from apps.core.websocket.websocket_key.service import make_socket_key
 from apps.notifications.models.model import Notification, NotificationType, TargetChoices
 from apps.users.models.models import LoginType, User
 from config.asgi import application
@@ -43,25 +45,26 @@ class TestNotificationConsumer(TransactionTestCase):
             notification_type=NotificationType.COMMENT,
             message=f"{self.user_2.nickname}님이 회원님의 게시글에 댓글을 작성했습니다.",
         )
-        self.url = f"ws/notifications/{self.user_1.id}"
-        self.url_none_id = "ws/notifications/없는아이디"
+        self.socket_key = make_socket_key(self.user_1)
+        self.url = f"ws/notifications"
 
     async def test_connect(self):
-        """웹소켓 연결 성공 테스트"""
-        communicator = WebsocketCommunicator(application, self.url)
+        """웹소켓 키 발급 후 웹소켓 연결 성공 테스트"""
+        communicator = WebsocketCommunicator(
+            application, self.url + f"?socket_key={self.socket_key}"
+        )
         connected, _ = await communicator.connect()
         self.assertTrue(connected)
         response = await communicator.receive_json_from()
         self.assertEqual(response["unread_count"], 1)
+        self.assertFalse(cache.get(f"socket_key_{self.socket_key}"))
 
         await communicator.disconnect()
 
     async def test_non_user_id_connect(self):
-        """없는 유저 아이디 웹소켓 연결 실패 테스트"""
-        communicator = WebsocketCommunicator(application, self.url_none_id)
+        """웹소켓 키 발급 없이 웹소켓 연결 실패 테스트"""
+        communicator = WebsocketCommunicator(application, self.url + f"?socket_key=")
         connected, _ = await communicator.connect()
-        self.assertTrue(connected)
-        response = await communicator.receive_json_from()
-        self.assertIn("error_detail", response)
+        self.assertFalse(connected)
 
         await communicator.disconnect()
