@@ -40,7 +40,7 @@ def create_comment(data, user):
         Post.objects.filter(id=post_id).update(comment_count=F("comment_count") + 1)
 
     create_notification(
-        receiver=post.user, sender=user, noti_type="comment", target_id=post.id
+        receiver_id=post.user_id, sender=user, noti_type="comment", target_id=post.id
     )
 
     return new_comment
@@ -130,7 +130,7 @@ def create_comment_like(comment_id, user):
     }
 
     create_notification(
-        receiver=comment.user,
+        receiver_id=comment.user_id,
         sender=user,
         noti_type="comment_like",
         target_id=comment.post_id,

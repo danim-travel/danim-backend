@@ -23,7 +23,7 @@ class PostLikeService:
         post.refresh_from_db()
 
         create_notification(
-            receiver=post.user,
+            receiver_id=post.user_id,
             sender=user,
             noti_type="post_like",
             target_id=post_id,
