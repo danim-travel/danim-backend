@@ -1,0 +1,141 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 310">
+  <!-- Background -->
+  <rect width="680" height="310" rx="16" fill="#0d1117"/>
+  <text x="340" y="26" text-anchor="middle" fill="#30363d"
+    font-family="-apple-system,'Segoe UI',sans-serif"
+    font-size="10" letter-spacing="4" font-weight="700">ROADMAP</text>
+
+  <!-- ─── v1.0 Column ─── -->
+  <g opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.5s" begin="0.1s" fill="freeze"/>
+    <rect x="20" y="44" width="200" height="252" rx="12" fill="#091d12" stroke="#1DB954" stroke-width="1.5"/>
+    <text x="120" y="68" text-anchor="middle" fill="#1DB954"
+      font-family="-apple-system,'Segoe UI',sans-serif" font-size="13" font-weight="800">v1.0  ·  현재</text>
+    <rect x="30" y="76" width="180" height="2" rx="1" fill="#1DB954" opacity="0.3"/>
+  </g>
+
+  <!-- v1.0 items: stagger from 0.2s -->
+  <g opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="0.2s" fill="freeze"/>
+    <text x="42" y="102" fill="#56d364" font-family="-apple-system,'Segoe UI',sans-serif" font-size="13">✓</text>
+    <text x="60" y="102" fill="#7ee787" font-family="-apple-system,'Segoe UI',sans-serif" font-size="11">이메일 · 소셜 회원가입</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="0.35s" fill="freeze"/>
+    <text x="42" y="124" fill="#56d364" font-family="-apple-system,'Segoe UI',sans-serif" font-size="13">✓</text>
+    <text x="60" y="124" fill="#7ee787" font-family="-apple-system,'Segoe UI',sans-serif" font-size="11">카카오 · 구글 로그인</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="0.50s" fill="freeze"/>
+    <text x="42" y="146" fill="#56d364" font-family="-apple-system,'Segoe UI',sans-serif" font-size="13">✓</text>
+    <text x="60" y="146" fill="#7ee787" font-family="-apple-system,'Segoe UI',sans-serif" font-size="11">게시글 작성 · 수정 · 삭제</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="0.65s" fill="freeze"/>
+    <text x="42" y="168" fill="#56d364" font-family="-apple-system,'Segoe UI',sans-serif" font-size="13">✓</text>
+    <text x="60" y="168" fill="#7ee787" font-family="-apple-system,'Segoe UI',sans-serif" font-size="11">팔로우 · 좋아요 · 북마크</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="0.80s" fill="freeze"/>
+    <text x="42" y="190" fill="#56d364" font-family="-apple-system,'Segoe UI',sans-serif" font-size="13">✓</text>
+    <text x="60" y="190" fill="#7ee787" font-family="-apple-system,'Segoe UI',sans-serif" font-size="11">실시간 DM</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="0.95s" fill="freeze"/>
+    <text x="42" y="212" fill="#56d364" font-family="-apple-system,'Segoe UI',sans-serif" font-size="13">✓</text>
+    <text x="60" y="212" fill="#7ee787" font-family="-apple-system,'Segoe UI',sans-serif" font-size="11">실시간 알림</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="1.10s" fill="freeze"/>
+    <text x="42" y="234" fill="#56d364" font-family="-apple-system,'Segoe UI',sans-serif" font-size="13">✓</text>
+    <text x="60" y="234" fill="#7ee787" font-family="-apple-system,'Segoe UI',sans-serif" font-size="11">AWS S3 이미지 업로드</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="1.25s" fill="freeze"/>
+    <text x="42" y="256" fill="#56d364" font-family="-apple-system,'Segoe UI',sans-serif" font-size="13">✓</text>
+    <text x="60" y="256" fill="#7ee787" font-family="-apple-system,'Segoe UI',sans-serif" font-size="11">여행지 위치 정보</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="1.40s" fill="freeze"/>
+    <text x="42" y="278" fill="#56d364" font-family="-apple-system,'Segoe UI',sans-serif" font-size="13">✓</text>
+    <text x="60" y="278" fill="#7ee787" font-family="-apple-system,'Segoe UI',sans-serif" font-size="11">유저 검색</text>
+  </g>
+
+  <!-- ─── v1.1 Column ─── -->
+  <g opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.5s" begin="0.4s" fill="freeze"/>
+    <rect x="240" y="44" width="200" height="172" rx="12" fill="#0d1f35" stroke="#388bfd" stroke-width="1.5"/>
+    <text x="340" y="68" text-anchor="middle" fill="#388bfd"
+      font-family="-apple-system,'Segoe UI',sans-serif" font-size="13" font-weight="800">v1.1  ·  예정</text>
+    <rect x="250" y="76" width="180" height="2" rx="1" fill="#388bfd" opacity="0.3"/>
+  </g>
+
+  <g opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="0.85s" fill="freeze"/>
+    <text x="258" y="102" fill="#484f58" font-family="-apple-system,'Segoe UI',sans-serif" font-size="13">○</text>
+    <text x="276" y="102" fill="#8b949e" font-family="-apple-system,'Segoe UI',sans-serif" font-size="11">댓글 기능</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="1.00s" fill="freeze"/>
+    <text x="258" y="124" fill="#484f58" font-family="-apple-system,'Segoe UI',sans-serif" font-size="13">○</text>
+    <text x="276" y="124" fill="#8b949e" font-family="-apple-system,'Segoe UI',sans-serif" font-size="11">지도 기반 여행지 탐색</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="1.15s" fill="freeze"/>
+    <text x="258" y="146" fill="#484f58" font-family="-apple-system,'Segoe UI',sans-serif" font-size="13">○</text>
+    <text x="276" y="146" fill="#8b949e" font-family="-apple-system,'Segoe UI',sans-serif" font-size="11">여행 일정 플래너</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="1.30s" fill="freeze"/>
+    <text x="258" y="168" fill="#484f58" font-family="-apple-system,'Segoe UI',sans-serif" font-size="13">○</text>
+    <text x="276" y="168" fill="#8b949e" font-family="-apple-system,'Segoe UI',sans-serif" font-size="11">유저 추천 알고리즘</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="1.45s" fill="freeze"/>
+    <text x="258" y="190" fill="#484f58" font-family="-apple-system,'Segoe UI',sans-serif" font-size="13">○</text>
+    <text x="276" y="190" fill="#8b949e" font-family="-apple-system,'Segoe UI',sans-serif" font-size="11">스토리 기능</text>
+  </g>
+
+  <!-- ─── v2.0 Column ─── -->
+  <g opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.5s" begin="0.7s" fill="freeze"/>
+    <rect x="460" y="44" width="200" height="172" rx="12" fill="#1a0d2b" stroke="#6e40c9" stroke-width="1.5"/>
+    <text x="560" y="68" text-anchor="middle" fill="#6e40c9"
+      font-family="-apple-system,'Segoe UI',sans-serif" font-size="13" font-weight="800">v2.0  ·  장기</text>
+    <rect x="470" y="76" width="180" height="2" rx="1" fill="#6e40c9" opacity="0.3"/>
+  </g>
+
+  <g opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="1.10s" fill="freeze"/>
+    <text x="478" y="102" fill="#484f58" font-family="-apple-system,'Segoe UI',sans-serif" font-size="13">◇</text>
+    <text x="496" y="102" fill="#6e7681" font-family="-apple-system,'Segoe UI',sans-serif" font-size="11">모바일 앱 (iOS / Android)</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="1.25s" fill="freeze"/>
+    <text x="478" y="124" fill="#484f58" font-family="-apple-system,'Segoe UI',sans-serif" font-size="13">◇</text>
+    <text x="496" y="124" fill="#6e7681" font-family="-apple-system,'Segoe UI',sans-serif" font-size="11">여행 그룹 기능</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="1.40s" fill="freeze"/>
+    <text x="478" y="146" fill="#484f58" font-family="-apple-system,'Segoe UI',sans-serif" font-size="13">◇</text>
+    <text x="496" y="146" fill="#6e7681" font-family="-apple-system,'Segoe UI',sans-serif" font-size="11">번역 지원 (다국어)</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="1.55s" fill="freeze"/>
+    <text x="478" y="168" fill="#484f58" font-family="-apple-system,'Segoe UI',sans-serif" font-size="13">◇</text>
+    <text x="496" y="168" fill="#6e7681" font-family="-apple-system,'Segoe UI',sans-serif" font-size="11">AI 여행 코스 추천</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="1.70s" fill="freeze"/>
+    <text x="478" y="190" fill="#484f58" font-family="-apple-system,'Segoe UI',sans-serif" font-size="13">◇</text>
+    <text x="496" y="190" fill="#6e7681" font-family="-apple-system,'Segoe UI',sans-serif" font-size="11">여행 파트너 매칭</text>
+  </g>
+
+  <!-- Legend -->
+  <g opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.4s" begin="1.8s" fill="freeze"/>
+    <text x="42"  y="294" fill="#56d364" font-family="-apple-system,'Segoe UI',sans-serif" font-size="10">✓ 완료</text>
+    <text x="140" y="294" fill="#8b949e" font-family="-apple-system,'Segoe UI',sans-serif" font-size="10">○ 개발 예정</text>
+    <text x="258" y="294" fill="#6e7681" font-family="-apple-system,'Segoe UI',sans-serif" font-size="10">◇ 검토 중</text>
+  </g>
+</svg>

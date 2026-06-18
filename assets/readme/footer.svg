@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 100">
+  <defs>
+    <linearGradient id="fg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#F4C430"/>
+      <stop offset="35%"  stop-color="#E8923A"/>
+      <stop offset="65%"  stop-color="#9B2335"/>
+      <stop offset="100%" stop-color="#1C1C3A"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background gradient -->
+  <rect width="800" height="100" fill="url(#fg)"/>
+
+  <!-- Wave layer 1 — at top, curves upward, 1600px wide seamless -->
+  <path fill="rgba(255,255,255,0.12)"
+    d="M0,38 C100,18 200,56 300,38 C400,18 500,56 600,38 C700,18 800,38 800,38
+       C900,18 1000,56 1100,38 C1200,18 1300,56 1400,38 C1500,18 1600,38 1600,38
+       L1600,0 L0,0 Z">
+    <animateTransform attributeName="transform" type="translate"
+      from="0,0" to="-800,0" dur="13s" repeatCount="indefinite"/>
+  </path>
+
+  <!-- Wave layer 2 — tighter wave, faster -->
+  <path fill="rgba(255,255,255,0.20)"
+    d="M0,50 C66,36 134,60 200,50 C266,36 334,60 400,50 C466,36 534,60 600,50
+       C666,36 734,60 800,50 C866,36 934,60 1000,50 C1066,36 1134,60 1200,50
+       C1266,36 1334,60 1400,50 C1466,36 1534,60 1600,50
+       L1600,0 L0,0 Z">
+    <animateTransform attributeName="transform" type="translate"
+      from="0,0" to="-800,0" dur="8s" repeatCount="indefinite"/>
+  </path>
+</svg>
