@@ -1,10 +1,6 @@
 from drf_spectacular.utils import OpenApiResponse, extend_schema
-from rest_framework import serializers
 
-
-class SocketKeySerializer(serializers.Serializer):
-    socket_key = serializers.UUIDField()
-
+from apps.core.websocket.websocket_key.serializer import SocketKeySerializer
 
 socket_key_schema = extend_schema(
     responses={
