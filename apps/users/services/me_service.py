@@ -28,8 +28,8 @@ class UserUpdateService:
         if "intro" in data:
             user.intro = data["intro"]
 
-        if data.get("key") is not None:
-            user.profile_img = data["key"]
+        if "key" in data:
+            user.profile_img = data["key"] or None
         try:
             user.save()
         except IntegrityError:

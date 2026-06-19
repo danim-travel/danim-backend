@@ -6,7 +6,9 @@ from apps.users.validators import validate_nickname_format
 class UserUpdateRequestSerializer(serializers.Serializer):
     nickname = serializers.CharField(max_length=20, required=False)
     intro = serializers.CharField(max_length=100, required=False, allow_blank=True)
-    key = serializers.CharField(max_length=255, required=False)
+    key = serializers.CharField(
+        max_length=255, required=False, allow_null=True, allow_blank=True
+    )
 
     def validate_nickname(self, value: str) -> str:
         return validate_nickname_format(value)
