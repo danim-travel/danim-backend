@@ -32,7 +32,7 @@ class PostShareServiceTest(TestCase):
     def test_get_share_url(self) -> None:
         """게시글 공유 URL 반환 성공 테스트"""
         request = self.factory.get("/")
-        url = self.service.get_share_url(self.post.id, self.user, request)
+        url = self.service.get_share_url(self.post.id, request)
         self.assertIn(self.post.id, url)
         self.assertIn("/api/v1/posts/", url)
 
@@ -40,4 +40,4 @@ class PostShareServiceTest(TestCase):
         """존재하지 않는 게시글 공유 시 404 테스트"""
         request = self.factory.get("/")
         with self.assertRaises(NotFoundException):
-            self.service.get_share_url("nonexistent_id", self.user, request)
+            self.service.get_share_url("nonexistent_id", request)

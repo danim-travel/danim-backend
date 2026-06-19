@@ -1,11 +1,10 @@
 from apps.core.exceptions.exception import NotFoundException
 from apps.posts.models import Post
-from apps.users.models import User
 
 
 class PostShareService:
 
-    def get_share_url(self, post_id: str, user: User, request) -> str:
+    def get_share_url(self, post_id: str, request) -> str:
         """게시글 공유 서비스 로직"""
         try:
             Post.objects.get(id=post_id)
