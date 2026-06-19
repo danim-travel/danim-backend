@@ -25,13 +25,6 @@ def create_follow(target_user_id, request_user):
 
     result = {"follower_count": follow_count, "is_followed": True}
 
-    create_notification(
-        receiver_id=target_user_id,
-        sender=request_user,
-        noti_type="follow",
-        target_id=target_user_id,
-    )
-
     return result
 
 

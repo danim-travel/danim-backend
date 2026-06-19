@@ -22,13 +22,6 @@ class PostLikeService:
         Post.objects.filter(id=post_id).update(like_count=F("like_count") + 1)
         post.refresh_from_db()
 
-        create_notification(
-            receiver_id=post.user_id,
-            sender=user,
-            noti_type="post_like",
-            target_id=post_id,
-        )
-
         return post
 
     def unlike_post(self, post_id: str, user: User) -> Post:

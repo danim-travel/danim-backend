@@ -85,18 +85,6 @@ class DMConsumer(BaseConsumer):
             },
         )
 
-        receiver_id = (
-            self.conversation.user2_id
-            if self.conversation.user1_id == user.id
-            else self.conversation.user1_id
-        )
-        await database_sync_to_async(create_notification)(
-            receiver_id=receiver_id,
-            sender=user,
-            noti_type="dm",
-            target_id=str(self.conversation.id),
-        )
-
     async def broadcast_receive_message(self, event: dict) -> None:
         payload = {k: v for k, v in event.items() if k != "type"}
         await self.send(json.dumps({"type": "receive_message", **payload}))
