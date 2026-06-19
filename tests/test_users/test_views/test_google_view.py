@@ -1,8 +1,10 @@
 from unittest.mock import patch
 
-from django.conf import settings
+from django.test import override_settings
 from django.urls import reverse
 from rest_framework.test import APITestCase
+
+FRONT_URI = "http://localhost:3000"
 
 
 class GoogleLoginViewTest(APITestCase):
@@ -20,11 +22,12 @@ class GoogleLoginViewTest(APITestCase):
         )
 
 
+@override_settings(FRONT_REDIRECT_URI=FRONT_URI)
 class GoogleCallbackViewTest(APITestCase):
 
     @patch("apps.users.services.google_service.GoogleService.google_callback")
     def test_callback_redirects_and_sets_cookie(self, mock_callback):
-        """콜백 → login/success로 리다이렉트 + refresh_token 쿠키 설정"""
+        """콜백 → is_success=true로 리다이렉트 + refresh_token 쿠키 설정"""
         mock_callback.return_value = {
             "access_token": "access",
             "refresh_token": "refresh",
@@ -35,7 +38,10 @@ class GoogleCallbackViewTest(APITestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, f"{settings.FRONT_REDIRECT_URI}/login/success")
+        self.assertEqual(
+            response.url,
+            f"{FRONT_URI}?provider=google&is_success=true",
+        )
         self.assertEqual(response.cookies["refresh_token"].value, "refresh")
 
     @patch("apps.users.services.google_service.GoogleService.google_callback")

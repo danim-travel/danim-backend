@@ -5,6 +5,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.views import APIView
 
+from apps.core.exceptions.exception import ConflictException
+from apps.users.models import LoginType
 from apps.users.schemas.kakao_schema import (
     kakao_callback_schema,
     kakao_login_schema,
@@ -20,8 +22,16 @@ class KakaoCallbackView(APIView):
     def get(self, request: Request) -> HttpResponseRedirect:
         code = request.GET.get("code", "")
         state = request.GET.get("state", "")
-        result = self.service.kakao_callback(code, state)
-        response = redirect(f"{settings.FRONT_REDIRECT_URI}/login/success")
+        try:
+            result = self.service.kakao_callback(code, state)
+        except ConflictException:
+            return redirect(
+                f"{settings.FRONT_REDIRECT_URI}?provider={LoginType.KAKAO}&is_success=false&reason=email_exists"
+            )
+
+        response = redirect(
+            f"{settings.FRONT_REDIRECT_URI}?provider={LoginType.KAKAO}&is_success=true"
+        )
         response.set_cookie(
             "refresh_token",
             result["refresh_token"],
