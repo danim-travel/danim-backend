@@ -57,7 +57,7 @@ def on_created_message(sender, instance, created, **kwargs):
     if created:
         receiver_id = (
             instance.conversation.user1_id
-            if instance.sender_id == instance.conversavtion.user2_id
+            if instance.sender_id == instance.conversation.user2_id
             else instance.conversation.user2_id
         )
         create_notification(

@@ -14,6 +14,12 @@ from tests.test_notifications.core.base import NotificationsBaseTest
 class TestCreateNotification(NotificationsBaseTest):
 
     def setUp(self):
+        from django.db.models.signals import post_save
+
+        from apps.comments.models import Comment as CommentModel
+        from apps.notifications.signals.signal import on_created_comment
+
+        post_save.disconnect(on_created_comment, sender=CommentModel)
         super().setUp()
         self.message_1 = (
             f"{self.user_1.nickname}님이 회원님의 게시글에 댓글을 작성했습니다."
@@ -48,6 +54,12 @@ class TestCreateNotification(NotificationsBaseTest):
         )
 
     def tearDown(self):
+        from django.db.models.signals import post_save
+
+        from apps.comments.models import Comment as CommentModel
+        from apps.notifications.signals.signal import on_created_comment
+
+        post_save.connect(on_created_comment, sender=CommentModel)
         cache.delete(f"user_{self.user_2.id}_unread_count")
         super().tearDown()
 
