@@ -4,6 +4,7 @@ from apps.core.exceptions.exception import (
     ValidationException,
 )
 from apps.follows.models.models import Follows
+from apps.notifications.utils import create_notification
 from apps.users.models import User
 
 
@@ -23,6 +24,7 @@ def create_follow(target_user_id, request_user):
     follow_count = Follows.objects.filter(following_id=target_user_id).count()
 
     result = {"follower_count": follow_count, "is_followed": True}
+
     return result
 
 

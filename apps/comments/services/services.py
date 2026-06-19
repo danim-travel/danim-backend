@@ -7,6 +7,7 @@ from apps.core.exceptions.exception import (
     ForbiddenException,
     NotFoundException,
 )
+from apps.notifications.utils import create_notification
 from apps.posts.models import Post
 
 

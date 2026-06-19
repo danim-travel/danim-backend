@@ -26,59 +26,40 @@ NOTIFICATION_MAP: dict[str, tuple[str, str]] = {
 
 
 def create_notification(
-    receiver: User,
+    receiver_id,
     sender: User,
     noti_type: Literal["post_like", "comment", "comment_like", "follow", "dm"],
     target_id: str,
 ):
-    """
-    알림 생성 함수
-    receiver = 알림을 받을 유저
-    sender = 알림을 보내는 유저 request.user
-    noti_type = 알림타입
-                댓글 생성 -> comment
-                댓글 좋아요 생성 -> comment_like
-                게시글 좋아요 생성 -> post_like
-                팔로우 -> follow
-                DM 전송 -> dm
-    target_id = 알림을 클릭했을때 이동해야할 페이지에 대한 target의 id
-    ex) 댓글 생성 상황
-        create_notification(
-            receiver = post.user,
-            sender = request.user,
-            noti_type = "comment",
-            target_id = post.id,
-        )
-    """
-    if receiver == sender:
+    if receiver_id == sender.id:
         return
     target_type, msg_base = NOTIFICATION_MAP[noti_type]
     msg = msg_base.format(sender.nickname)
-    create_noti(sender, receiver, noti_type, target_id, target_type, msg)
+    create_noti(sender, receiver_id, noti_type, target_id, target_type, msg)
 
 
-def create_noti(sender, receiver, noti_type, target_id, target_type, msg):
+def create_noti(sender, receiver_id, noti_type, target_id, target_type, msg):
     try:
         Notification.objects.create(
             sender=sender,
-            receiver=receiver,
+            receiver_id=receiver_id,
             notification_type=noti_type,
             target_id=target_id,
             target_type=target_type,
             message=msg,
         )
         try:
-            cache.incr(f"user_{receiver.id}_unread_count")
+            cache.incr(f"user_{receiver_id}_unread_count")
         except ValueError:
             cache.set(
-                f"user_{receiver.id}_unread_count",
+                f"user_{receiver_id}_unread_count",
                 Notification.objects.filter(
-                    receiver=receiver,
+                    receiver_id=receiver_id,
                     is_read=False,
                 ).count(),
                 timeout=None,
             )
-        push_channel_noti(receiver.id)
+        push_channel_noti(receiver_id)
 
     except Exception:
         pass

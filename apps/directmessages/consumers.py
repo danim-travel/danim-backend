@@ -8,6 +8,7 @@ from django.utils import timezone
 from apps.core.storage.s3 import s3_svc
 from apps.core.websocket.base import BaseConsumer
 from apps.directmessages.models import Conversation, Message
+from apps.notifications.utils import create_notification
 from apps.users.models import User
 
 
