@@ -1,228 +1,245 @@
-# danim-backend
-여행자들만을 위한 일정 공유 커뮤니티(SNS)
+<div align="center">
+
+<img src="assets/readme/hero.svg" width="100%" alt="Danim — 세상의 모든 여행이 연결되는 곳"/>
+
+<br/>
+
+**여행을 기록하고, 여행자와 연결되고, 새로운 여행을 발견하세요.**
+
+<br/>
+
+[![Python](https://img.shields.io/badge/Python_3.13-3776AB?style=for-the-badge&logo=python&logoColor=white)](#)
+[![Django](https://img.shields.io/badge/Django_5-092E20?style=for-the-badge&logo=django&logoColor=white)](#)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL_16-316192?style=for-the-badge&logo=postgresql&logoColor=white)](#)
+[![Redis](https://img.shields.io/badge/Redis_7-DC382D?style=for-the-badge&logo=redis&logoColor=white)](#)
+[![AWS](https://img.shields.io/badge/AWS-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white)](#)
+
+<br/>
+
+[🌍 서비스 바로가기](#) &nbsp;·&nbsp; [📖 API 문서](#) &nbsp;·&nbsp; [🐛 버그 제보](#) &nbsp;·&nbsp; [💬 피드백](#)
+
+<br/>
+
+</div>
 
 ---
 
-## 기술 스택
-- **언어**: Python 3.13
-- **프레임워크**: Django 6 + Django REST Framework
-- **인증**: Simple JWT
-- **DB**: PostgreSQL 16
-- **캐시**: Redis 7
-- **의존성 관리**: uv
-- **인프라**: Docker, AWS EC2, AWS S3
+<br/>
+
+## 🤔 왜 다님인가요?
+
+여행을 다녀와도 사진은 카메라 롤에만 잠들고, 좋았던 식당은 메모장에만 남아 있습니다.
+인스타그램엔 올리기엔 너무 길고, 블로그는 쓰기엔 너무 번거롭습니다.
+
+**다님은 이 공백을 채웁니다.**
+
+| 기존의 불편함 | 다님의 해결 |
+|---|---|
+| 여행 기록이 사진첩에 흩어진다 | 일정·장소·사진을 한 곳에 구조화하여 기록 |
+| 같은 지역 여행자를 찾기 어렵다 | 위치 기반 콘텐츠로 여행자끼리 자연스럽게 연결 |
+| 좋은 여행지를 발견하기 어렵다 | 팔로우 피드와 여행지 태그로 새로운 장소 발견 |
+| 여행 후기가 플랫폼에 갇힌다 | 내 기록이 내 것으로 남고 커뮤니티와 공유 |
+
+<br/>
 
 ---
 
-## 브랜치 전략
-```
-main      → 실배포 브랜치 (직접 push 금지)
-develop   → 개발 통합 브랜치 (직접 push 금지)
-feat/기능명 → 개인 작업 브랜치
-```
-**작업 흐름**: `feat/기능명` → `develop` PR → 리뷰 후 머지 → `main` PR → 배포
+<br/>
+
+## ✨ 핵심 기능
+
+<br/>
+
+> 다님은 여행의 모든 순간을 함께합니다.
+
+<br/>
+
+**📸 여행 기록**
+일정, 장소, 사진을 하나의 게시글로 묶어 나만의 여행 아카이브를 만드세요.
+위도·경도 기반 여행지 태그로 지도 위에 내 발자국을 남길 수 있습니다.
+
+<br/>
+
+**🗺️ 위치 기반 콘텐츠**
+같은 도시, 같은 골목을 걸은 여행자의 기록을 만나보세요.
+낯선 여행지에서 현지인보다 더 정확한 정보를 얻을 수 있습니다.
+
+<br/>
+
+**👥 여행자 커뮤니티**
+마음이 맞는 여행자를 팔로우하고, 서로의 여행 스타일을 발견하세요.
+배낭여행객부터 디지털 노마드까지, 모든 여행자를 위한 공간입니다.
+
+<br/>
+
+**💬 실시간 DM**
+좋은 식당을 발견했나요? DM으로 바로 공유하세요.
+WebSocket 기반 실시간 1:1 메시지로 여행 정보를 즉시 나눌 수 있습니다.
+
+<br/>
+
+**🔔 실시간 알림**
+내 게시글에 좋아요·댓글이 달리거나, 새 팔로워가 생기면 즉시 알림을 받습니다.
+
+<br/>
+
+**🖼️ 사진 업로드**
+AWS S3 Presigned URL 방식으로 고화질 여행 사진을 빠르게 업로드하세요.
+
+<br/>
 
 ---
 
-## 커밋 메시지 컨벤션
+<br/>
 
-> 자세한 내용은 [.github/COMMIT_CONVENTION.md](.github/COMMIT_CONVENTION.md) 참고
+## 🚶 유저 여정
 
-### 커밋 템플릿 설정 (최초 1회)
-```bash
-git config commit.template .github/commit_template.txt
-```
-설정 후 PyCharm 커밋 창에 템플릿이 자동으로 표시됩니다.
-```
-feat: 새로운 기능 추가
-fix: 버그 수정
-refactor: 코드 리팩토링
-test: 테스트 코드
-docs: 문서 수정
-chore: 빌드, 설정 파일 수정
-style: 코드 포맷팅 (기능 변경 없음)
-```
-**예시**
-```
-feat: 이메일 회원가입 API 구현
-fix: 토큰 재발급 중복 발급 버그 수정
-```
+<div align="center">
+
+<img src="assets/readme/user-journey.svg" width="100%" alt="User Journey"/>
+
+</div>
+
+<br/>
 
 ---
 
-## 로컬 개발 환경 세팅
+<br/>
 
-### 사전 준비
-아래 두 가지가 설치되어 있어야 합니다.
+## 🏗️ 아키텍처
 
-**Docker Desktop**
-[Docker Desktop 다운로드](https://www.docker.com/products/docker-desktop/) 에서 설치합니다.
+<div align="center">
 
-**uv**
-```bash
-# macOS / Linux
-curl -LsSf https://astral.sh/uv/install.sh | sh
+<img src="assets/readme/architecture.svg" width="100%" alt="Architecture"/>
 
-# Windows (PowerShell)
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-```
+</div>
 
-설치 확인:
-```bash
-docker --version
-uv --version
-```
+<br/>
 
----
+### WebSocket 인증 흐름
 
-### 1. GitHub Personal Access Token 발급 (최초 1회)
-GitHub 인증을 위해 토큰이 필요합니다.
+<div align="center">
 
-1. GitHub → 우측 상단 프로필 → **Settings**
-2. 좌측 하단 **Developer settings**
-3. **Personal access tokens** → **Tokens (classic)**
-4. **Generate new token (classic)**
-5. **repo** 전체 체크
-6. **Generate token** → 토큰 복사 (창 닫으면 다시 못 봄!)
+<img src="assets/readme/websocket-flow.svg" width="100%" alt="WebSocket Auth Flow"/>
 
-발급 후 아래 명령어로 등록:
-```bash
-git remote set-url origin https://토큰@github.com/danim-travel/danim-backend.git
-```
+</div>
+
+<br/>
 
 ---
 
-### 2. 레포지토리 클론
-```bash
-git clone -b develop https://github.com/danim-travel/danim-backend.git
-cd danim-backend
-```
+<br/>
+
+## 🛠️ 기술 스택
+
+### Backend
+![Python](https://img.shields.io/badge/Python_3.13-3776AB?style=flat-square&logo=python&logoColor=white)
+![Django](https://img.shields.io/badge/Django_5-092E20?style=flat-square&logo=django&logoColor=white)
+![DRF](https://img.shields.io/badge/Django_REST_Framework-ff1709?style=flat-square&logo=django&logoColor=white)
+![Channels](https://img.shields.io/badge/Django_Channels-092E20?style=flat-square&logo=django&logoColor=white)
+![SimpleJWT](https://img.shields.io/badge/Simple_JWT-000000?style=flat-square&logo=jsonwebtokens&logoColor=white)
+![uv](https://img.shields.io/badge/uv-DE5FE9?style=flat-square)
+
+### Database & Cache
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL_16-316192?style=flat-square&logo=postgresql&logoColor=white)
+![pgvector](https://img.shields.io/badge/pgvector-316192?style=flat-square&logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis_7-DC382D?style=flat-square&logo=redis&logoColor=white)
+
+### Infrastructure
+![AWS EC2](https://img.shields.io/badge/AWS_EC2-FF9900?style=flat-square&logo=amazonec2&logoColor=white)
+![AWS S3](https://img.shields.io/badge/AWS_S3-569A31?style=flat-square&logo=amazons3&logoColor=white)
+![AWS RDS](https://img.shields.io/badge/AWS_RDS-527FFF?style=flat-square&logo=amazonrds&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
+![Nginx](https://img.shields.io/badge/Nginx-009639?style=flat-square&logo=nginx&logoColor=white)
+
+### DevOps & Monitoring
+![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=flat-square&logo=githubactions&logoColor=white)
+![Sentry](https://img.shields.io/badge/Sentry-362D59?style=flat-square&logo=sentry&logoColor=white)
+
+<br/>
 
 ---
 
-### 3. 의존성 설치
-```bash
-uv sync
-```
-`uv.lock` 기준으로 전체 패키지를 설치합니다. 팀원 전원 동일한 버전으로 설치됩니다.
+<br/>
+
+## 📸 스크린샷
+
+<br/>
+
+| 피드 | 게시글 상세 | DM |
+|:---:|:---:|:---:|
+| `이미지 준비 중` | `이미지 준비 중` | `이미지 준비 중` |
+
+| 프로필 | 알림 | 검색 |
+|:---:|:---:|:---:|
+| `이미지 준비 중` | `이미지 준비 중` | `이미지 준비 중` |
+
+<br/>
 
 ---
 
-### 4. 환경변수 설정
-팀 채팅방에서 공유받은 `.env` 파일을 `envs/` 폴더에 생성합니다.
-```bash
-cp envs/.env.example envs/.env
-```
-`envs/.env` 파일을 열어서 아래 값들을 채워주세요. (실제 값은 팀장에게 요청)
-```
-SECRET_KEY=
+<br/>
 
-DB_NAME=danim
-DB_USER=danim
-DB_PASSWORD=danim
-DB_HOST=db
-DB_PORT=5432
+## 🗺️ 로드맵
 
-REDIS_URL=redis://redis:6379/1
-REDIS_AUTH_URL=redis://redis:6379/2
-```
+<div align="center">
+
+<img src="assets/readme/roadmap.svg" width="100%" alt="Roadmap"/>
+
+</div>
+
+<br/>
 
 ---
 
-### 5. Docker 실행
-```bash
-docker compose up --build
-```
-처음 실행 시 이미지 빌드로 시간이 걸립니다. 이후 실행부터는 빠릅니다.
+<br/>
 
-아래 세 개가 모두 실행되면 정상입니다:
-```
-✔ Container danim-backend-db-1      Running
-✔ Container danim-backend-redis-1   Running
-✔ Container danim-backend-django-1  Running
-```
+## 👩‍💻 팀
 
----
+<br/>
 
-### 6. pre-commit 설정 (최초 1회)
-```bash
-uv run pre-commit install
-```
-커밋할 때마다 black/isort가 자동으로 코드를 정리해줍니다.
+> 다님은 여행을 사랑하는 개발자들이 만들고 있습니다.
 
----
+<br/>
 
-### 7. DB 마이그레이션
-새 터미널을 열고 아래 명령어를 실행합니다:
-```bash
-docker compose exec django uv run python manage.py migrate
-```
+| 역할 | 이름 | GitHub |
+|------|------|--------|
+| | | |
+| | | |
+| | | |
+| | | |
+| | | |
+
+<br/>
 
 ---
 
-### 8. 서버 확인
-브라우저에서 아래 주소로 접속합니다:
-- 서버 확인: `http://localhost:8000/hello/`
-- API 문서: `http://localhost:8000/api/schema/swagger-ui/`
+<br/>
 
-`{"hello": true}` 응답이 오면 정상입니다.
+## 📄 라이선스
 
----
+이 프로젝트는 내부 서비스용으로 별도 라이선스를 적용하지 않습니다.
+코드 무단 복제 및 배포를 금합니다.
 
-## 자주 쓰는 명령어
-
-### Docker
-```bash
-# 실행 (백그라운드)
-docker compose up -d
-
-# 실행 (로그 보면서)
-docker compose up
-
-# 빌드 후 실행 (패키지 추가했을 때)
-docker compose up --build
-
-# 중지
-docker compose down
-
-# 로그 확인
-docker compose logs django
-```
-
-### Django
-```bash
-# 마이그레이션 파일 생성 (모델 변경 후 로컬에서 실행 → 생성된 파일 깃에 커밋)
-uv run python manage.py makemigrations
-
-# 마이그레이션 적용 (각자 로컬 DB에 적용)
-docker compose exec django uv run python manage.py migrate
-```
-
-### 패키지 추가
-```bash
-uv add 패키지명
-```
-추가 후 반드시 `pyproject.toml`과 `uv.lock`을 같이 커밋해주세요.
-다른 팀원들은 `docker compose up --build`로 동기화합니다.
+<br/>
 
 ---
 
-## Makefile 명령어
+<br/>
 
-도커 컨테이너 실행 중인 상태에서 사용합니다.
+## 📬 문의
 
-```bash
-make format    # 코드 포맷팅 (black + isort)
-make type      # 타입 체크 (mypy)
-make test      # 테스트 실행 (pytest)
-make coverage  # 커버리지 측정
-make check     # 전체 실행 (format + type + test + coverage)
-```
+서비스 관련 문의나 협업 제안은 아래로 연락주세요.
 
----
+- 이메일: `cksdufqqpu@gmail.com`
+- GitHub Issues: [danim-travel/danim-backend](../../issues)
 
-## 개발 시작 전 체크리스트
-- [ ] Docker Desktop 실행 중인지 확인
-- [ ] `git pull origin develop` 으로 최신 코드 받기
-- [ ] 패키지 변경 있으면 `docker compose up --build`
-- [ ] 마이그레이션 변경 있으면 `migrate` 실행하기
+<br/>
+
+<div align="center">
+
+<img src="assets/readme/footer.svg" width="100%" alt="footer"/>
+
+*세상의 모든 여행이 다님과 함께합니다* ✈️
+
+</div>

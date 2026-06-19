@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 200">
+  <defs>
+    <marker id="ah" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#1DB954"/>
+    </marker>
+  </defs>
+
+  <rect width="680" height="200" rx="16" fill="#0d1117"/>
+
+  <!-- Title -->
+  <text x="340" y="26" text-anchor="middle" fill="#30363d"
+    font-family="-apple-system,'Segoe UI',sans-serif"
+    font-size="10" letter-spacing="4" font-weight="700">USER  JOURNEY</text>
+
+  <!-- Step 1 -->
+  <g opacity="0">
+    <animateTransform attributeName="transform" type="translate" from="0,10" to="0,0" dur="0.6s" begin="0.1s" fill="freeze"/>
+    <animate attributeName="opacity" from="0" to="1" dur="0.6s" begin="0.1s" fill="freeze"/>
+    <circle cx="68" cy="94" r="36" fill="#091d12" stroke="#1DB954" stroke-width="1.5"/>
+    <text x="68" y="88" text-anchor="middle" font-size="20"
+      font-family="Apple Color Emoji,Segoe UI Emoji,sans-serif">🔐</text>
+    <text x="68" y="107" text-anchor="middle" fill="#1DB954"
+      font-family="-apple-system,'Segoe UI',sans-serif" font-size="12" font-weight="700">가입</text>
+    <text x="68" y="149" text-anchor="middle" fill="#484f58"
+      font-family="-apple-system,'Segoe UI',sans-serif" font-size="10">소셜 로그인으로</text>
+    <text x="68" y="163" text-anchor="middle" fill="#484f58"
+      font-family="-apple-system,'Segoe UI',sans-serif" font-size="10">30초 만에 시작</text>
+  </g>
+
+  <!-- Arrow 1 -->
+  <line x1="108" y1="94" x2="156" y2="94"
+    stroke="#1DB954" stroke-width="1.5" opacity="0" marker-end="url(#ah)">
+    <animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="0.5s" fill="freeze"/>
+  </line>
+
+  <!-- Step 2 -->
+  <g opacity="0">
+    <animateTransform attributeName="transform" type="translate" from="0,10" to="0,0" dur="0.6s" begin="0.8s" fill="freeze"/>
+    <animate attributeName="opacity" from="0" to="1" dur="0.6s" begin="0.8s" fill="freeze"/>
+    <circle cx="204" cy="94" r="36" fill="#091d12" stroke="#1DB954" stroke-width="1.5"/>
+    <text x="204" y="88" text-anchor="middle" font-size="20"
+      font-family="Apple Color Emoji,Segoe UI Emoji,sans-serif">🔍</text>
+    <text x="204" y="107" text-anchor="middle" fill="#1DB954"
+      font-family="-apple-system,'Segoe UI',sans-serif" font-size="12" font-weight="700">탐색</text>
+    <text x="204" y="149" text-anchor="middle" fill="#484f58"
+      font-family="-apple-system,'Segoe UI',sans-serif" font-size="10">팔로우 피드와</text>
+    <text x="204" y="163" text-anchor="middle" fill="#484f58"
+      font-family="-apple-system,'Segoe UI',sans-serif" font-size="10">위치 기반 발견</text>
+  </g>
+
+  <!-- Arrow 2 -->
+  <line x1="244" y1="94" x2="292" y2="94"
+    stroke="#1DB954" stroke-width="1.5" opacity="0" marker-end="url(#ah)">
+    <animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="1.2s" fill="freeze"/>
+  </line>
+
+  <!-- Step 3 -->
+  <g opacity="0">
+    <animateTransform attributeName="transform" type="translate" from="0,10" to="0,0" dur="0.6s" begin="1.5s" fill="freeze"/>
+    <animate attributeName="opacity" from="0" to="1" dur="0.6s" begin="1.5s" fill="freeze"/>
+    <circle cx="340" cy="94" r="36" fill="#091d12" stroke="#1DB954" stroke-width="1.5"/>
+    <text x="340" y="88" text-anchor="middle" font-size="20"
+      font-family="Apple Color Emoji,Segoe UI Emoji,sans-serif">📸</text>
+    <text x="340" y="107" text-anchor="middle" fill="#1DB954"
+      font-family="-apple-system,'Segoe UI',sans-serif" font-size="12" font-weight="700">기록</text>
+    <text x="340" y="149" text-anchor="middle" fill="#484f58"
+      font-family="-apple-system,'Segoe UI',sans-serif" font-size="10">일정·사진·여행지를</text>
+    <text x="340" y="163" text-anchor="middle" fill="#484f58"
+      font-family="-apple-system,'Segoe UI',sans-serif" font-size="10">하나의 게시글로</text>
+  </g>
+
+  <!-- Arrow 3 -->
+  <line x1="380" y1="94" x2="428" y2="94"
+    stroke="#1DB954" stroke-width="1.5" opacity="0" marker-end="url(#ah)">
+    <animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="1.9s" fill="freeze"/>
+  </line>
+
+  <!-- Step 4 -->
+  <g opacity="0">
+    <animateTransform attributeName="transform" type="translate" from="0,10" to="0,0" dur="0.6s" begin="2.2s" fill="freeze"/>
+    <animate attributeName="opacity" from="0" to="1" dur="0.6s" begin="2.2s" fill="freeze"/>
+    <circle cx="476" cy="94" r="36" fill="#091d12" stroke="#1DB954" stroke-width="1.5"/>
+    <text x="476" y="88" text-anchor="middle" font-size="20"
+      font-family="Apple Color Emoji,Segoe UI Emoji,sans-serif">🌐</text>
+    <text x="476" y="107" text-anchor="middle" fill="#1DB954"
+      font-family="-apple-system,'Segoe UI',sans-serif" font-size="12" font-weight="700">공유</text>
+    <text x="476" y="149" text-anchor="middle" fill="#484f58"
+      font-family="-apple-system,'Segoe UI',sans-serif" font-size="10">팔로워들과 나누고</text>
+    <text x="476" y="163" text-anchor="middle" fill="#484f58"
+      font-family="-apple-system,'Segoe UI',sans-serif" font-size="10">댓글로 소통</text>
+  </g>
+
+  <!-- Arrow 4 -->
+  <line x1="516" y1="94" x2="564" y2="94"
+    stroke="#1DB954" stroke-width="1.5" opacity="0" marker-end="url(#ah)">
+    <animate attributeName="opacity" from="0" to="1" dur="0.3s" begin="2.6s" fill="freeze"/>
+  </line>
+
+  <!-- Step 5 -->
+  <g opacity="0">
+    <animateTransform attributeName="transform" type="translate" from="0,10" to="0,0" dur="0.6s" begin="2.9s" fill="freeze"/>
+    <animate attributeName="opacity" from="0" to="1" dur="0.6s" begin="2.9s" fill="freeze"/>
+    <circle cx="612" cy="94" r="36" fill="#091d12" stroke="#1DB954" stroke-width="1.5"/>
+    <text x="612" y="88" text-anchor="middle" font-size="20"
+      font-family="Apple Color Emoji,Segoe UI Emoji,sans-serif">💬</text>
+    <text x="612" y="107" text-anchor="middle" fill="#1DB954"
+      font-family="-apple-system,'Segoe UI',sans-serif" font-size="12" font-weight="700">연결</text>
+    <text x="612" y="149" text-anchor="middle" fill="#484f58"
+      font-family="-apple-system,'Segoe UI',sans-serif" font-size="10">DM으로 여행 친구와</text>
+    <text x="612" y="163" text-anchor="middle" fill="#484f58"
+      font-family="-apple-system,'Segoe UI',sans-serif" font-size="10">실시간 소통</text>
+  </g>
+</svg>
