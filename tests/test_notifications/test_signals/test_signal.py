@@ -51,7 +51,7 @@ class TestNotificationSignal(NotificationsBaseTest):
         )
 
     @patch("apps.notifications.signals.signal.create_notification")
-    def tets_follow_signal(self, mock_noti):
+    def test_follow_signal(self, mock_noti):
         follow = Follows.objects.create(following=self.user_2, follower=self.user_1)
         mock_noti.assert_called_once_with(
             receiver_id=follow.following_id,
