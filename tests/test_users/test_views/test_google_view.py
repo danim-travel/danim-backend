@@ -1,8 +1,10 @@
 from unittest.mock import patch
 
-from django.conf import settings
+from django.test import override_settings
 from django.urls import reverse
 from rest_framework.test import APITestCase
+
+FRONT_URI = "http://localhost:3000"
 
 
 class GoogleLoginViewTest(APITestCase):
@@ -20,6 +22,7 @@ class GoogleLoginViewTest(APITestCase):
         )
 
 
+@override_settings(FRONT_REDIRECT_URI=FRONT_URI)
 class GoogleCallbackViewTest(APITestCase):
 
     @patch("apps.users.services.google_service.GoogleService.google_callback")
@@ -37,7 +40,7 @@ class GoogleCallbackViewTest(APITestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(
             response.url,
-            f"{settings.FRONT_REDIRECT_URI}?provider=google&is_success=true",
+            f"{FRONT_URI}?provider=google&is_success=true",
         )
         self.assertEqual(response.cookies["refresh_token"].value, "refresh")
 
