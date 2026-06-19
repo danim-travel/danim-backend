@@ -7,6 +7,7 @@ from django.test import SimpleTestCase, TestCase, override_settings
 from apps.core.exceptions.exception import ValidationException
 from apps.core.storage.s3 import s3_svc
 from apps.core.utils.base62 import encode_cursor
+from apps.explores.services.response_base import build_next
 
 # ↓ 실제 모듈 경로로 수정하세요 (feeds_for_search 가 있는 파일)
 from apps.explores.services.search import (
@@ -15,7 +16,6 @@ from apps.explores.services.search import (
     _clean,
     _search,
     _search_key,
-    build_next,
     feeds_for_search,
 )
 from apps.posts.models import Post
@@ -59,13 +59,13 @@ class SearchKeyTest(SimpleTestCase):
 
 class BuildNextTest(SimpleTestCase):
     def test_basic(self) -> None:
-        url = build_next("hello", "abc123", "https://x.com/explore")
+        url = build_next("https://x.com/explore", search="hello", cursor="abc123")
         self.assertEqual(
             url, "https://x.com/explore?search=hello&cursor=abc123&page_size=10"
         )
 
     def test_korean_is_percent_encoded(self) -> None:
-        url = build_next("강아지", "c1", "https://x.com/explore")
+        url = build_next("https://x.com/explore", cursor="c1", search="강아지")
         expected_qs = urlencode(
             {"search": "강아지", "cursor": "c1", "page_size": PAGE_LIMIT}
         )
