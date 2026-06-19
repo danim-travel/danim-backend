@@ -1,6 +1,5 @@
 import re
 from typing import Any, no_type_check
-from urllib.parse import urlencode
 
 from django.contrib.postgres.search import TrigramSimilarity
 from django.core.cache import cache
@@ -10,7 +9,7 @@ from django.db.models.expressions import Combinable
 from apps.core.exceptions.exception import ValidationException
 from apps.core.storage.s3 import s3_svc
 from apps.core.utils.base62 import encode_cursor
-from apps.explores.dtos import SearchResult
+from apps.explores.dtos import ExploreRes
 from apps.posts.models import Post
 
 SEARCH_TTL = 60 * 60 * 24
@@ -43,12 +42,14 @@ def feeds_for_search(search: str, cursor: str | None) -> tuple[Any, Any, Any]:
         return [], None, seed
 
     new_cursor = encode_cursor(page_ids[-1])
-    posts = Post.objects.filter(id__in=page_ids)
+    queryset = Post.objects.filter(id__in=page_ids)
+    rank = {pid: i for i, pid in enumerate(page_ids)}
+    posts = sorted(queryset, key=lambda p: rank[p.id])
 
     feed = []
     for p in posts:
         feed.append(
-            SearchResult(
+            ExploreRes(
                 id=p.id,
                 thumbnail=s3_svc.create_download_presigned_url(p.thumbnail),
                 like_count=p.like_count,
@@ -56,12 +57,6 @@ def feeds_for_search(search: str, cursor: str | None) -> tuple[Any, Any, Any]:
             )
         )
     return feed, new_cursor, seed
-
-
-def build_next(search: str | None, cursor: str | None, url: str) -> str:
-    query_params = {"search": search, "cursor": cursor, "page_size": PAGE_LIMIT}
-
-    return f"{url}?{urlencode(query_params)}"
 
 
 def _clean(search: str) -> str:
@@ -124,8 +119,8 @@ def _search(tokens: list[Any]) -> list[Any]:
         .order_by("-score", "-id")
     )
 
-    result = list(qs[:500])
-    cutted_ids = [p.id for p in result[:325]]
+    result = list(qs[:300])
+    cutted_ids = [p.id for p in result[:200]]
 
     cache.set(key, cutted_ids, SEARCH_TTL)
     return cutted_ids

@@ -1,100 +1,170 @@
-from unittest.mock import ANY, patch
+from unittest.mock import MagicMock, patch
 
-from django.contrib.auth import get_user_model
-from django.urls import reverse
-from rest_framework.test import APITestCase
+from django.test import TestCase
+from rest_framework.test import APIRequestFactory, force_authenticate
 
-from tests.test_explores.utils import user_and_post
+from apps.core.exceptions.exception import ValidationException
+from apps.explores import views
+from apps.explores.views import ExploresView
+from tests.test_explores.utils import make_shared_user
 
-User = get_user_model()
+_PATH = "/api/explores/"
 
 
-class ExploresViewTest(APITestCase):
-    @classmethod
-    def setUpTestData(cls):
-        cls.user, _ = user_and_post()
+def _make_request(user=None):
+    request = APIRequestFactory().get(_PATH)
+    if user is not None:
+        force_authenticate(request, user=user)
+    return request
 
+
+def _query_stub(validated: dict):
+    """ExploreQuerySerializer 대역: is_valid 통과 + 통제된 validated_data."""
+    serializer = MagicMock()
+    instance = serializer.return_value
+    instance.is_valid.return_value = True
+    instance.validated_data = validated
+    return serializer
+
+
+def _resp_stub(data=None):
+    """ExploreResponseSerializer 대역: .data 만 평범한 dict 로 돌려줌."""
+    serializer = MagicMock()
+    serializer.return_value.data = data if data is not None else {"ok": True}
+    return serializer
+
+
+# ───────────────────────── _page_from_cursor (pure) ─────────────────────────
+class PageFromCursorTests(TestCase):
+    def test_empty_is_zero(self):
+        self.assertEqual(ExploresView._page_from_cursor(None), 0)
+        self.assertEqual(ExploresView._page_from_cursor(""), 0)
+
+    def test_valid_int(self):
+        self.assertEqual(ExploresView._page_from_cursor("5"), 5)
+
+    def test_negative_raises(self):
+        with self.assertRaises(ValidationException):
+            ExploresView._page_from_cursor("-1")
+
+    def test_non_int_raises(self):
+        with self.assertRaises(ValidationException):
+            ExploresView._page_from_cursor("abc")
+        with self.assertRaises(ValidationException):
+            ExploresView._page_from_cursor("3.5")
+
+
+# ───────────────────────── 인증 ─────────────────────────
+class AuthTests(TestCase):
+    def test_anonymous_denied(self):
+        response = ExploresView.as_view()(_make_request(user=None))
+        self.assertIn(response.status_code, (401, 403))
+
+
+# ───────────────────────── 피드 분기 ─────────────────────────
+class FeedRoutingTests(TestCase):
     def setUp(self):
-        self.url = reverse(
-            "explores:explore"
-        )  # urls.py의 name으로. 없으면 "/api/explores/"
-        self.client.force_authenticate(user=self.user)
+        self.user = make_shared_user()
 
-    # 인증 안 된 요청 → 401
-    def test_requires_auth(self):
-        self.client.force_authenticate(user=None)  # 인증 해제
-        res = self.client.get(self.url)
-        self.assertEqual(res.status_code, 401)
+    def test_full_page_sets_next_and_threads_service_seed(self):
+        results = [object() for _ in range(10)]  # == page_size → has_next
+        validated = {"search": "", "cursor": "1", "page_size": 10, "seed": 42}
 
-    # search 없음 → call_posts 호출, feeds_for_search 안 탐
-    @patch("apps.explores.views.feeds_for_search")
-    @patch("apps.explores.views.call_posts")
-    def test_no_search_calls_call_posts(self, mock_call_posts, mock_search):
-        mock_call_posts.return_value = ([], None, 0)
+        with (
+            patch.object(views, "ExploreQuerySerializer", _query_stub(validated)),
+            patch.object(
+                views, "get_explore_feed", return_value=(results, 999)
+            ) as m_feed,
+            patch.object(
+                views, "build_next", return_value="http://next?cursor=2"
+            ) as m_next,
+            patch.object(views, "ExploreResponseSerializer", _resp_stub()) as m_resp,
+        ):
+            response = ExploresView.as_view()(self._auth())
 
-        res = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        # cursor "1" → page 1, limit=page_size
+        self.assertEqual(m_feed.call_args.kwargs["page"], 1)
+        self.assertEqual(m_feed.call_args.kwargs["limit"], 10)
+        # has_next → 다음 페이지 커서로 build_next, seed 는 서비스가 돌려준 999
+        self.assertEqual(m_next.call_args.kwargs["cursor"], "2")
+        self.assertEqual(m_next.call_args.kwargs["seed"], 999)
+        # 응답 dict: 서비스 seed 가 검증값(42)을 덮어쓰고 실려나감
+        payload = m_resp.call_args.args[0]
+        self.assertEqual(payload["seed"], 999)
+        self.assertEqual(payload["next"], "http://next?cursor=2")
+        self.assertEqual(payload["results"], results)
 
-        self.assertEqual(res.status_code, 200)
-        mock_call_posts.assert_called_once_with(None)  # cursor 없음 → None
-        mock_search.assert_not_called()
+    def test_partial_page_no_next(self):
+        results = [object() for _ in range(5)]  # < page_size → has_next False
+        validated = {"search": "", "cursor": None, "page_size": 10, "seed": 7}
 
-    # search 있음 → feeds_for_search 호출, call_posts 안 탐
-    @patch("apps.explores.views.call_posts")
-    @patch("apps.explores.views.feeds_for_search")
-    def test_search_calls_feeds_for_search(self, mock_search, mock_call_posts):
-        mock_search.return_value = ([], None, 0)
+        with (
+            patch.object(views, "ExploreQuerySerializer", _query_stub(validated)),
+            patch.object(views, "get_explore_feed", return_value=(results, 7)) as m_feed,
+            patch.object(views, "build_next") as m_next,
+            patch.object(views, "ExploreResponseSerializer", _resp_stub()) as m_resp,
+        ):
+            ExploresView.as_view()(self._auth())
 
-        res = self.client.get(self.url, {"search": "cat"})
+        self.assertEqual(m_feed.call_args.kwargs["page"], 0)  # cursor None → page 0
+        m_next.assert_not_called()
+        payload = m_resp.call_args.args[0]
+        self.assertIsNone(payload["next"])
+        self.assertEqual(payload["results"], results)
 
-        self.assertEqual(res.status_code, 200)
-        mock_search.assert_called_once_with("cat", None)
-        mock_call_posts.assert_not_called()
+    def _auth(self):
+        return _make_request(self.user)
 
-    # raw_cursor 있음 → decode되고 그 결과가 서비스로 전달
-    @patch("apps.explores.views.call_posts")
-    @patch("apps.explores.views.decode_cursor")
-    def test_cursor_is_decoded_and_passed(self, mock_decode, mock_call_posts):
-        mock_decode.return_value = "DECODED"
-        mock_call_posts.return_value = ([], None, 0)
 
-        res = self.client.get(self.url, {"cursor": "rawcur"})
+# ───────────────────────── 검색 분기 ─────────────────────────
+class SearchRoutingTests(TestCase):
+    def setUp(self):
+        self.user = make_shared_user()
 
-        self.assertEqual(res.status_code, 200)
-        mock_decode.assert_called_once_with("rawcur")
-        mock_call_posts.assert_called_once_with("DECODED")
+    def test_decodes_cursor_and_sets_next(self):
+        feeds = [object(), object()]
+        validated = {"search": "hello", "cursor": "Cur5", "page_size": 10, "seed": 0}
 
-    # raw_cursor 없음 → decode 호출 안 됨
-    @patch("apps.explores.views.call_posts")
-    @patch("apps.explores.views.decode_cursor")
-    def test_no_cursor_skips_decode(self, mock_decode, mock_call_posts):
-        mock_call_posts.return_value = ([], None, 0)
+        with (
+            patch.object(views, "ExploreQuerySerializer", _query_stub(validated)),
+            patch.object(views, "decode_cursor", return_value=321) as m_dec,
+            patch.object(
+                views, "feeds_for_search", return_value=(feeds, "NEXTCUR", 0)
+            ) as m_search,
+            patch.object(
+                views, "build_next", return_value="http://next?cursor=NEXTCUR"
+            ) as m_next,
+            patch.object(views, "ExploreResponseSerializer", _resp_stub()) as m_resp,
+        ):
+            response = ExploresView.as_view()(_make_request(self.user))
 
-        res = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        m_dec.assert_called_once_with("Cur5")
+        # 디코드된 커서가 그대로 서비스에 (positional)
+        self.assertEqual(m_search.call_args.args, ("hello", 321))
+        # new_cursor 가 truthy → search+new_cursor 로 next 생성
+        self.assertEqual(m_next.call_args.kwargs["search"], "hello")
+        self.assertEqual(m_next.call_args.kwargs["cursor"], "NEXTCUR")
+        payload = m_resp.call_args.args[0]
+        self.assertEqual(payload["results"], feeds)
+        self.assertEqual(payload["next"], "http://next?cursor=NEXTCUR")
 
-        self.assertEqual(res.status_code, 200)
-        mock_decode.assert_not_called()
+    def test_without_cursor_skips_decode_and_no_next(self):
+        validated = {"search": "hi", "cursor": None, "page_size": 10, "seed": 0}
 
-    # new_cursor 있음 → build_next 호출되고 next에 반영
-    @patch("apps.explores.views.build_next")
-    @patch("apps.explores.views.call_posts")
-    def test_next_url_built_when_new_cursor(self, mock_call_posts, mock_build_next):
-        mock_call_posts.return_value = ([], "NEWCUR", 0)
-        mock_build_next.return_value = "http://x/next"
+        with (
+            patch.object(views, "ExploreQuerySerializer", _query_stub(validated)),
+            patch.object(views, "decode_cursor") as m_dec,
+            patch.object(
+                views, "feeds_for_search", return_value=([], None, 0)
+            ) as m_search,
+            patch.object(views, "build_next") as m_next,
+            patch.object(views, "ExploreResponseSerializer", _resp_stub()) as m_resp,
+        ):
+            ExploresView.as_view()(_make_request(self.user))
 
-        res = self.client.get(self.url)
-
-        self.assertEqual(res.status_code, 200)
-        mock_build_next.assert_called_once_with(None, "NEWCUR", ANY)
-        self.assertEqual(res.data["next"], "http://x/next")
-
-    # new_cursor 없음 → next는 None
-    @patch("apps.explores.views.build_next")
-    @patch("apps.explores.views.call_posts")
-    def test_next_is_none_without_new_cursor(self, mock_call_posts, mock_build_next):
-        mock_call_posts.return_value = ([], None, 0)
-
-        res = self.client.get(self.url)
-
-        self.assertEqual(res.status_code, 200)
-        mock_build_next.assert_not_called()
-        self.assertIsNone(res.data["next"])
+        m_dec.assert_not_called()
+        self.assertEqual(m_search.call_args.args, ("hi", None))
+        m_next.assert_not_called()  # new_cursor None
+        self.assertIsNone(m_resp.call_args.args[0]["next"])
