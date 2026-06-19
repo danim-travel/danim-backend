@@ -1,6 +1,6 @@
 from typing import Any, cast
 
-from django.db.models import Count, Exists, OuterRef
+from django.db.models import Exists, OuterRef
 
 from apps.follows.models.models import Follows
 from apps.posts.models import Post, PostLike
@@ -20,7 +20,6 @@ class PostMainListService:
         queryset = cast(Any, Post.objects.filter(user__in=following_users))
         queryset = queryset.select_related("user").prefetch_related("spots__location")
         queryset = queryset.annotate(
-            spot_count=Count("spots", distinct=True),
             is_liked=Exists(PostLike.objects.filter(user=user, post_id=OuterRef("pk"))),
             is_bookmarked=Exists(
                 BookMark.objects.filter(user=user, post_id=OuterRef("pk"))

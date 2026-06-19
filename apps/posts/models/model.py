@@ -31,6 +31,7 @@ class Post(TimeStampModel):
     like_count = models.PositiveIntegerField(default=0)
     comment_count = models.PositiveIntegerField(default=0)
     view_count = models.PositiveIntegerField(default=0)
+    spot_count = models.PositiveIntegerField(default=0)
     random_score = models.FloatField(default=_get_random, db_index=True)
 
     class Meta:
