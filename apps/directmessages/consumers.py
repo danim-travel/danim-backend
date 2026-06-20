@@ -208,11 +208,13 @@ class DMConsumer(BaseConsumer):
             return message
 
     def _get_receiver_id(self) -> str:
+        assert self.user is not None
         conv = self.conversation
         return str(conv.user2_id if conv.user1_id == self.user.id else conv.user1_id)
 
     @database_sync_to_async
     def _set_presence(self, is_present: bool) -> None:
+        assert self.user is not None
         key = f"dm_presence_{self.conversation_id}_{self.user.id}"
         if is_present:
             cache.set(key, 1, timeout=PRESENCE_TTL)
