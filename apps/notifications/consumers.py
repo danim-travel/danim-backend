@@ -31,3 +31,7 @@ class NotificationConsumer(BaseConsumer):
             ).count()
             cache.set(f"user_{self.user.id}_unread_count", count, timeout=None)
         return count
+
+    async def send_dm_notification(self, event: dict) -> None:
+        payload = {k: v for k, v in event.items() if k != "type"}
+        await self.send(json.dumps({"type": "dm_notification", **payload}))
