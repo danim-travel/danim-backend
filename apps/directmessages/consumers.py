@@ -1,6 +1,8 @@
+import asyncio
 import json
 
 from channels.db import database_sync_to_async
+from django.core.cache import cache
 from django.db import models, transaction
 from django.db.models import Q
 from django.utils import timezone
@@ -10,6 +12,9 @@ from apps.core.websocket.base import BaseConsumer
 from apps.directmessages.models import Conversation, Message
 from apps.notifications.utils import create_notification
 from apps.users.models import User
+
+PRESENCE_TTL = 30
+HEARTBEAT_INTERVAL = 20
 
 
 class DMConsumer(BaseConsumer):
@@ -36,12 +41,26 @@ class DMConsumer(BaseConsumer):
         self.group_name = f"conversation_{self.conversation_id}"
         await self.channel_layer.group_add(self.group_name, self.channel_name)
 
+        await self._set_presence(True)
+        self._heartbeat_task = asyncio.ensure_future(self._presence_heartbeat())
+
         message_ids = await self._mark_messages_as_read(conversation, self.user)
         if message_ids:
             await self.channel_layer.group_send(
                 self.group_name,
                 {"type": "broadcast_read_receipt", "message_ids": message_ids},
             )
+
+    async def disconnect(self, close_code: int) -> None:
+        if hasattr(self, "_heartbeat_task"):
+            self._heartbeat_task.cancel()
+            try:
+                await self._heartbeat_task
+            except asyncio.CancelledError:
+                pass
+        if hasattr(self, "conversation_id"):
+            await self._set_presence(False)
+        await super().disconnect(close_code)
 
     async def receive(self, text_data: str) -> None:
         try:
@@ -61,8 +80,11 @@ class DMConsumer(BaseConsumer):
         if not content and not img_key:
             return
 
+        is_present = await self._is_receiver_present()
+
         message = await self._create_message_and_update_conversation(
-            self.conversation, user, content, img_key, original_img
+            self.conversation, user, content, img_key, original_img,
+            increment_unread=not is_present,
         )
 
         img_url = s3_svc.create_download_presigned_url(img_key) if img_key else None
@@ -84,6 +106,19 @@ class DMConsumer(BaseConsumer):
                 "created_at": message.created_at.isoformat(),
             },
         )
+
+        if not is_present:
+            receiver_id = self._get_receiver_id()
+            await self.channel_layer.group_send(
+                f"user_{receiver_id}",
+                {
+                    "type": "send_dm_notification",
+                    "sender_id": str(user.id),
+                    "sender_nickname": user.nickname,
+                    "conversation_id": str(self.conversation_id),
+                    "preview": content[:30] if content else "사진을 보냈습니다.",
+                },
+            )
 
     async def broadcast_receive_message(self, event: dict) -> None:
         payload = {k: v for k, v in event.items() if k != "type"}
@@ -139,6 +174,7 @@ class DMConsumer(BaseConsumer):
         content: str | None,
         img_key: str | None,
         original_img: str | None,
+        increment_unread: bool = True,
     ) -> Message:
         with transaction.atomic():
             img_url = s3_svc.create_img_url(img_key) if img_key else None
@@ -152,13 +188,36 @@ class DMConsumer(BaseConsumer):
             )
             now = timezone.now()
             if conv.user1_id == user.id:
-                Conversation.objects.filter(pk=conv.id).update(
-                    last_message_at=now,
-                    user2_unread_count=models.F("user2_unread_count") + 1,
-                )
+                update_fields: dict = {"last_message_at": now}
+                if increment_unread:
+                    update_fields["user2_unread_count"] = models.F("user2_unread_count") + 1
+                Conversation.objects.filter(pk=conv.id).update(**update_fields)
             else:
-                Conversation.objects.filter(pk=conv.id).update(
-                    last_message_at=now,
-                    user1_unread_count=models.F("user1_unread_count") + 1,
-                )
+                update_fields = {"last_message_at": now}
+                if increment_unread:
+                    update_fields["user1_unread_count"] = models.F("user1_unread_count") + 1
+                Conversation.objects.filter(pk=conv.id).update(**update_fields)
             return message
+
+    def _get_receiver_id(self) -> str:
+        conv = self.conversation
+        return str(conv.user2_id if conv.user1_id == self.user.id else conv.user1_id)
+
+    @database_sync_to_async
+    def _set_presence(self, is_present: bool) -> None:
+        key = f"dm_presence_{self.conversation_id}_{self.user.id}"
+        if is_present:
+            cache.set(key, 1, timeout=PRESENCE_TTL)
+        else:
+            cache.delete(key)
+
+    @database_sync_to_async
+    def _is_receiver_present(self) -> bool:
+        receiver_id = self._get_receiver_id()
+        key = f"dm_presence_{self.conversation_id}_{receiver_id}"
+        return cache.get(key) is not None
+
+    async def _presence_heartbeat(self) -> None:
+        while True:
+            await asyncio.sleep(HEARTBEAT_INTERVAL)
+            await self._set_presence(True)
