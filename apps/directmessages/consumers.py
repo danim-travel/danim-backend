@@ -83,7 +83,11 @@ class DMConsumer(BaseConsumer):
         is_present = await self._is_receiver_present()
 
         message = await self._create_message_and_update_conversation(
-            self.conversation, user, content, img_key, original_img,
+            self.conversation,
+            user,
+            content,
+            img_key,
+            original_img,
             increment_unread=not is_present,
         )
 
@@ -190,12 +194,16 @@ class DMConsumer(BaseConsumer):
             if conv.user1_id == user.id:
                 update_fields: dict = {"last_message_at": now}
                 if increment_unread:
-                    update_fields["user2_unread_count"] = models.F("user2_unread_count") + 1
+                    update_fields["user2_unread_count"] = (
+                        models.F("user2_unread_count") + 1
+                    )
                 Conversation.objects.filter(pk=conv.id).update(**update_fields)
             else:
                 update_fields = {"last_message_at": now}
                 if increment_unread:
-                    update_fields["user1_unread_count"] = models.F("user1_unread_count") + 1
+                    update_fields["user1_unread_count"] = (
+                        models.F("user1_unread_count") + 1
+                    )
                 Conversation.objects.filter(pk=conv.id).update(**update_fields)
             return message
 
