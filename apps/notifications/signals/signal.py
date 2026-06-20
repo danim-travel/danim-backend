@@ -49,7 +49,7 @@ def on_created_follow(sender, instance, created, **kwargs):
             receiver_id=instance.following_id,
             sender=instance.follower,
             noti_type="follow",
-            target_id=instance.following_id,
+            target_id=instance.follower_id,
         )
 
 
