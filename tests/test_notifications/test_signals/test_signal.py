@@ -57,7 +57,7 @@ class TestNotificationSignal(NotificationsBaseTest):
             receiver_id=follow.following_id,
             sender=follow.follower,
             noti_type="follow",
-            target_id=follow.following_id,
+            target_id=follow.follower_id,
         )
 
     @patch("apps.notifications.signals.signal.create_notification")

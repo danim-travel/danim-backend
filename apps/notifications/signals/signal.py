@@ -1,3 +1,4 @@
+from django.core.cache import cache
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
@@ -48,7 +49,7 @@ def on_created_follow(sender, instance, created, **kwargs):
             receiver_id=instance.following_id,
             sender=instance.follower,
             noti_type="follow",
-            target_id=instance.following_id,
+            target_id=instance.follower_id,
         )
 
 
@@ -60,9 +61,10 @@ def on_created_message(sender, instance, created, **kwargs):
             if instance.sender_id == instance.conversation.user2_id
             else instance.conversation.user2_id
         )
-        create_notification(
-            receiver_id=receiver_id,
-            sender=instance.sender,
-            noti_type="dm",
-            target_id=instance.conversation_id,
-        )
+        if not cache.get(f"dm_presence_{instance.conversation_id}_{receiver_id}"):
+            create_notification(
+                receiver_id=receiver_id,
+                sender=instance.sender,
+                noti_type="dm",
+                target_id=instance.conversation_id,
+            )
