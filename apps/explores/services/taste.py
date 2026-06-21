@@ -3,7 +3,7 @@ from collections import defaultdict
 from django.utils import timezone
 
 from apps.comments.models import Comment
-from apps.posts.models import BookMark, PostClick, PostLike, PostRec
+from apps.posts.models import BookMark, PostClick, PostCodeword, PostLike
 
 TASTE_HORIZON_DAYS = 365
 
@@ -102,10 +102,10 @@ def build_codeword_counts(user, version="v1"):
     # 2) 상호작용한 게시글들의 codewords 를 한 번에 로드
     post_ids = {e[0] for e in events}
     codewords_by_post = {
-        str(pe.post_id): pe.codewords
-        for pe in PostRec.objects.filter(
-            post_id__in=post_ids, codebook_version=version
-        ).only("post_id", "codewords")
+        str(row["embedding__post_id"]): row["codewords"]
+        for row in PostCodeword.objects.filter(
+            embedding__post_id__in=post_ids, codebook_version=version
+        ).values("embedding__post_id", "codewords")
     }
 
     # 3) 누적: 상호작용가중치 * 시간감쇠 * codeword가중치

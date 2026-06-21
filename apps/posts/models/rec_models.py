@@ -6,12 +6,24 @@ from apps.core.models import TimeStampModel
 from apps.posts.models import Post
 
 
-class PostRec(TimeStampModel):
+class PostEmbedding(TimeStampModel):
     post = models.OneToOneField(Post, on_delete=models.CASCADE, related_name="rec")
-    raw_embedding = VectorField(dimensions=1024, null=True, blank=True)
     embedding = VectorField(dimensions=1024, null=True, blank=True)
+
+
+class PostCodeword(TimeStampModel):
+    embedding = models.ForeignKey(
+        PostEmbedding, on_delete=models.CASCADE, related_name="clusters"
+    )
     codewords = models.JSONField(default=dict, blank=True)
-    codebook_version = models.CharField(max_length=16, default="v1", blank=True)
+    codebook_version = models.CharField(max_length=16)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["embedding", "codebook_version"], name="uniq_embedding_version"
+            )
+        ]
 
 
 class PostClick(TimeStampModel):
