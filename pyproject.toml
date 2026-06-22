@@ -26,8 +26,6 @@ dependencies = [
     "httpx>=0.28.1",
     "pgvector>=0.4.2",
     "sentry-sdk[django]>=2.62.0",
-#    "sentence-transformers",
-#    "torch",
 ]
 
 [dependency-groups]
@@ -42,6 +40,8 @@ dev = [
     "pytest-django>=4.8",
     "pre-commit>=3.7",
     "boto3-stubs[s3]>=1.43.16",
+    "sentence-transformers",
+    "torch",
 ]
 
 [tool.black]
@@ -66,10 +66,10 @@ DJANGO_SETTINGS_MODULE = "config.settings.local"
 python_files = ["test_*.py"]
 
 
-#[tool.uv.sources]
-#torch = { index = "pytorch-cpu" }
-#
-#[[tool.uv.index]]
-#name = "pytorch-cpu"
-#url = "https://download.pytorch.org/whl/cpu"
-#explicit = true
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
