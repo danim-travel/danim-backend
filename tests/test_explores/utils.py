@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from django.utils import timezone
 
 from apps.explores.dtos import TasteProfile
-from apps.posts.models import Post, PostRec
+from apps.posts.models import Post, PostCodeword, PostEmbedding
 from apps.users.models import LoginType, User
 
 
@@ -88,9 +88,13 @@ def make_post(
 
 
 def make_rec(post, codewords, version="v1"):
-    return PostRec.objects.create(
-        post=post, codewords=codewords, codebook_version=version
+    emb, _ = PostEmbedding.objects.get_or_create(post=post)
+    PostCodeword.objects.create(
+        embedding=emb,
+        codewords=codewords,
+        codebook_version=version,
     )
+    return emb
 
 
 def taste_profile(counts, *, version="v1", alpha=1.0):

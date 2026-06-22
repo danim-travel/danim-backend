@@ -7,7 +7,7 @@ from typing import Callable
 from django.db.models import QuerySet
 
 from apps.explores.dtos import TasteProfile
-from apps.posts.models import Post, PostRec
+from apps.posts.models import Post, PostCodeword, PostEmbedding
 
 #
 SIGMOID_C = 120  # 시그모이드 중심 — 감쇠 배율이 0.5 되는 나이(일)
@@ -82,11 +82,23 @@ def _sub_score(post: Post, now: datetime) -> float:
 
 
 # 개인화 점수 ==============================================
-def _post_embedding(post: Post) -> PostRec | None:
+def _post_embedding(post: Post) -> PostEmbedding | None:
     try:
         return post.rec
-    except PostRec.DoesNotExist:
+    except PostEmbedding.DoesNotExist:
         return None
+
+
+def _post_codewords(post: Post, version: str | None) -> list | None:
+    emb = _post_embedding(post)
+    if emb is None:
+        return None
+    # 프리페치된 clusters 에서 버전에 맞는 행 하나 선택
+    # 글 임베딩 버전과 taste 버전이 같을 때만 채점
+    for c in emb.clusters.all():
+        if version is None or c.codebook_version == version:
+            return c.codewords
+    return None
 
 
 def _post_affinity(post: Post, profile: TasteProfile) -> float:
@@ -97,15 +109,8 @@ def _post_affinity(post: Post, profile: TasteProfile) -> float:
 
     if not taste_counts or u_norm == 0.0:
         return 0.0
-    emb = _post_embedding(post)
-    if emb is None:
-        return 0.0
-    # 글 임베딩 버전과 taste 버전이 같을 때만 채점
-    if taste_version is not None and emb.codebook_version != taste_version:
-        return 0.0
-
     # cws = [{"codewords": int, "weight": float}, ...]
-    cws = emb.codewords or None
+    cws = _post_codewords(post, taste_version)
     if not cws:
         return 0.0
 
@@ -175,7 +180,7 @@ def _random_pool(
 
     def _fetch(qs):
         if personalize:
-            qs = qs.select_related("rec")
+            qs = qs.select_related("rec").prefetch_related("rec__clusters")
         return qs
 
     head = _fetch(base_qs.filter(random_score__gte=cut).order_by("random_score"))
