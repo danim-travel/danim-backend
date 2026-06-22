@@ -224,6 +224,10 @@ __marimo__/
 exc_tttt.py
 CONVENTION.md
 artifacts/
+*.zip
+seed_recsys.py
+teardown_recsys.py
+logs/
 
 # Study notes
 notes/
