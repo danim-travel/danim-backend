@@ -1,3 +1,4 @@
+import uuid
 from datetime import date, timedelta
 
 from django.utils import timezone
@@ -105,3 +106,19 @@ def taste_profile(counts, *, version="v1", alpha=1.0):
 
 def empty_profile():
     return TasteProfile()
+
+
+def _make_user():
+    s = uuid.uuid4().hex[:10]
+    return User.objects.create(
+        email=f"u{s}@example.com",
+        name="t",
+        nickname=f"n{s}",
+        password="Password@123",
+        phone_number="010" + s[:8].translate(str.maketrans("abcdefghij", "0123456789")),
+        birth_day=date(1970, 1, 1),
+        is_email_verified=True,
+        is_phone_verified=True,
+        is_active=True,
+        login_type=LoginType.EMAIL,
+    )
