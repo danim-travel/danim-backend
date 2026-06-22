@@ -1,6 +1,6 @@
 from datetime import date
 
-from django.test import RequestFactory, TestCase
+from django.test import TestCase
 
 from apps.core.exceptions.exception import NotFoundException
 from apps.posts.models import Post
@@ -13,7 +13,6 @@ class PostShareServiceTest(TestCase):
 
     def setUp(self) -> None:
         self.service = PostShareService()
-        self.factory = RequestFactory()
         self.user = User.objects.create_user(
             email="test@example.com",
             name="test",
@@ -31,13 +30,11 @@ class PostShareServiceTest(TestCase):
 
     def test_get_share_url(self) -> None:
         """게시글 공유 URL 반환 성공 테스트"""
-        request = self.factory.get("/")
-        url = self.service.get_share_url(self.post.id, request)
+        url = self.service.get_share_url(self.post.id)
         self.assertIn(self.post.id, url)
-        self.assertIn("/api/v1/posts/", url)
+        self.assertIn("/posts/", url)
 
     def test_fail_get_share_url_not_found(self) -> None:
         """존재하지 않는 게시글 공유 시 404 테스트"""
-        request = self.factory.get("/")
         with self.assertRaises(NotFoundException):
-            self.service.get_share_url("nonexistent_id", request)
+            self.service.get_share_url("nonexistent_id")

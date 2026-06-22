@@ -36,14 +36,15 @@ class PostShareViewTest(APITestCase):
         self.assertIn("redirect_url", response.data)
         self.assertIn(self.post.id, response.data["redirect_url"])
 
-    def test_fail_get_share_url_view_unauthenticated(self) -> None:
-        """비로그인 유저의 게시글 공유 시 401 테스트"""
+    def test_get_share_url_view_unauthenticated(self) -> None:
+        """비로그인 유저의 게시글 공유 성공 테스트"""
         response = self.client.get(self.url)
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("redirect_url", response.data)
+        self.assertIn(self.post.id, response.data["redirect_url"])
 
     def test_fail_get_share_url_view_not_found(self) -> None:
         """존재하지 않는 게시글 공유 시 404 테스트"""
-        self.client.force_authenticate(user=self.user)
         url = reverse("posts:post_share", kwargs={"post_id": "nonexistent_id"})
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

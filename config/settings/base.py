@@ -10,6 +10,7 @@ env = environ.Env()
 environ.Env.read_env(BASE_DIR / "envs" / ".env")
 
 SECRET_KEY = env("SECRET_KEY")
+FRONTEND_URL = env("FRONTEND_URL", default="https://danim.kr")
 
 DJANGO_APPS = [
     "daphne",
