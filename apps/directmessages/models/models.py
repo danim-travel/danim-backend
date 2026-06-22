@@ -6,10 +6,10 @@ from apps.users.models import User
 
 class Conversation(BaseModel):
     user1 = models.ForeignKey(
-        User, on_delete=models.PROTECT, related_name="conversations_as_user1"
+        User, on_delete=models.CASCADE, related_name="conversations_as_user1"
     )
     user2 = models.ForeignKey(
-        User, on_delete=models.PROTECT, related_name="conversations_as_user2"
+        User, on_delete=models.CASCADE, related_name="conversations_as_user2"
     )
     user1_left_at = models.DateTimeField(null=True, blank=True)
     user2_left_at = models.DateTimeField(null=True, blank=True)
@@ -34,7 +34,7 @@ class Message(BaseModel):
         Conversation, on_delete=models.CASCADE, related_name="messages"
     )
     sender = models.ForeignKey(
-        User, on_delete=models.PROTECT, related_name="sent_messages"
+        User, on_delete=models.CASCADE, related_name="sent_messages"
     )
     content = models.TextField(null=True, blank=True)
     img_url = models.CharField(max_length=500, null=True, blank=True)
