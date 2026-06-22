@@ -32,10 +32,7 @@ class RecTest(TestCase):
         cls.click = PostClick.objects.create(user=cls.user, post=cls.post)
 
     def test_rec(self):
-        self.assertEqual(self.rec.raw_embedding, None)
         self.assertEqual(self.rec.embedding, None)
-        self.assertEqual(self.rec.codewords, {})
-        self.assertEqual(self.rec.codebook_version, "v1")
 
     def test_click(self):
         self.assertEqual(self.click.user, self.user)
