@@ -38,3 +38,8 @@ def get_latest_codebook_dir():
 
     latest_num = max(versions)
     return path / f"v{latest_num}"
+
+
+def get_latest_codebook_version():
+    d = get_latest_codebook_dir()
+    return d.name if d else None
