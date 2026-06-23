@@ -28,6 +28,7 @@ CACHES = {
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS")
+CORS_ALLOW_CREDENTIALS = True
 
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
