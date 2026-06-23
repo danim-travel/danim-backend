@@ -5,6 +5,7 @@ from itertools import chain
 from typing import Callable
 
 from django.db.models import QuerySet
+from django.utils import timezone
 
 from apps.explores.dtos import TasteProfile
 from apps.posts.models import Post, PostCodeword, PostEmbedding
@@ -199,7 +200,7 @@ def new_order(now: datetime, seed: int, *, profile: TasteProfile) -> list[Post]:
     now-7d ~ now 간의 posts를 최대 NEW_POOL개 랜덤 추출해서
     루키순/랜덤순으로 각각 정렬 후, 번갈아 합침(중복 제거).
     """
-    hi = now
+    hi = timezone.now()
     lo = now - timedelta(days=NEW_MAX_DAYS)
 
     personalize = profile.active
