@@ -1,6 +1,7 @@
 from .base import *
 
-DEBUG = True
+DEBUG = False
+SHOW_SWAGGER = True
 
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
 
@@ -26,6 +27,8 @@ CACHES = {
 }
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+
+SPECTACULAR_SETTINGS["SWAGGER_UI_SETTINGS"] = {"filter": True}
 
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS")
 

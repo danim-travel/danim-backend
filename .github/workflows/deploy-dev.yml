@@ -55,16 +55,24 @@ jobs:
             echo "S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME }}" >> envs/.env.dev
             echo "S3_PREFIX=dev/" >> envs/.env.dev
             echo "S3_PATH={action}/image/{category}/{suffix}" >> envs/.env.dev
+            echo "KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}" >> envs/.env.dev
+            echo "KAKAO_CLIENT_SECRET=${{ secrets.KAKAO_CLIENT_SECRET }}" >> envs/.env.dev
+            echo "KAKAO_REDIRECT_URI=${{ secrets.DEV_KAKAO_REDIRECT_URI }}" >> envs/.env.dev
+            echo "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}" >> envs/.env.dev
+            echo "GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}" >> envs/.env.dev
+            echo "GOOGLE_REDIRECT_URI=${{ secrets.DEV_GOOGLE_REDIRECT_URI }}" >> envs/.env.dev
+            echo "FRONT_REDIRECT_URI=${{ secrets.DEV_FRONT_REDIRECT_URI }}" >> envs/.env.dev
+            echo "SENTRY_DSN=${{ secrets.SENTRY_DSN }}" >> envs/.env.dev
+            echo "FRONTEND_URL=${{ secrets.DEV_FRONTEND_URL }}" >> envs/.env.dev
+            echo "DJANGO_ENV=dev" >> envs/.env.dev
 
             # 새 이미지 pull 및 재시작
             echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
             docker pull ${{ secrets.DOCKER_USERNAME }}/danim-backend:dev
-            export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
-            export DEV_DB_NAME=${{ secrets.DEV_DB_NAME }}
-            export DEV_DB_USER=${{ secrets.DEV_DB_USER }}
-            export DEV_DB_PASSWORD=${{ secrets.DEV_DB_PASSWORD }}
             docker-compose -f docker-compose.dev.yml down
             docker-compose -f docker-compose.dev.yml up -d
+            sleep 10
+            docker-compose -f docker-compose.dev.yml exec -T django uv run python manage.py migrate
             docker image prune -f
 
       - name: Close SSH port

@@ -45,4 +45,8 @@ repos:
           - drf-spectacular
           - psycopg2-binary
           - boto3
+          - boto3-stubs[s3]
           - Pillow
+          - pgvector
+          - httpx
+          - sentry-sdk

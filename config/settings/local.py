@@ -27,6 +27,18 @@ CACHES = {
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
-CORS_ALLOW_ALL_ORIGINS = True
+SPECTACULAR_SETTINGS["SWAGGER_UI_SETTINGS"] = {"filter": True}
+
 
 S3_CONFIG = Config(s3={"addressing_style": "virtual"})
+
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://dev.danim.kr",
+    "https://dev-api.danim.kr",
+]
+CORS_ALLOW_CREDENTIALS = True
+
+SHOW_SWAGGER = True

@@ -23,6 +23,9 @@ dependencies = [
     "channels-redis>=4.0",
     "python-ulid>=3.1.0",
     "boto3-stubs~=1.43.13",
+    "httpx>=0.28.1",
+    "pgvector>=0.4.2",
+    "sentry-sdk[django]>=2.62.0",
 ]
 
 [dependency-groups]
@@ -37,6 +40,8 @@ dev = [
     "pytest-django>=4.8",
     "pre-commit>=3.7",
     "boto3-stubs[s3]>=1.43.16",
+    "sentence-transformers",
+    "torch",
 ]
 
 [tool.black]
@@ -59,3 +64,12 @@ django_settings_module = "config.settings.local"
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings.local"
 python_files = ["test_*.py"]
+
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true

@@ -2,4 +2,7 @@ from django.apps import AppConfig
 
 
 class NotificationsConfig(AppConfig):
-    name = "notifications"
+    name = "apps.notifications"
+
+    def ready(self):
+        from apps.notifications.signals import signal

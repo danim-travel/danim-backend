@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import environ
+import sentry_sdk
 from botocore.config import Config
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -9,6 +10,7 @@ env = environ.Env()
 environ.Env.read_env(BASE_DIR / "envs" / ".env")
 
 SECRET_KEY = env("SECRET_KEY")
+FRONTEND_URL = env("FRONTEND_URL", default="https://danim.kr")
 
 DJANGO_APPS = [
     "daphne",
@@ -39,11 +41,16 @@ OWN_APPS: list[str] = [
     "apps.users",
     "apps.posts",
     "apps.comments",
+    "apps.follows",
+    "apps.notifications",
+    "apps.directmessages",
+    "apps.explores",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_APPS + OWN_APPS
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -107,7 +114,7 @@ X_FRAME_OPTIONS = "DENY"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "apps.core.authentication.JWTAuthenticationNoWWW",
     ),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "apps.core.exceptions.exception_handler.custom_exception_handler",
@@ -116,6 +123,7 @@ REST_FRAMEWORK = {
 SPECTACULAR_SETTINGS = {
     "TITLE": "danim API",
     "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
 }
 
 ACCOUNT_LOGIN_METHODS = {"email"}
@@ -149,3 +157,38 @@ S3_SECRET_ACCESS_KEY = env(
 S3_BUCKET_NAME = env("S3_BUCKET_NAME", default="danim_local")
 S3_PREFIX = env("S3_PREFIX", default="local/")
 S3_PATH = env("S3_PATH", default="{action}/image/{category}/{suffix}")
+
+
+# Kakao OAuth
+KAKAO_REST_API_KEY = env("KAKAO_REST_API_KEY", default="")
+KAKAO_CLIENT_SECRET = env("KAKAO_CLIENT_SECRET", default="")
+KAKAO_REDIRECT_URI = env("KAKAO_REDIRECT_URI", default="")
+FRONT_REDIRECT_URI = env("FRONT_REDIRECT_URI", default="")
+
+# Sentry (DSN이 비어있으면 자동 비활성화 → 로컬/dev/prod 한 곳에서 제어)
+SENTRY_DSN = env("SENTRY_DSN", default="")
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=env("DJANGO_ENV", default="local"),
+        traces_sample_rate=0.1,
+        send_default_pii=False,
+    )
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": env("REDIS_URL"),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "IGNORE_EXCEPTIONS": True,
+        },
+    }
+}
+
+# Google OAuth
+GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID", default="")
+GOOGLE_CLIENT_SECRET = env("GOOGLE_CLIENT_SECRET", default="")
+GOOGLE_REDIRECT_URI = env("GOOGLE_REDIRECT_URI", default="")
+
+FRONTEND_URL = env("FRONTEND_URL", default="https://danim.kr")

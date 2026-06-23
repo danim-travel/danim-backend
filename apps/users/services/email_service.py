@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.cache import cache
 from django.core.mail import send_mail
 from redis import RedisError
@@ -50,11 +51,12 @@ class EmailService:
             send_mail(
                 subject="[Danim] 이메일 인증 코드",
                 message=f"인증 코드:{code}",
-                from_email="",
+                from_email=settings.EMAIL_HOST_USER,
                 recipient_list=[email],
                 fail_silently=False,
             )
-        except Exception:
+        except Exception as e:
+            print(f"이메일 발송 에러: {e}")
             cache.delete(cache_key)
             cache.delete(cooldown_key)
             raise ExternalServiceException("이메일 발송에 실패했습니다.")

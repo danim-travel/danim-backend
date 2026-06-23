@@ -3,6 +3,7 @@ from django.contrib.auth.models import PermissionsMixin
 from django.db import models
 
 from apps.core.models import TimeStampModel
+from apps.core.storage.s3 import s3_svc
 
 
 class UserManager(BaseUserManager):
@@ -20,6 +21,13 @@ class UserManager(BaseUserManager):
         user = self.create_user(email, password=password, **extra_fields)
         user.is_staff = True
         user.is_superuser = True
+        user.save()
+        return user
+
+    def create_social_user(self, email, **extra_fields):
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.set_unusable_password()
         user.save()
         return user
 
@@ -57,3 +65,11 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampModel):
 
     class Meta:
         db_table = "users"
+
+    @property
+    def profile_img_url(self) -> str | None:
+        """저장된 profile_img(S3 key)를 조회용 URL로 변환. key가 없으면 None."""
+        if not self.profile_img:
+            return None
+
+        return s3_svc.create_download_presigned_url(self.profile_img)

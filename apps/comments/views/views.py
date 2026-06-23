@@ -3,10 +3,13 @@ from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnl
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.comments.pagination import CommentPagination
 from apps.comments.schemas import (
     comment_create_schema,
+    comment_delete_schema,
+    comment_like_create_schema,
+    comment_like_delete_schema,
     comment_list_schema,
+    comment_presigned_urls_schema,
     comment_update_schema,
 )
 from apps.comments.serializers import (
@@ -16,7 +19,16 @@ from apps.comments.serializers import (
     CommentUpdateResponseSerializer,
 )
 from apps.comments.serializers.serializers import CommentUpdateSerializer
-from apps.comments.services import create_comment, get_comment_list, update_comment
+from apps.comments.services import (
+    create_comment,
+    create_comment_like,
+    delete_comment,
+    delete_comment_like,
+    get_comment_list,
+    update_comment,
+)
+from apps.core.storage.s3 import ActionEnum, CategoryEnum, PresignedUrlView, SuffixEnum
+from apps.core.utils.pagination import paginate
 
 
 class CommentView(APIView):
@@ -37,10 +49,7 @@ class CommentView(APIView):
     @comment_list_schema
     def get(self, request):
         queryset = get_comment_list(request.query_params.get("post_id"), request.user)
-        paginator = CommentPagination()
-        page = paginator.paginate_queryset(queryset, request)
-        serializer = CommentListSerializer(page, many=True)
-        return paginator.get_paginated_response(serializer.data)
+        return paginate(queryset, request, CommentListSerializer)
 
 
 class CommentDetailView(APIView):
@@ -55,3 +64,31 @@ class CommentDetailView(APIView):
             CommentUpdateResponseSerializer(mod_comment).data,
             status=status.HTTP_200_OK,
         )
+
+    @comment_delete_schema
+    def delete(self, request, comment_id):
+        delete_comment(comment_id, request.user)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@comment_presigned_urls_schema
+class CommentPresignedURLView(PresignedUrlView):
+    permission_classes = [IsAuthenticated]
+
+    action = ActionEnum.UPLOAD
+    category = CategoryEnum.COMMENT
+    suffix = SuffixEnum.NONE
+
+
+class CommentLikeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @comment_like_create_schema
+    def post(self, request, comment_id):
+        result = create_comment_like(comment_id, request.user)
+        return Response(result, status=status.HTTP_201_CREATED)
+
+    @comment_like_delete_schema
+    def delete(self, request, comment_id):
+        result = delete_comment_like(comment_id, request.user)
+        return Response(result, status=status.HTTP_200_OK)

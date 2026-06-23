@@ -58,6 +58,16 @@ jobs:
             echo "S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME }}" >> envs/.env.prod
             echo "S3_PREFIX=prod/" >> envs/.env.prod
             echo "S3_PATH={action}/image/{category}/{suffix}" >> envs/.env.prod
+            echo "KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}" >> envs/.env.prod
+            echo "KAKAO_CLIENT_SECRET=${{ secrets.KAKAO_CLIENT_SECRET }}" >> envs/.env.prod
+            echo "KAKAO_REDIRECT_URI=${{ secrets.KAKAO_REDIRECT_URI }}" >> envs/.env.prod
+            echo "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}" >> envs/.env.prod
+            echo "GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}" >> envs/.env.prod
+            echo "GOOGLE_REDIRECT_URI=${{ secrets.GOOGLE_REDIRECT_URI }}" >> envs/.env.prod
+            echo "FRONT_REDIRECT_URI=${{ secrets.FRONT_REDIRECT_URI }}" >> envs/.env.prod
+            echo "SENTRY_DSN=${{ secrets.SENTRY_DSN }}" >> envs/.env.prod
+            echo "FRONTEND_URL=${{ secrets.FRONTEND_URL }}" >> envs/.env.prod
+            echo "DJANGO_ENV=prod" >> envs/.env.prod
 
             # 새 이미지 pull 및 재시작
             echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
@@ -65,6 +75,8 @@ jobs:
             export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
             docker compose -f docker-compose.prod.yml down
             docker compose -f docker-compose.prod.yml up -d
+            sleep 10
+            docker compose -f docker-compose.prod.yml exec -T django uv run python manage.py migrate
             docker image prune -f
 
       - name: Close SSH port
