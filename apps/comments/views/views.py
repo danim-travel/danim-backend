@@ -16,6 +16,7 @@ from apps.comments.serializers import (
     CommentCreateResponseSerializer,
     CommentCreateSerializer,
     CommentListSerializer,
+    CommentPresignedSerializer,
     CommentUpdateResponseSerializer,
 )
 from apps.comments.serializers.serializers import CommentUpdateSerializer
@@ -78,6 +79,7 @@ class CommentPresignedURLView(PresignedUrlView):
     action = ActionEnum.UPLOAD
     category = CategoryEnum.COMMENT
     suffix = SuffixEnum.NONE
+    request_serializer_class = CommentPresignedSerializer
 
 
 class CommentLikeView(APIView):
