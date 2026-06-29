@@ -21,7 +21,7 @@ change_password_schema = extend_schema(
                 "detail": serializers.CharField(default="비밀번호 변경이 완료되었습니다.")
             },
         ),
-        400: OpenApiResponse(description="현재 비밀번호가 틀렸습니다."),
+        400: OpenApiResponse(description="현재 비밀번호가 틀립니다."),
         401: OpenApiResponse(description="자격 인증 데이터가 제공되지 않았습니다."),
         403: OpenApiResponse(
             description="소셜 로그인 유저는 비밀번호를 변경할 수 없습니다."

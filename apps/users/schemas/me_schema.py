@@ -45,7 +45,7 @@ user_delete_schema = extend_schema(
     request=UserDeleteRequestSerializer,
     responses={
         204: OpenApiResponse(description="회원탈퇴 성공 (응답 본문 없음)"),
-        400: OpenApiResponse(description="비밀번호를 입력해주세요."),
+        400: OpenApiResponse(description="비밀번호를 입력해 주세요."),
         401: OpenApiResponse(
             description="비밀번호가 틀립니다. / 자격 인증 데이터가 제공되지 않았습니다."
         ),

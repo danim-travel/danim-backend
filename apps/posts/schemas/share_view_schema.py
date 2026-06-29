@@ -14,16 +14,6 @@ post_share_schema = extend_schema(
                 )
             ],
         ),
-        401: OpenApiResponse(
-            description="로그인이 필요합니다.",
-            examples=[
-                OpenApiExample(
-                    "인증 실패",
-                    value={"error_detail": "로그인이 필요합니다."},
-                    response_only=True,
-                )
-            ],
-        ),
         404: OpenApiResponse(
             description="게시글을 찾을 수 없습니다.",
             examples=[
