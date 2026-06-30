@@ -11,10 +11,7 @@ class PresignedUrlRequestSerializer(serializers.Serializer[Any]):
     """presigned_url용 원본 파일명을 받는 시리얼라이저"""
 
     original_img = serializers.CharField(max_length=100)
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.allowed_extensions = ALLOWED_EXTENSIONS
+    allowed_extensions: dict[str, str] = ALLOWED_EXTENSIONS
 
     def validate(self, attrs: dict[str, str]) -> dict[str, str]:
         original_img = attrs["original_img"]
