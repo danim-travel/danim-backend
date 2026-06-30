@@ -48,7 +48,9 @@ email_verify_schema = extend_schema(
         400: OpenApiResponse(
             description="인증 코드가 만료되었거나 존재하지 않거나 틀렸습니다."
         ),
-        429: OpenApiResponse(description="인증 시도 횟수를 초과했습니다. 코드를 다시 요청해주세요."),
+        429: OpenApiResponse(
+            description="인증 시도 횟수를 초과했습니다. 코드를 다시 요청해주세요."
+        ),
         500: OpenApiResponse(description="서버 오류로 인증 처리에 실패했습니다."),
     },
 )
