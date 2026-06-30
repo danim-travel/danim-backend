@@ -25,7 +25,9 @@ class PresignedUrlView(APIView):
     suffix: SuffixEnum
     expires_in: int = 900
 
-    request_serializer_class = PresignedUrlRequestSerializer
+    request_serializer_class: type[PresignedUrlRequestSerializer] = (
+        PresignedUrlRequestSerializer
+    )
 
     def post(self, request: Request) -> Response:
         req = self.request_serializer_class(data=request.data)
