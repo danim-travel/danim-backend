@@ -23,6 +23,10 @@ email_send_schema = extend_schema(
         400: OpenApiResponse(
             description="이메일 형식이 올바르지 않거나 purpose 값이 잘못되었습니다."
         ),
+        404: OpenApiResponse(
+            description="가입되지 않은 이메일이거나 비밀번호 재설정 대상이 아닙니다. (find_password 전용)"
+        ),
+        429: OpenApiResponse(description="인증 메일은 잠시 후 다시 요청할 수 있습니다."),
         500: OpenApiResponse(description="서버 오류로 인증코드 저장에 실패했습니다."),
         502: OpenApiResponse(description="이메일 발송에 실패했습니다."),
     },
@@ -43,6 +47,9 @@ email_verify_schema = extend_schema(
         ),
         400: OpenApiResponse(
             description="인증 코드가 만료되었거나 존재하지 않거나 틀렸습니다."
+        ),
+        429: OpenApiResponse(
+            description="인증 시도 횟수를 초과했습니다. 코드를 다시 요청해주세요."
         ),
         500: OpenApiResponse(description="서버 오류로 인증 처리에 실패했습니다."),
     },

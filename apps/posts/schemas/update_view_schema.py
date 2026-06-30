@@ -5,6 +5,7 @@ from apps.posts.serializers.update_serializer import PostUpdateSerializer
 post_update_schema = extend_schema(
     tags=["posts"],
     summary="게시글 수정",
+    description="본인의 게시글을 부분 수정합니다. 보낸 필드만 갱신됩니다.",
     request=PostUpdateSerializer,
     responses={
         200: OpenApiResponse(

@@ -3,6 +3,7 @@ from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
 post_delete_schema = extend_schema(
     tags=["posts"],
     summary="게시글 삭제",
+    description="본인의 게시글을 삭제합니다.",
     responses={
         200: OpenApiResponse(
             description="게시글이 삭제되었습니다.",
