@@ -11,6 +11,7 @@ class PresignedUrlRequestSerializer(serializers.Serializer[Any]):
     """presigned_url용 원본 파일명을 받는 시리얼라이저"""
 
     original_img = serializers.CharField(max_length=100)
+    allowed_extensions: dict[str, str] = ALLOWED_EXTENSIONS
 
     def validate(self, attrs: dict[str, str]) -> dict[str, str]:
         original_img = attrs["original_img"]
@@ -20,12 +21,12 @@ class PresignedUrlRequestSerializer(serializers.Serializer[Any]):
         extension = path.suffix.lower()
 
         # 허용된 확장자만 통과
-        if extension not in ALLOWED_EXTENSIONS:
+        if extension not in self.allowed_extensions:
             raise ValidationException(detail="지원하지 않는 파일 형식입니다.")
 
         # 확장자, content_type를 attrs에 저장
         attrs["extension"] = extension
-        attrs["content_type"] = ALLOWED_EXTENSIONS[extension]
+        attrs["content_type"] = self.allowed_extensions[extension]
 
         return attrs
 

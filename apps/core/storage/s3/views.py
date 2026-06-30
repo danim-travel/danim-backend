@@ -25,8 +25,12 @@ class PresignedUrlView(APIView):
     suffix: SuffixEnum
     expires_in: int = 900
 
+    request_serializer_class: type[PresignedUrlRequestSerializer] = (
+        PresignedUrlRequestSerializer
+    )
+
     def post(self, request: Request) -> Response:
-        req = PresignedUrlRequestSerializer(data=request.data)
+        req = self.request_serializer_class(data=request.data)
         req.is_valid(raise_exception=True)
 
         key = s3_svc.create_key(

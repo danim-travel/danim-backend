@@ -8,10 +8,8 @@ from apps.comments.serializers import (
     CommentUpdateResponseSerializer,
     CommentUpdateSerializer,
 )
-from apps.core.storage.s3.serializers import (
-    PresignedUrlRequestSerializer,
-    PresignedUrlResponseSerializer,
-)
+from apps.comments.serializers.presigned_serializer import CommentPresignedSerializer
+from apps.core.storage.s3.serializers import PresignedUrlResponseSerializer
 
 comment_create_schema = extend_schema(
     request=CommentCreateSerializer,
@@ -75,7 +73,7 @@ comment_delete_schema = extend_schema(
     summary="댓글 삭제",
 )
 comment_presigned_urls_schema = extend_schema(
-    request=PresignedUrlRequestSerializer,
+    request=CommentPresignedSerializer,
     responses={
         200: PresignedUrlResponseSerializer,
         400: OpenApiResponse(
