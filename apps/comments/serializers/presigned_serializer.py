@@ -3,7 +3,6 @@ from apps.core.storage.s3.serializers import PresignedUrlRequestSerializer
 
 
 class CommentPresignedSerializer(PresignedUrlRequestSerializer):
+    """댓글 presigned URL 요청 serializer. gif를 포함한 확장자를 허용한다."""
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.allowed_extensions = COMMENT_ALLOWED_EXTENSIONS
+    allowed_extensions: dict[str, str] = COMMENT_ALLOWED_EXTENSIONS

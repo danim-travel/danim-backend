@@ -74,6 +74,8 @@ class CommentDetailView(APIView):
 
 @comment_presigned_urls_schema
 class CommentPresignedURLView(PresignedUrlView):
+    """댓글 이미지 업로드용 presigned URL 발급 뷰. gif를 포함한 확장자를 허용한다."""
+
     permission_classes = [IsAuthenticated]
 
     action = ActionEnum.UPLOAD
