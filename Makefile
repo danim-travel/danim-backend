@@ -25,6 +25,7 @@ check: format type test coverage
 # ─── 앱별 ────────────────────────────────────────────────────────────────────
 
 _app-check:
+	@if [ -z "$(APP)" ]; then echo "ERROR: APP is not set. Use: make user (or posts, comments, follows, notifications, directmessages, explores)"; exit 1; fi
 	$(DOCKER) black apps/$(APP)/
 	$(DOCKER) isort apps/$(APP)/
 	$(DOCKER) mypy apps/$(APP)/
@@ -54,5 +55,5 @@ explores:
 
 # ─── misc ────────────────────────────────────────────────────────────────────
 
-man:
+man:  # -it 플래그 필요로 DOCKER 변수 미사용
 	docker exec -it danim-backend-django-1 uv run python manage.py "$(a)"
