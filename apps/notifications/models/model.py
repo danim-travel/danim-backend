@@ -45,3 +45,13 @@ class Notification(BaseModel):
     class Meta:
         db_table = "notification"
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(
+                fields=[
+                    "receiver",
+                    "target_id",
+                    "is_read",
+                ],
+                name="ix_receiver_target_id_is_read",
+            )
+        ]

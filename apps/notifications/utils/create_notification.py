@@ -1,3 +1,4 @@
+import logging
 from typing import Literal
 
 from asgiref.sync import async_to_sync
@@ -6,6 +7,8 @@ from django.core.cache import cache
 
 from apps.notifications.models.model import Notification, NotificationType, TargetChoices
 from apps.users.models import User
+
+logger = logging.getLogger(__name__)
 
 NOTIFICATION_MAP: dict[str, tuple[str, str]] = {
     NotificationType.COMMENT: (
@@ -61,8 +64,11 @@ def create_noti(sender, receiver_id, noti_type, target_id, target_type, msg):
             )
         push_channel_noti(receiver_id)
 
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(
+            f"[알림 생성 실패] receiver_id={receiver_id}, noti_type={noti_type}, error={e}",
+            exc_info=True,
+        )
 
 
 def push_channel_noti(receiver_id: str):
@@ -81,8 +87,10 @@ def push_channel_noti(receiver_id: str):
 def set_cache_noti_for_rd(receiver: User):
     """개별 알림 읽음 처리 및 개별 알림 삭제 처리 redis cache 갱신 함수"""
     try:
-        cache.decr(f"user_{receiver.id}_unread_count")
-    except ValueError:
+        cache_count = cache.decr(f"user_{receiver.id}_unread_count")
+        if cache_count < 0:
+            raise ValueError
+    except (ValueError, TypeError):
         cache.set(
             f"user_{receiver.id}_unread_count",
             Notification.objects.filter(receiver=receiver, is_read=False).count(),
@@ -107,8 +115,10 @@ def set_cache_noti_for_dm_all(receiver: User, count: int):
     if not count:
         return
     try:
-        cache.decr(f"user_{receiver.id}_unread_count", count)
-    except ValueError:
+        cache_count = cache.decr(f"user_{receiver.id}_unread_count", count)
+        if cache_count < 0:
+            raise ValueError
+    except (ValueError, TypeError):
         cache.set(
             f"user_{receiver.id}_unread_count",
             Notification.objects.filter(receiver=receiver, is_read=False).count(),
