@@ -101,3 +101,20 @@ def reset_cache_noti(receiver: User):
         push_channel_noti(receiver.id)
     except Exception:
         pass
+
+
+def set_cache_noti_for_dm_all(receiver: User, count: int):
+    if not count:
+        return
+    try:
+        cache.decr(f"user_{receiver.id}_unread_count", count)
+    except ValueError:
+        cache.set(
+            f"user_{receiver.id}_unread_count",
+            Notification.objects.filter(receiver=receiver, is_read=False).count(),
+            timeout=None,
+        )
+    try:
+        push_channel_noti(receiver.id)
+    except Exception:
+        pass
