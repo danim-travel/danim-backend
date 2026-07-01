@@ -10,6 +10,7 @@ class UserBase(TestCase):
     user1: User
     user2: User
     user3: User
+    social_user: User
 
     @classmethod
     def setUpTestData(cls):
@@ -59,6 +60,7 @@ class UserBase(TestCase):
 class UserViewBase(APITestCase):
     user1: User
     user2: User
+    user3: User
 
     @classmethod
     def setUpTestData(cls):
