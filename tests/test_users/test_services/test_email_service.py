@@ -10,9 +10,9 @@ from apps.core.exceptions.exception import (
     TooManyRequestsException,
     ValidationException,
 )
-from apps.users.models.models import LoginType, User
 from apps.users.redis_keys import EmailRedisKey
 from apps.users.services.email_service import EmailService
+from tests.test_core.bases.user_base import UserBase
 
 
 class EmailServiceTest(TestCase):
@@ -82,27 +82,14 @@ class SendEmailTest(EmailServiceTest):
         self.mock_cache.delete.assert_any_call(fail_key)
 
 
-class FindPasswordSendEmailTest(EmailServiceTest):
+class FindPasswordSendEmailTest(EmailServiceTest, UserBase):
     """find_password 발송 시 가입된 이메일 로그인 유저만 허용하는지 검증"""
 
-    def _create_user(
-        self, email: str, nickname: str, login_type: str = LoginType.EMAIL
-    ) -> User:
-        return User.objects.create_user(
-            email=email,
-            nickname=nickname,
-            name="홍길동",
-            birth_day="1990-01-01",
-            login_type=login_type,
-            is_active=True,
-        )
-
     def test_find_password_eligible_user_sends(self) -> None:
-        """가입된 이메일 유저 → 정상 발송"""
-        self._create_user("user@example.com", "email_user")
+        """가입된 이메일 로그인 유저(user1) → 정상 발송"""
         self.mock_cache.set.return_value = None
         self.mock_send_mail.return_value = None
-        self.service.send_email("user@example.com", "find_password")
+        self.service.send_email(self.user1.email, "find_password")
         self.mock_send_mail.assert_called_once()
 
     def test_find_password_unknown_email_raises(self) -> None:
@@ -113,10 +100,9 @@ class FindPasswordSendEmailTest(EmailServiceTest):
         self.mock_send_mail.assert_not_called()
 
     def test_find_password_social_user_raises(self) -> None:
-        """소셜 로그인 유저 → 재설정 대상 아님(404)"""
-        self._create_user("kakao@example.com", "kakao_user", login_type=LoginType.KAKAO)
+        """소셜 로그인 유저(user2, 카카오) → 재설정 대상 아님(404)"""
         with self.assertRaises(NotFoundException):
-            self.service.send_email("kakao@example.com", "find_password")
+            self.service.send_email(self.user2.email, "find_password")
         self.mock_send_mail.assert_not_called()
 
 

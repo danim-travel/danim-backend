@@ -1,13 +1,11 @@
-from datetime import date
-
 from django.test import TestCase
 
-from apps.users.models import User
 from apps.users.serializers.me_serializer import (
     UserInfoResponseSerializer,
     UserUpdateRequestSerializer,
     UserUpdateResponseSerializer,
 )
+from tests.test_core.bases.user_base import UserBase
 
 
 class UserUpdateRequestSerializerTest(TestCase):
@@ -60,43 +58,11 @@ class UserUpdateRequestSerializerTest(TestCase):
         self.assertIn("intro", serializer.errors)
 
 
-class UserUpdateResponseSerializerTest(TestCase):
-    user1: User
-    user2: User
-    user3: User
+class UserUpdateResponseSerializerTest(UserBase):
 
     @classmethod
     def setUpTestData(cls):
-        # 모든 데이터를 가지고 있는 유저
-        cls.user1 = User.objects.create_user(
-            email="test@example.com",
-            password="Password@1",
-            nickname="test",
-            name="test",
-            intro="test_intro",
-            birth_day=date(1970, 1, 1),
-            profile_img="test_key",
-        )
-
-        # 프로필 이미지가 None인 유저
-        cls.user2 = User.objects.create_user(
-            email="test2@example.com",
-            password="Password@1",
-            nickname="test2",
-            name="name",
-            intro="test_intro",
-            birth_day=date(1999, 1, 1),
-        )
-
-        # 소개글이 None인 유저
-        cls.user3 = User.objects.create_user(
-            email="test3@example.com",
-            password="Password@1",
-            nickname="test3",
-            name="name",
-            profile_img="test_key",
-            birth_day=date(1999, 1, 1),
-        )
+        super().setUpTestData()
 
     def test_update_response(self) -> None:
         """정상적인 응답 데이터"""
@@ -119,20 +85,11 @@ class UserUpdateResponseSerializerTest(TestCase):
         self.assertIsNone(serializer.data["intro"])
 
 
-class UserMeInfoResponseSerializerTest(TestCase):
-    user1: User
+class UserMeInfoResponseSerializerTest(UserBase):
 
     @classmethod
     def setUpTestData(cls):
-        cls.user1 = User.objects.create_user(
-            email="test@example.com",
-            password="Password@1",
-            nickname="test",
-            name="test",
-            intro="test_intro",
-            birth_day=date(1970, 1, 1),
-            profile_img="test_key",
-        )
+        super().setUpTestData()
 
     def test_get_me_info(self) -> None:
         """GET 요청 응답 성공"""

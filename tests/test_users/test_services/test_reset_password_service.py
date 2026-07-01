@@ -1,42 +1,21 @@
-from datetime import date
 from unittest.mock import patch
 
-from django.test import TestCase
 from redis import RedisError
 
 from apps.core.exceptions.exception import (
     InternalServerException,
     UnauthorizedException,
 )
-from apps.users.models import LoginType, User
 from apps.users.services.reset_password_service import ResetPasswordService
+from tests.test_core.bases.user_base import UserBase
 
 
-class BaseTest(TestCase):
-    user: User
-    social_user: User
+class BaseTest(UserBase):
     service = ResetPasswordService()
 
     @classmethod
     def setUpTestData(cls) -> None:
-        # 정상 케이스용: 이메일 가입 유저
-        cls.user = User.objects.create_user(
-            email="owner@example.com",
-            password="Password@1",
-            nickname="user",
-            name="test",
-            birth_day=date(1990, 1, 1),
-            login_type=LoginType.EMAIL,
-        )
-        # login_type 가드 검증용: 소셜 유저
-        cls.social_user = User.objects.create_user(
-            email="social@example.com",
-            password="Password@1",
-            nickname="social",
-            name="social",
-            birth_day=date(1990, 1, 1),
-            login_type=LoginType.KAKAO,
-        )
+        super().setUpTestData()
 
     def setUp(self) -> None:
         self.cache_patcher = patch("apps.users.services.reset_password_service.cache")
@@ -49,15 +28,15 @@ class ResetPasswordServiceTest(BaseTest):
     def test_reset_password_valid(self) -> None:
         """정상: 토큰이 유효하고 유저가 존재하면 비밀번호가 실제로 바뀐다."""
         # Arrange: cache.get이 토큰에 매핑된 이메일을 돌려준다
-        self.mock_cache.get.return_value = {"email": self.user.email}
+        self.mock_cache.get.return_value = {"email": self.user1.email}
 
         # Act
         self.service.reset_password("valid_token", "NewPassword@1")
 
         # Assert: DB에서 다시 읽어 비번 변경 확인 + 토큰 삭제 확인
-        self.user.refresh_from_db()
-        self.assertTrue(self.user.check_password("NewPassword@1"))
-        self.assertFalse(self.user.check_password("Password@1"))
+        self.user1.refresh_from_db()
+        self.assertTrue(self.user1.check_password("NewPassword@1"))
+        self.assertFalse(self.user1.check_password("Password@1"))
         self.mock_cache.delete.assert_called_once()
 
     def test_reset_password_redis_error(self) -> None:
