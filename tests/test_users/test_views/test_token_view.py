@@ -1,30 +1,20 @@
-from datetime import date
 from unittest.mock import patch
 
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.users.models import User
+from tests.test_core.bases.user_base import UserViewBase
 
 
-class TokenViewTest(APITestCase):
-    user: User
+class TokenViewTest(UserViewBase):
 
     @classmethod
     def setUpTestData(cls) -> None:
-        cls.user = User.objects.create_user(
-            email="test@example.com",
-            password="Password@1",
-            nickname="testnick",
-            name="testname",
-            birth_day=date(1999, 1, 1),
-            is_active=True,
-        )
+        super().setUpTestData()
 
     def setUp(self) -> None:
-        self.refresh_token = str(RefreshToken.for_user(self.user))
+        self.refresh_token = str(RefreshToken.for_user(self.user1))
         # view 레이어는 Redis를 mock (블랙리스트 조회)
         self.cache_patcher = patch("apps.users.services.token_service.cache")
         self.mock_cache = self.cache_patcher.start()

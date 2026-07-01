@@ -1,6 +1,7 @@
 from datetime import date
 
 from django.test import TestCase
+from rest_framework.test import APITestCase
 
 from apps.users.models import LoginType, User
 
@@ -52,4 +53,40 @@ class UserBase(TestCase):
             name="social",
             birth_day=date(1990, 1, 1),
             login_type=LoginType.KAKAO,
+        )
+
+
+class UserViewBase(APITestCase):
+    user1: User
+    user2: User
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user1 = User.objects.create_user(
+            email="owner@example.com",
+            password="Password@1",
+            nickname="owner_nick",
+            name="owner",
+            birth_day=date(1990, 1, 1),
+            login_type=LoginType.EMAIL,
+            profile_img="test_key",
+            is_active=True,
+        )
+        cls.user2 = User.objects.create_user(
+            email="test2@example.com",
+            password="Password@1",
+            nickname="test2",
+            name="name",
+            intro="test_intro",
+            birth_day=date(1999, 1, 1),
+            login_type=LoginType.KAKAO,
+        )
+
+        cls.user3 = User.objects.create_user(
+            email="test3@example.com",
+            password="Password@1",
+            nickname="test3",
+            name="name",
+            profile_img="test_key",
+            birth_day=date(1999, 1, 1),
         )

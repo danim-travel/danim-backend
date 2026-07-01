@@ -1,26 +1,15 @@
-from datetime import date
-
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.users.models import User
+from tests.test_core.bases.user_base import UserViewBase
 
 
-class BaseViewTest(APITestCase):
-    user: User
+class BaseViewTest(UserViewBase):
 
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create_user(
-            email="test@example.com",
-            password="Password@1",
-            nickname="test",
-            name="test",
-            birth_day=date(1970, 1, 1),
-            is_active=True,
-        )
+        super().setUpTestData()
 
 
 class LoginViewTest(BaseViewTest):
@@ -29,7 +18,7 @@ class LoginViewTest(BaseViewTest):
         """로그인 성공"""
         response = self.client.post(
             reverse("users:login"),
-            {"email": "test@example.com", "password": "Password@1"},
+            {"email": "owner@example.com", "password": "Password@1"},
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
@@ -48,7 +37,9 @@ class LoginViewTest(BaseViewTest):
 
     def test_login_without_password(self) -> None:
         """비밀번호 누락"""
-        response = self.client.post(reverse("users:login"), {"email": "test@example.com"})
+        response = self.client.post(
+            reverse("users:login"), {"email": "owner@example.com"}
+        )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 
@@ -56,8 +47,8 @@ class LogoutViewTest(BaseViewTest):
 
     def test_logout_success(self) -> None:
         """로그아웃 성공"""
-        refresh_token = str(RefreshToken.for_user(self.user))
-        access_token = str(RefreshToken.for_user(self.user).access_token)
+        refresh_token = str(RefreshToken.for_user(self.user1))
+        access_token = str(RefreshToken.for_user(self.user1).access_token)
 
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
         self.client.cookies["refresh_token"] = str(refresh_token)
@@ -69,7 +60,7 @@ class LogoutViewTest(BaseViewTest):
 
     def test_logout_without_refresh_token(self) -> None:
         """refresh_token 없이 로그아웃"""
-        access_token = str(RefreshToken.for_user(self.user).access_token)
+        access_token = str(RefreshToken.for_user(self.user1).access_token)
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
         response = self.client.post(reverse("users:logout"))
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

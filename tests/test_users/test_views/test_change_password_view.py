@@ -1,37 +1,17 @@
-from datetime import date
-
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APITestCase
 
-from apps.users.models import LoginType, User
+from tests.test_core.bases.user_base import UserViewBase
 
 
-class ChangePasswordViewTest(APITestCase):
-    user: User
-    user2: User
+class ChangePasswordViewTest(UserViewBase):
 
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create_user(
-            email="owner@example.com",
-            password="Password@1",
-            nickname="owner_nick",
-            name="owner",
-            birth_day=date(1990, 1, 1),
-            login_type=LoginType.EMAIL,
-        )
-        cls.user2 = User.objects.create_user(
-            email="social@example.com",
-            password="Password@1",
-            nickname="social_nick",
-            name="social",
-            birth_day=date(1990, 1, 1),
-            login_type=LoginType.KAKAO,
-        )
+        super().setUpTestData()
 
     def test_change_password_view(self) -> None:
-        self.client.force_authenticate(user=self.user)
+        self.client.force_authenticate(user=self.user1)
         response = self.client.post(
             reverse("users:change_password"),
             {
