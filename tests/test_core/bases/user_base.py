@@ -13,7 +13,7 @@ class UserBase(TestCase):
     social_user: User
 
     @classmethod
-    def setUpTestData(cls)->None:
+    def setUpTestData(cls) -> None:
         cls.user1 = User.objects.create_user(
             email="test@example.com",
             password="Password@1",
