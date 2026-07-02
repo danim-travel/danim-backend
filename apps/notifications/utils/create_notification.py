@@ -62,7 +62,7 @@ def create_noti(sender, receiver_id, noti_type, target_id, target_type, msg):
                     receiver_id=receiver_id,
                     is_read=False,
                 ).count(),
-                timeout=None,
+                timeout=CACHE_UNREAD_TIMEOUT,
             )
         push_channel_noti(receiver_id)
 
@@ -109,7 +109,7 @@ def set_cache_noti_for_rd(receiver: User) -> None:
 
 def reset_cache_noti(receiver: User):
     """전체 읽음 처리 및 전체 삭제 처리 redis 초기화 함수"""
-    cache.set(f"user_{receiver.id}_unread_count", 0, timeout=None)
+    cache.set(f"user_{receiver.id}_unread_count", 0, timeout=CACHE_UNREAD_TIMEOUT)
     try:
         push_channel_noti(receiver.id)
     except Exception as e:
