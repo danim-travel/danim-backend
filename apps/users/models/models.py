@@ -53,6 +53,7 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampModel):
     is_phone_verified = models.BooleanField(default=False)
     is_active = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
+    unread_noti_count = models.PositiveIntegerField(default=0)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = [

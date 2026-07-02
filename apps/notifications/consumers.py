@@ -4,7 +4,8 @@ from channels.db import database_sync_to_async
 from django.core.cache import cache
 
 from apps.core.websocket.base import BaseConsumer
-from apps.notifications.models import Notification
+from apps.notifications.utils.create_notification import CACHE_UNREAD_TIMEOUT
+from apps.users.models import User
 
 
 class NotificationConsumer(BaseConsumer):
@@ -24,12 +25,15 @@ class NotificationConsumer(BaseConsumer):
 
     @database_sync_to_async
     def get_unread_count(self):
-        count = cache.get(f"user_{self.user.id}_unread_count")
-        if count is None:
-            count = Notification.objects.filter(
-                receiver_id=self.user.id, is_read=False
-            ).count()
-            cache.set(f"user_{self.user.id}_unread_count", count, timeout=None)
+        count = (
+            User.objects.filter(id=self.user.id)
+            .values_list("unread_noti_count", flat=True)
+            .first()
+            or 0
+        )
+        cache.set(
+            f"user_{self.user.id}_unread_count", count, timeout=CACHE_UNREAD_TIMEOUT
+        )
         return count
 
     async def send_dm_notification(self, event: dict) -> None:

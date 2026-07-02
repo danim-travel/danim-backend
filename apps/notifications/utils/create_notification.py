@@ -4,6 +4,8 @@ from typing import Literal
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.core.cache import cache
+from django.db import transaction
+from django.db.models import F
 
 from apps.notifications.models.model import Notification, NotificationType, TargetChoices
 from apps.users.models import User
@@ -45,23 +47,24 @@ def create_notification(
 
 def create_noti(sender, receiver_id, noti_type, target_id, target_type, msg):
     try:
-        Notification.objects.create(
-            sender=sender,
-            receiver_id=receiver_id,
-            notification_type=noti_type,
-            target_id=target_id,
-            target_type=target_type,
-            message=msg,
-        )
+        with transaction.atomic():
+            Notification.objects.create(
+                sender=sender,
+                receiver_id=receiver_id,
+                notification_type=noti_type,
+                target_id=target_id,
+                target_type=target_type,
+                message=msg,
+            )
+            User.objects.filter(id=receiver_id).update(
+                unread_noti_count=F("unread_noti_count") + 1
+            )
         try:
             cache.incr(f"user_{receiver_id}_unread_count")
-        except ValueError:
+        except (ValueError, TypeError):
             cache.set(
                 f"user_{receiver_id}_unread_count",
-                Notification.objects.filter(
-                    receiver_id=receiver_id,
-                    is_read=False,
-                ).count(),
+                User.objects.filter(id=receiver_id).first().unread_noti_count,
                 timeout=CACHE_UNREAD_TIMEOUT,
             )
         push_channel_noti(receiver_id)

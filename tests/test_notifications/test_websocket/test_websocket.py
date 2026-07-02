@@ -5,7 +5,8 @@ from django.core.cache import cache
 from django.test import TransactionTestCase
 
 from apps.core.websocket.websocket_key.service import make_socket_key
-from apps.notifications.models.model import Notification, NotificationType, TargetChoices
+from apps.follows.models import Follows
+from apps.notifications.models.model import Notification
 from apps.users.models.models import LoginType, User
 from config.asgi import application
 
@@ -37,13 +38,9 @@ class TestNotificationConsumer(TransactionTestCase):
             is_active=True,
             login_type=LoginType.EMAIL,
         )
-        self.noti = Notification.objects.create(
-            receiver=self.user_1,
-            sender=self.user_2,
-            target_id=TargetChoices.POST,
-            target_type="post",
-            notification_type=NotificationType.COMMENT,
-            message=f"{self.user_2.nickname}님이 회원님의 게시글에 댓글을 작성했습니다.",
+        self.follow = Follows.objects.create(
+            follower=self.user_2,
+            following=self.user_1,
         )
         self.socket_key = make_socket_key(self.user_1)
         self.url = f"ws/notifications"

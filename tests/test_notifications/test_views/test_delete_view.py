@@ -1,4 +1,5 @@
 from apps.notifications.models import Notification
+from apps.notifications.utils.create_notification import create_notification
 from tests.test_notifications.core.base import NotificationsBaseTest
 
 
@@ -6,7 +7,16 @@ class TestNotificationDeleteView(NotificationsBaseTest):
 
     def setUp(self):
         super().setUp()
-        self.noti = Notification.objects.create(**self.data_for_follow_noti)
+        create_notification(
+            self.data_for_follow_noti["receiver"].id,
+            self.data_for_follow_noti["sender"],
+            self.data_for_follow_noti["notification_type"],
+            self.data_for_follow_noti["target_id"],
+        )
+        self.noti = Notification.objects.get(
+            receiver=self.data_for_follow_noti["receiver"],
+            sender=self.data_for_follow_noti["sender"],
+        )
         self.url = f"/api/v1/notifications/{self.noti.id}"
 
     def test_delete_view(self):
