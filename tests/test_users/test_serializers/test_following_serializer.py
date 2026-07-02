@@ -12,9 +12,10 @@ class FollowingResponseSerializerTest(UserBase):
         super().setUpTestData()
         # user1 → user2 팔로우 (user2가 user1의 팔로잉)
         cls.follow = Follows.objects.create(follower=cls.user1, following=cls.user2)
-        cls.follow.is_following = True
 
     def test_following_response(self) -> None:
+        self.follow.is_following = True  # type: ignore[attr-defined]
+
         serializer = FollowingResponseSerializer(self.follow)
         data = serializer.data
 

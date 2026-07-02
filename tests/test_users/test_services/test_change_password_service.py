@@ -8,16 +8,33 @@ from apps.core.exceptions.exception import ForbiddenException, ValidationExcepti
 from apps.users.models import LoginType, User
 from apps.users.redis_keys import LoginRedisKey
 from apps.users.services.change_password_service import ChangePasswordService
-from tests.test_core.bases.user_base import UserBase
 
 
-class ChangePasswordServiceTest(UserBase):
+class ChangePasswordServiceTest(TestCase):
 
     service = ChangePasswordService()
 
-    @classmethod
-    def setUpTestData(cls) -> None:
-        super().setUpTestData()
+    def setUp(self) -> None:
+        self.user1 = User.objects.create_user(
+            email="test@example.com",
+            password="Password@1",
+            nickname="test",
+            name="test",
+            intro="test_intro",
+            profile_img="test_key",
+            birth_day=date(1970, 1, 1),
+            login_type=LoginType.EMAIL,
+            is_active=True,
+        )
+        self.user2 = User.objects.create_user(
+            email="test2@example.com",
+            password="Password@1",
+            nickname="test2",
+            name="name",
+            intro="test_intro",
+            birth_day=date(1999, 1, 1),
+            login_type=LoginType.KAKAO,
+        )
 
     def test_change_password(self) -> None:
         """정상: 비밀번호가 실제로 바뀐다"""

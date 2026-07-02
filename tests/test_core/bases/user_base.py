@@ -13,7 +13,7 @@ class UserBase(TestCase):
     social_user: User
 
     @classmethod
-    def setUpTestData(cls):
+    def setUpTestData(cls)->None:
         cls.user1 = User.objects.create_user(
             email="test@example.com",
             password="Password@1",
@@ -91,4 +91,5 @@ class UserViewBase(APITestCase):
             name="name",
             profile_img="test_key",
             birth_day=date(1999, 1, 1),
+            login_type=LoginType.GOOGLE,
         )

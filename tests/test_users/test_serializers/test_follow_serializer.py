@@ -15,9 +15,9 @@ class FollowerResponseSerializerTest(UserBase):
         super().setUpTestData()
 
         cls.follow = Follows.objects.create(follower=cls.user2, following=cls.user1)
-        cls.follow.is_following = True
 
     def test_follow_response(self) -> None:
+        self.follow.is_following = True  # type: ignore[attr-defined]
 
         serializer = FollowerResponseSerializer(
             self.follow,
