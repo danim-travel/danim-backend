@@ -15,7 +15,7 @@ from apps.users.services.email_service import EmailService
 from tests.test_core.bases.user_base import UserBase
 
 
-class EmailServiceTest(TestCase):
+class EmailServiceTest(UserBase):
     def setUp(self) -> None:
         self.service = EmailService()
         self.cache_patcher = patch("apps.users.services.email_service.cache")
@@ -82,7 +82,7 @@ class SendEmailTest(EmailServiceTest):
         self.mock_cache.delete.assert_any_call(fail_key)
 
 
-class FindPasswordSendEmailTest(EmailServiceTest, UserBase):
+class FindPasswordSendEmailTest(EmailServiceTest):
     """find_password 발송 시 가입된 이메일 로그인 유저만 허용하는지 검증"""
 
     def test_find_password_eligible_user_sends(self) -> None:
