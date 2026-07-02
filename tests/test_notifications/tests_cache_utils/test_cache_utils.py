@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.core.cache import cache
 
 from apps.notifications.models import Notification
@@ -30,6 +32,16 @@ class TestSetCacheNotiForRd(NotificationsBaseTest):
         set_cache_noti_for_rd(self.user_2)
 
         self.assertEqual(cache.get(self.cache_key), 1)
+
+    def test_decr_negative_calls_push_channel_noti(self):
+        """재동기화 후 push_channel_noti가 호출되는지 검증"""
+        cache.set(self.cache_key, 0)
+
+        with patch(
+            "apps.notifications.utils.create_notification.push_channel_noti"
+        ) as mock_push:
+            set_cache_noti_for_rd(self.user_2)
+            mock_push.assert_called_once_with(self.user_2.id)
 
 
 class TestSetCacheNotiForDmAll(NotificationsBaseTest):

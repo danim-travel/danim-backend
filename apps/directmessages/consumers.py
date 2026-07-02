@@ -243,5 +243,7 @@ class DMConsumer(BaseConsumer):
             await self._set_presence(True)
 
     @database_sync_to_async
-    def _read_dm_notification(self):
+    def _read_dm_notification(self) -> None:
+        if not self.user:
+            return
         read_all_about_conversation_dm(self.user, self.conversation_id)

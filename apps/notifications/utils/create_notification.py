@@ -10,6 +10,8 @@ from apps.users.models import User
 
 logger = logging.getLogger(__name__)
 
+CACHE_UNREAD_TIMEOUT = 60 * 60 * 24  # 24시간
+
 NOTIFICATION_MAP: dict[str, tuple[str, str]] = {
     NotificationType.COMMENT: (
         TargetChoices.POST,
@@ -71,35 +73,38 @@ def create_noti(sender, receiver_id, noti_type, target_id, target_type, msg):
         )
 
 
-def push_channel_noti(receiver_id: str):
+def _sync_cache_from_db(receiver: User) -> None:
+    real_count = Notification.objects.filter(receiver=receiver, is_read=False).count()
+    cache.set(
+        f"user_{receiver.id}_unread_count", real_count, timeout=CACHE_UNREAD_TIMEOUT
+    )
+
+
+def push_channel_noti(receiver_id: str) -> None:
     """
     WebSocket을 통해 유저의 읽지 않은 알림 개수를 실시간으로 전송하는 함수
       receiver = 알림을 수신할 유저
     """
     channel_layer = get_channel_layer()
-    unread_count = cache.get(f"user_{receiver_id}_unread_count")
+    unread_count = cache.get(f"user_{receiver_id}_unread_count", 0)
     async_to_sync(channel_layer.group_send)(
         f"user_{receiver_id}",
         {"type": "send_unread_count", "count": unread_count},
     )
 
 
-def set_cache_noti_for_rd(receiver: User):
+def set_cache_noti_for_rd(receiver: User) -> None:
     """개별 알림 읽음 처리 및 개별 알림 삭제 처리 redis cache 갱신 함수"""
     try:
         cache_count = cache.decr(f"user_{receiver.id}_unread_count")
         if cache_count < 0:
             raise ValueError
     except (ValueError, TypeError):
-        cache.set(
-            f"user_{receiver.id}_unread_count",
-            Notification.objects.filter(receiver=receiver, is_read=False).count(),
-            timeout=None,
-        )
+        _sync_cache_from_db(receiver)
     try:
         push_channel_noti(receiver.id)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[알림 푸시 실패] receiver_id={receiver.id}, error={e}")
 
 
 def reset_cache_noti(receiver: User):
@@ -107,11 +112,11 @@ def reset_cache_noti(receiver: User):
     cache.set(f"user_{receiver.id}_unread_count", 0, timeout=None)
     try:
         push_channel_noti(receiver.id)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[알림 푸시 실패] receiver_id={receiver.id}, error={e}")
 
 
-def set_cache_noti_for_dm_all(receiver: User, count: int):
+def set_cache_noti_for_dm_all(receiver: User, count: int) -> None:
     if not count:
         return
     try:
@@ -119,12 +124,8 @@ def set_cache_noti_for_dm_all(receiver: User, count: int):
         if cache_count < 0:
             raise ValueError
     except (ValueError, TypeError):
-        cache.set(
-            f"user_{receiver.id}_unread_count",
-            Notification.objects.filter(receiver=receiver, is_read=False).count(),
-            timeout=None,
-        )
+        _sync_cache_from_db(receiver)
     try:
         push_channel_noti(receiver.id)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[알림 푸시 실패] receiver_id={receiver.id}, error={e}")
