@@ -19,3 +19,6 @@ class UserSearchSerializerTest(UserBase):
         assert self.user1.profile_img is not None
         self.assertIn(self.user1.profile_img, data["profile_img"])
         self.assertIn("X-Amz-Signature", data["profile_img"])
+
+
+#
