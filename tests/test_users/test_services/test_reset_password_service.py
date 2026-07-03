@@ -71,8 +71,17 @@ class ResetPasswordServiceTest(BaseTest):
             self.service.reset_password("valid_token", "NewPassword@1")
 
     def test_reset_password_social_user_blocked(self) -> None:
-        """소셜 유저(login_type != EMAIL)는 조회에서 걸러져 UnauthorizedException."""
-        self.mock_cache.get.return_value = {"email": self.social_user.email}
+        """소셜 유저(KAKAO, is_active=True)는 login_type 가드로 걸러져 UnauthorizedException."""
+        active_social_user = User.objects.create_user(
+            email="active_social@example.com",
+            password="Password@1",
+            nickname="active_social",
+            name="active_social",
+            birth_day=date(1990, 1, 1),
+            login_type=LoginType.KAKAO,
+            is_active=True,  # is_active를 True로 고정해 login_type 가드만 격리 검증
+        )
+        self.mock_cache.get.return_value = {"email": active_social_user.email}
 
         with self.assertRaises(UnauthorizedException):
             self.service.reset_password("valid_token", "NewPassword@1")

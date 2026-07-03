@@ -1,3 +1,4 @@
+import uuid
 from datetime import date
 
 from django.urls import reverse
@@ -98,10 +99,11 @@ class UserInfoViewTest(BaseTestCase):
 class UserDeleteViewTest(APITestCase):
 
     def setUp(self) -> None:
+        unique_suffix = uuid.uuid4().hex[:8]
         self.user1 = User.objects.create_user(
-            email="delete_owner@example.com",
+            email=f"delete_{unique_suffix}@example.com",
             password="Password@1",
-            nickname="delete_owner",
+            nickname=f"delete_{unique_suffix}",
             name="delete_owner",
             birth_day=date(1990, 1, 1),
             login_type=LoginType.EMAIL,

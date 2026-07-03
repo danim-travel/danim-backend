@@ -1,3 +1,4 @@
+from datetime import date
 from unittest.mock import patch
 
 from django.test import TestCase
@@ -10,6 +11,7 @@ from apps.core.exceptions.exception import (
     TooManyRequestsException,
     ValidationException,
 )
+from apps.users.models.models import LoginType, User
 from apps.users.redis_keys import EmailRedisKey
 from apps.users.services.email_service import EmailService
 from tests.test_core.bases.user_base import UserBase
@@ -100,9 +102,18 @@ class FindPasswordSendEmailTest(EmailServiceTest):
         self.mock_send_mail.assert_not_called()
 
     def test_find_password_social_user_raises(self) -> None:
-        """소셜 로그인 유저(user2, 카카오) → 재설정 대상 아님(404)"""
+        """소셜 로그인 유저(KAKAO, is_active=True) → login_type 가드로 404 발생 검증"""
+        active_kakao_user = User.objects.create_user(
+            email="active_kakao@example.com",
+            password="Password@1",
+            nickname="active_kakao",
+            name="홍길동",
+            birth_day=date(1990, 1, 1),
+            login_type=LoginType.KAKAO,
+            is_active=True,  # is_active를 True로 고정해 login_type 가드만 격리 검증
+        )
         with self.assertRaises(NotFoundException):
-            self.service.send_email(self.user2.email, "find_password")
+            self.service.send_email(active_kakao_user.email, "find_password")
         self.mock_send_mail.assert_not_called()
 
 
