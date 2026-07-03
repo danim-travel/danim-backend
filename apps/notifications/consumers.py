@@ -25,15 +25,17 @@ class NotificationConsumer(BaseConsumer):
 
     @database_sync_to_async
     def get_unread_count(self):
+        cache_key = f"user_{self.user.id}_unread_count"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
         count = (
             User.objects.filter(id=self.user.id)
             .values_list("unread_noti_count", flat=True)
             .first()
             or 0
         )
-        cache.set(
-            f"user_{self.user.id}_unread_count", count, timeout=CACHE_UNREAD_TIMEOUT
-        )
+        cache.set(cache_key, count, timeout=CACHE_UNREAD_TIMEOUT)
         return count
 
     async def send_dm_notification(self, event: dict) -> None:
