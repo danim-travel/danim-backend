@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 
 from channels.db import database_sync_to_async
 from django.core.cache import cache
@@ -10,8 +11,10 @@ from django.utils import timezone
 from apps.core.storage.s3 import s3_svc
 from apps.core.websocket.base import BaseConsumer
 from apps.directmessages.models import Conversation, Message
-from apps.notifications.utils import create_notification
+from apps.notifications.services.list_service import read_all_about_conversation_dm
 from apps.users.models import User
+
+logger = logging.getLogger(__name__)
 
 PRESENCE_TTL = 30
 HEARTBEAT_INTERVAL = 20
@@ -49,6 +52,13 @@ class DMConsumer(BaseConsumer):
             await self.channel_layer.group_send(
                 self.group_name,
                 {"type": "broadcast_read_receipt", "message_ids": message_ids},
+            )
+
+        try:
+            await self._read_dm_notification()
+        except Exception as e:
+            logger.warning(
+                f"[DMConsumer] 알림 읽음 처리 실패 — 연결은 유지: conversation_id={self.conversation_id}, error={e}"
             )
 
     async def disconnect(self, close_code: int) -> None:
@@ -231,3 +241,9 @@ class DMConsumer(BaseConsumer):
         while True:
             await asyncio.sleep(HEARTBEAT_INTERVAL)
             await self._set_presence(True)
+
+    @database_sync_to_async
+    def _read_dm_notification(self) -> None:
+        if not self.user:
+            return
+        read_all_about_conversation_dm(self.user, self.conversation_id)

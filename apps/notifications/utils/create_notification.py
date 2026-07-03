@@ -1,3 +1,4 @@
+import logging
 from typing import Literal
 
 from asgiref.sync import async_to_sync
@@ -6,6 +7,10 @@ from django.core.cache import cache
 
 from apps.notifications.models.model import Notification, NotificationType, TargetChoices
 from apps.users.models import User
+
+logger = logging.getLogger(__name__)
+
+CACHE_UNREAD_TIMEOUT = 60 * 60 * 24  # 24시간
 
 NOTIFICATION_MAP: dict[str, tuple[str, str]] = {
     NotificationType.COMMENT: (
@@ -57,47 +62,70 @@ def create_noti(sender, receiver_id, noti_type, target_id, target_type, msg):
                     receiver_id=receiver_id,
                     is_read=False,
                 ).count(),
-                timeout=None,
+                timeout=CACHE_UNREAD_TIMEOUT,
             )
         push_channel_noti(receiver_id)
 
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(
+            f"[알림 생성 실패] receiver_id={receiver_id}, noti_type={noti_type}, error={e}",
+            exc_info=True,
+        )
 
 
-def push_channel_noti(receiver_id: str):
+def _sync_cache_from_db(receiver: User) -> None:
+    real_count = Notification.objects.filter(receiver=receiver, is_read=False).count()
+    cache.set(
+        f"user_{receiver.id}_unread_count", real_count, timeout=CACHE_UNREAD_TIMEOUT
+    )
+
+
+def push_channel_noti(receiver_id: str) -> None:
     """
     WebSocket을 통해 유저의 읽지 않은 알림 개수를 실시간으로 전송하는 함수
       receiver = 알림을 수신할 유저
     """
     channel_layer = get_channel_layer()
-    unread_count = cache.get(f"user_{receiver_id}_unread_count")
+    unread_count = cache.get(f"user_{receiver_id}_unread_count", 0)
     async_to_sync(channel_layer.group_send)(
         f"user_{receiver_id}",
         {"type": "send_unread_count", "count": unread_count},
     )
 
 
-def set_cache_noti_for_rd(receiver: User):
+def set_cache_noti_for_rd(receiver: User) -> None:
     """개별 알림 읽음 처리 및 개별 알림 삭제 처리 redis cache 갱신 함수"""
     try:
-        cache.decr(f"user_{receiver.id}_unread_count")
-    except ValueError:
-        cache.set(
-            f"user_{receiver.id}_unread_count",
-            Notification.objects.filter(receiver=receiver, is_read=False).count(),
-            timeout=None,
-        )
+        cache_count = cache.decr(f"user_{receiver.id}_unread_count")
+        if cache_count < 0:
+            raise ValueError
+    except (ValueError, TypeError):
+        _sync_cache_from_db(receiver)
     try:
         push_channel_noti(receiver.id)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[알림 푸시 실패] receiver_id={receiver.id}, error={e}")
 
 
 def reset_cache_noti(receiver: User):
     """전체 읽음 처리 및 전체 삭제 처리 redis 초기화 함수"""
-    cache.set(f"user_{receiver.id}_unread_count", 0, timeout=None)
+    cache.set(f"user_{receiver.id}_unread_count", 0, timeout=CACHE_UNREAD_TIMEOUT)
     try:
         push_channel_noti(receiver.id)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[알림 푸시 실패] receiver_id={receiver.id}, error={e}")
+
+
+def set_cache_noti_for_dm_all(receiver: User, count: int) -> None:
+    if not count:
+        return
+    try:
+        cache_count = cache.decr(f"user_{receiver.id}_unread_count", count)
+        if cache_count < 0:
+            raise ValueError
+    except (ValueError, TypeError):
+        _sync_cache_from_db(receiver)
+    try:
+        push_channel_noti(receiver.id)
+    except Exception as e:
+        logger.warning(f"[알림 푸시 실패] receiver_id={receiver.id}, error={e}")
