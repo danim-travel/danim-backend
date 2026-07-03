@@ -50,3 +50,4 @@ repos:
           - pgvector
           - httpx
           - sentry-sdk
+          - celery

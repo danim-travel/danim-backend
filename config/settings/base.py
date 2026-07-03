@@ -192,3 +192,8 @@ GOOGLE_CLIENT_SECRET = env("GOOGLE_CLIENT_SECRET", default="")
 GOOGLE_REDIRECT_URI = env("GOOGLE_REDIRECT_URI", default="")
 
 FRONTEND_URL = env("FRONTEND_URL", default="https://danim.kr")
+
+# Celery
+CELERY_BROKER_URL = env("REDIS_URL")
+CELERY_RESULT_BACKEND = env("REDIS_URL")
+CELERY_TIMEZONE = "Asia/Seoul"
