@@ -20,7 +20,7 @@ coverage:
 	$(DOCKER) coverage run -m pytest
 	$(DOCKER) coverage report -m
 
-check: format type test coverage
+check: format type coverage
 
 # ─── 앱별 ────────────────────────────────────────────────────────────────────
 

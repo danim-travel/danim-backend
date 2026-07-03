@@ -1,7 +1,10 @@
+from datetime import date
+
 from django.urls import reverse
 from rest_framework import status
+from rest_framework.test import APITestCase
 
-from apps.users.models import User
+from apps.users.models import LoginType, User
 from tests.test_core.bases.user_base import UserViewBase
 
 
@@ -92,7 +95,19 @@ class UserInfoViewTest(BaseTestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
-class UserDeleteViewTest(BaseTestCase):
+class UserDeleteViewTest(APITestCase):
+
+    def setUp(self) -> None:
+        self.user1 = User.objects.create_user(
+            email="delete_owner@example.com",
+            password="Password@1",
+            nickname="delete_owner",
+            name="delete_owner",
+            birth_day=date(1990, 1, 1),
+            login_type=LoginType.EMAIL,
+            profile_img="test_key",
+            is_active=True,
+        )
 
     def test_delete_success(self) -> None:
         """회원탈퇴 성공 (204) 및 DB에서 삭제 확인"""
