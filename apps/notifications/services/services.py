@@ -1,5 +1,6 @@
 from django.db import transaction
-from django.db.models import F
+from django.db.models import F, Value
+from django.db.models.functions import Greatest
 
 from apps.core.exceptions.exception import NotFoundException
 from apps.notifications.models import Notification
@@ -15,7 +16,7 @@ def read_notification(notification_id, user):
         if not notification:
             raise NotFoundException("해당 알림을 찾지 못했습니다.")
         User.objects.filter(id=user.id).update(
-            unread_noti_count=F("unread_noti_count") - 1
+            unread_noti_count=Greatest(F("unread_noti_count") - 1, Value(0))
         )
 
     result = {"notification_id": notification_id, "is_read": True}
@@ -39,7 +40,7 @@ def delete_notification(notification_id, user):
 
         if is_unread:
             User.objects.filter(id=user.id).update(
-                unread_noti_count=F("unread_noti_count") - 1
+                unread_noti_count=Greatest(F("unread_noti_count") - 1, Value(0))
             )
 
     if is_unread:

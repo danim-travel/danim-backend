@@ -1,5 +1,6 @@
 from django.db import transaction
-from django.db.models import F, QuerySet
+from django.db.models import F, QuerySet, Value
+from django.db.models.functions import Greatest
 
 from apps.notifications.models import Notification
 from apps.notifications.utils import reset_cache_noti, set_cache_noti_for_dm_all
@@ -34,7 +35,7 @@ def read_all_about_conversation_dm(user: User, conversation_id: str) -> None:
         ).update(is_read=True)
         if count:
             User.objects.filter(id=user.id).update(
-                unread_noti_count=F("unread_noti_count") - count
+                unread_noti_count=Greatest(F("unread_noti_count") - count, Value(0))
             )
 
     set_cache_noti_for_dm_all(user, count)

@@ -5,7 +5,8 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.core.cache import cache
 from django.db import transaction
-from django.db.models import F
+from django.db.models import F, Value
+from django.db.models.functions import Greatest
 
 from apps.notifications.models.model import Notification, NotificationType, TargetChoices
 from apps.users.models import User
@@ -64,7 +65,7 @@ def create_noti(
                 message=msg,
             )
             User.objects.filter(id=receiver_id).update(
-                unread_noti_count=F("unread_noti_count") + 1
+                unread_noti_count=Greatest(F("unread_noti_count") + 1, Value(0))
             )
         try:
             cache_count = cache.incr(f"user_{receiver_id}_unread_count")

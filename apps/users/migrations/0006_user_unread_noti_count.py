@@ -14,14 +14,17 @@ def sync_unread_count(apps, schema_editor):
         .annotate(cnt=Count("id"))
         .values("cnt")
     )
-    users = list(
-        User.objects.annotate(real_count=Subquery(unread_subquery)).iterator(
-            chunk_size=500
-        )
-    )
-    for user in users:
-        user.unread_noti_count = user.real_count or 0
-    User.objects.bulk_update(users, ["unread_noti_count"], batch_size=500)
+    qs = User.objects.annotate(real_count=Subquery(unread_subquery))
+    CHUNK = 500
+    offset = 0
+    while True:
+        chunk = list(qs[offset : offset + CHUNK])
+        if not chunk:
+            break
+        for user in chunk:
+            user.unread_noti_count = user.real_count or 0
+        User.objects.bulk_update(chunk, ["unread_noti_count"], batch_size=CHUNK)
+        offset += CHUNK
 
 
 class Migration(migrations.Migration):

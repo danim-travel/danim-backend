@@ -42,6 +42,9 @@ class TestNotificationConsumer(TransactionTestCase):
             follower=self.user_2,
             following=self.user_1,
         )
+        assert Notification.objects.filter(
+            receiver=self.user_1, sender=self.user_2
+        ).exists(), "Follows 생성 시 알림이 생성되지 않음 — 시그널/훅 연결 확인 필요"
         self.socket_key = make_socket_key(self.user_1)
         self.url = f"ws/notifications"
 

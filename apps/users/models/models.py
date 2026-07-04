@@ -66,6 +66,12 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampModel):
 
     class Meta:
         db_table = "users"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(unread_noti_count__gte=0),
+                name="unread_noti_count_non_negative",
+            )
+        ]
 
     @property
     def profile_img_url(self) -> str | None:
