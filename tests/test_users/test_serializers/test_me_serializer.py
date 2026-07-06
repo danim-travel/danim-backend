@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.test import TestCase
 
 from apps.users.serializers.me_serializer import (
@@ -64,8 +66,12 @@ class UserUpdateResponseSerializerTest(UserBase):
     def setUpTestData(cls):
         super().setUpTestData()
 
-    def test_update_response(self) -> None:
+    @patch("apps.users.models.models.s3_svc.create_download_presigned_url")
+    def test_update_response(self, mock_presigned) -> None:
         """정상적인 응답 데이터"""
+        mock_presigned.return_value = (
+            "https://bucket.s3.amazonaws.com/test_key?X-Amz-Signature=abc"
+        )
         serializer = UserUpdateResponseSerializer(self.user1)
         self.assertEqual(serializer.data["nickname"], "test")
         self.assertEqual(serializer.data["intro"], "test_intro")
@@ -91,8 +97,12 @@ class UserMeInfoResponseSerializerTest(UserBase):
     def setUpTestData(cls):
         super().setUpTestData()
 
-    def test_get_me_info(self) -> None:
+    @patch("apps.users.models.models.s3_svc.create_download_presigned_url")
+    def test_get_me_info(self, mock_presigned) -> None:
         """GET 요청 응답 성공"""
+        mock_presigned.return_value = (
+            "https://bucket.s3.amazonaws.com/test_key?X-Amz-Signature=abc"
+        )
         serializer = UserInfoResponseSerializer(self.user1)
         self.assertEqual(serializer.data["nickname"], "test")
         self.assertIn("test_key", serializer.data["profile_img"])
