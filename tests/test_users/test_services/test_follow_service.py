@@ -1,14 +1,11 @@
-from datetime import date
-
-from django.test import TestCase
-
 from apps.core.exceptions.exception import NotFoundException
 from apps.follows.models import Follows
 from apps.users.models import User
 from apps.users.services.follow_service import FollowService
+from tests.test_core.bases.user_base import UserBase
 
 
-class FollowServiceTest(TestCase):
+class FollowServiceTest(UserBase):
     service: FollowService
     target: User
     follower_a: User
@@ -17,21 +14,13 @@ class FollowServiceTest(TestCase):
 
     @classmethod
     def setUpTestData(cls):
+        super().setUpTestData()
         cls.service = FollowService()
 
-        def make_user(num):
-            return User.objects.create_user(
-                email=f"user{num}@example.com",
-                password="Password@1",
-                nickname=f"nick{num}",
-                name=f"name{num}",
-                birth_day=date(1990, 1, 1),
-            )
-
-        cls.target = make_user(1)  # 팔로워 목록의 주인
-        cls.follower_a = make_user(2)  # target을 팔로우
-        cls.follower_b = make_user(3)  # target을 팔로우
-        cls.me = make_user(4)  # 요청자
+        cls.target = cls.user1  # 팔로워 목록의 주인
+        cls.follower_a = cls.user2  # target을 팔로우
+        cls.follower_b = cls.user3  # target을 팔로우
+        cls.me = cls.social_user  # 요청자
 
         # follower_a, follower_b → target 팔로우
         Follows.objects.create(follower=cls.follower_a, following=cls.target)

@@ -3,25 +3,16 @@ from unittest.mock import patch
 
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APITestCase
 
 from apps.users.models import LoginType, User
+from tests.test_core.bases.user_base import UserViewBase
 
 
-class BaseTest(APITestCase):
-    user1: User
+class BaseTest(UserViewBase):
 
     @classmethod
     def setUpTestData(cls) -> None:
-        cls.user1 = User.objects.create_user(
-            email="test1@example.com",
-            password="Password@1",
-            nickname="test_nick1",
-            name="tim",
-            birth_day=date(1999, 1, 1),
-            is_active=True,
-            login_type=LoginType.EMAIL,
-        )
+        super().setUpTestData()
 
     def setUp(self) -> None:
         self.cache_patcher = patch("apps.users.services.reset_password_service.cache")
@@ -33,7 +24,15 @@ class ResetPasswordViewTest(BaseTest):
 
     def test_reset_password_view(self) -> None:
         """정상: 200 + 비밀번호 변경"""
-        self.mock_cache.get.return_value = {"email": self.user1.email}
+        reset_user = User.objects.create_user(
+            email="reset_view_target@example.com",
+            password="Password@1",
+            nickname="reset_view_target",
+            name="reset_view_target",
+            birth_day=date(1990, 1, 1),
+            login_type=LoginType.EMAIL,
+        )
+        self.mock_cache.get.return_value = {"email": reset_user.email}
 
         response = self.client.post(
             reverse("users:reset_password"),
@@ -44,9 +43,9 @@ class ResetPasswordViewTest(BaseTest):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.user1.refresh_from_db()
-        self.assertTrue(self.user1.check_password("Password@2"))
-        self.assertFalse(self.user1.check_password("Password@1"))
+        reset_user.refresh_from_db()
+        self.assertTrue(reset_user.check_password("Password@2"))
+        self.assertFalse(reset_user.check_password("Password@1"))
 
     def test_reset_password_missing_email_token(self) -> None:
         """email_token 누락 → serializer 검증 실패 → 400"""

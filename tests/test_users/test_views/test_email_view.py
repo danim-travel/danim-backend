@@ -1,26 +1,17 @@
-from datetime import date
 from unittest.mock import patch
 
 from django.urls import reverse
 from redis import RedisError
 from rest_framework import status
-from rest_framework.test import APITestCase
 
-from apps.users.models import User
+from tests.test_core.bases.user_base import UserViewBase
 
 
-class BaseViewTest(APITestCase):
-    user: User
+class BaseViewTest(UserViewBase):
 
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create_user(
-            email="test@example.com",
-            password="Password@1",
-            nickname="test",
-            name="test",
-            birth_day=date(1970, 1, 1),
-        )
+        super().setUpTestData()
 
     def setUp(self) -> None:
         super().setUp()
@@ -41,7 +32,7 @@ class EmailSendViewTest(BaseViewTest):
         self.mock_send_mail.return_value = None
         response = self.client.post(
             reverse("users:send_email"),
-            {"email": "test@example.com", "purpose": "signup"},
+            {"email": "owner@example.com", "purpose": "signup"},
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
@@ -56,7 +47,7 @@ class EmailSendViewTest(BaseViewTest):
         self.mock_send_mail.side_effect = Exception
         response = self.client.post(
             reverse("users:send_email"),
-            {"email": "test@example.com", "purpose": "signup"},
+            {"email": "owner@example.com", "purpose": "signup"},
         )
         self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)
 
@@ -64,7 +55,7 @@ class EmailSendViewTest(BaseViewTest):
         self.mock_cache.set.side_effect = RedisError
         response = self.client.post(
             reverse("users:send_email"),
-            {"email": "test@example.com", "purpose": "signup"},
+            {"email": "owner@example.com", "purpose": "signup"},
         )
         self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -78,7 +69,7 @@ class EmailVerifyViewTest(BaseViewTest):
         response = self.client.post(
             reverse("users:verify_email"),
             {
-                "email": "test@example.com",
+                "email": "owner@example.com",
                 "code": "123456",
                 "purpose": "signup",
             },
@@ -91,7 +82,7 @@ class EmailVerifyViewTest(BaseViewTest):
         response = self.client.post(
             reverse("users:verify_email"),
             {
-                "email": "test@example.com",
+                "email": "owner@example.com",
                 "code": "123456",
                 "purpose": "signup",
             },
@@ -105,7 +96,7 @@ class EmailVerifyViewTest(BaseViewTest):
         response = self.client.post(
             reverse("users:verify_email"),
             {
-                "email": "test@example.com",
+                "email": "owner@example.com",
                 "code": "123455",
                 "purpose": "signup",
             },
@@ -118,7 +109,7 @@ class EmailVerifyViewTest(BaseViewTest):
         response = self.client.post(
             reverse("users:verify_email"),
             {
-                "email": "test@example.com",
+                "email": "owner@example.com",
                 "code": "123455",
                 "purpose": "signup",
             },
@@ -132,7 +123,7 @@ class EmailVerifyViewTest(BaseViewTest):
         response = self.client.post(
             reverse("users:verify_email"),
             {
-                "email": "test@example.com",
+                "email": "owner@example.com",
                 "code": "123455",
                 "purpose": "signup",
             },

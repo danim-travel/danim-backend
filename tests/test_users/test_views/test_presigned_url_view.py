@@ -7,25 +7,17 @@ from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.users.models import User
+from tests.test_core.bases.user_base import UserViewBase
 
 
-class PresignedUrlViewTest(APITestCase):
-
-    user: User
+class PresignedUrlViewTest(UserViewBase):
 
     @classmethod
     def setUpTestData(cls) -> None:
-        cls.user = User.objects.create_user(
-            email="test@example.com",
-            password="Password@1",
-            nickname="testnick",
-            name="testname",
-            birth_day=date(1999, 1, 1),
-            is_active=True,
-        )
+        super().setUpTestData()
 
     def setUp(self) -> None:
-        refresh = RefreshToken.for_user(self.user)
+        refresh = RefreshToken.for_user(self.user1)
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {refresh.access_token}")
 
         self.s3_patcher = patch("apps.core.storage.s3.views.s3_svc")

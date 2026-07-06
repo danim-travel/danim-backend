@@ -1,28 +1,28 @@
-from datetime import date
-
-from django.test import TestCase
+from unittest.mock import patch
 
 from apps.users.models import User
 from apps.users.serializers.user_search_serializer import UserSearchResponseSerializer
+from tests.test_core.bases.user_base import UserBase
 
 
-class UserSearchSerializerTest(TestCase):
+class UserSearchSerializerTest(UserBase):
     user: User
 
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create_user(
-            email="test@example.com",
-            password="Password@1",
-            nickname="test",
-            name="test",
-            birth_day=date(1970, 1, 1),
-        )
+        super().setUpTestData()
 
-    def test_search_users_serializer(self) -> None:
-        serializer = UserSearchResponseSerializer(self.user)
+    @patch("apps.users.models.models.s3_svc.create_download_presigned_url")
+    def test_search_users_serializer(self, mock_presigned) -> None:
+        mock_presigned.return_value = (
+            "https://bucket.s3.amazonaws.com/test_key?X-Amz-Signature=abc123"
+        )
+        serializer = UserSearchResponseSerializer(self.user1)
         data = serializer.data
 
-        self.assertEqual(data["user_id"], self.user.id)
-        self.assertEqual(data["nickname"], self.user.nickname)
-        self.assertIsNone(data["profile_img"])
+        self.assertEqual(data["user_id"], self.user1.id)
+        self.assertEqual(data["nickname"], self.user1.nickname)
+        assert self.user1.profile_img is not None
+        self.assertIn("test_key", data["profile_img"])
+        self.assertIn("X-Amz-Signature", data["profile_img"])
+        mock_presigned.assert_called_once_with(self.user1.profile_img)

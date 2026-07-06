@@ -1,3 +1,4 @@
+from datetime import date
 from unittest.mock import patch
 
 from django.test import TestCase
@@ -13,9 +14,10 @@ from apps.core.exceptions.exception import (
 from apps.users.models.models import LoginType, User
 from apps.users.redis_keys import EmailRedisKey
 from apps.users.services.email_service import EmailService
+from tests.test_core.bases.user_base import UserBase
 
 
-class EmailServiceTest(TestCase):
+class EmailServiceTest(UserBase):
     def setUp(self) -> None:
         self.service = EmailService()
         self.cache_patcher = patch("apps.users.services.email_service.cache")
@@ -85,24 +87,11 @@ class SendEmailTest(EmailServiceTest):
 class FindPasswordSendEmailTest(EmailServiceTest):
     """find_password 발송 시 가입된 이메일 로그인 유저만 허용하는지 검증"""
 
-    def _create_user(
-        self, email: str, nickname: str, login_type: str = LoginType.EMAIL
-    ) -> User:
-        return User.objects.create_user(
-            email=email,
-            nickname=nickname,
-            name="홍길동",
-            birth_day="1990-01-01",
-            login_type=login_type,
-            is_active=True,
-        )
-
     def test_find_password_eligible_user_sends(self) -> None:
-        """가입된 이메일 유저 → 정상 발송"""
-        self._create_user("user@example.com", "email_user")
+        """가입된 이메일 로그인 유저(user1) → 정상 발송"""
         self.mock_cache.set.return_value = None
         self.mock_send_mail.return_value = None
-        self.service.send_email("user@example.com", "find_password")
+        self.service.send_email(self.user1.email, "find_password")
         self.mock_send_mail.assert_called_once()
 
     def test_find_password_unknown_email_raises(self) -> None:
@@ -113,10 +102,18 @@ class FindPasswordSendEmailTest(EmailServiceTest):
         self.mock_send_mail.assert_not_called()
 
     def test_find_password_social_user_raises(self) -> None:
-        """소셜 로그인 유저 → 재설정 대상 아님(404)"""
-        self._create_user("kakao@example.com", "kakao_user", login_type=LoginType.KAKAO)
+        """소셜 로그인 유저(KAKAO, is_active=True) → login_type 가드로 404 발생 검증"""
+        active_kakao_user = User.objects.create_user(
+            email="active_kakao@example.com",
+            password="Password@1",
+            nickname="active_kakao",
+            name="홍길동",
+            birth_day=date(1990, 1, 1),
+            login_type=LoginType.KAKAO,
+            is_active=True,  # is_active를 True로 고정해 login_type 가드만 격리 검증
+        )
         with self.assertRaises(NotFoundException):
-            self.service.send_email("kakao@example.com", "find_password")
+            self.service.send_email(active_kakao_user.email, "find_password")
         self.mock_send_mail.assert_not_called()
 
 

@@ -1,25 +1,16 @@
-from datetime import date
 from unittest.mock import patch
 
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APITestCase
 
-from apps.users.models import User
+from tests.test_core.bases.user_base import UserViewBase
 
 
-class BaseViewTest(APITestCase):
-    user: User
+class BaseViewTest(UserViewBase):
 
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create_user(
-            email="test@example.com",
-            password="Password@1",
-            nickname="test",
-            name="test",
-            birth_day=date(1970, 1, 1),
-        )
+        super().setUpTestData()
 
     def setUp(self) -> None:
         super().setUp()
@@ -55,7 +46,7 @@ class UserSignUpViewTest(BaseViewTest):
                 "email_token": "abc123",
                 "password": "Password@1",
                 "password_confirm": "Password@1",
-                "nickname": "newuser",
+                "nickname": "owner_nick",
                 "name": "testname",
                 "birth_day": "1999-01-01",
             },
@@ -71,7 +62,7 @@ class UserSignUpViewTest(BaseViewTest):
                 "email_token": "abc123",
                 "password": "Password@1",
                 "password_confirm": "Password@1",
-                "nickname": "test",
+                "nickname": "owner_nick",
                 "name": "testname",
                 "birth_day": "1999-01-01",
             },

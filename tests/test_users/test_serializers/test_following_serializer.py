@@ -1,40 +1,21 @@
-from datetime import date
-
-from django.test import TestCase
-
 from apps.follows.models import Follows
-from apps.users.models import User
 from apps.users.serializers.follow_serializer import FollowingResponseSerializer
+from tests.test_core.bases.user_base import UserBase
 
 
-class FollowingResponseSerializerTest(TestCase):
-    user1: User
-    user2: User
+class FollowingResponseSerializerTest(UserBase):
+
     follow: Follows
 
     @classmethod
     def setUpTestData(cls):
-        cls.user1 = User.objects.create_user(
-            email="test@example.com",
-            password="Password@1",
-            nickname="test",
-            name="test",
-            intro="test_intro",
-            birth_day=date(1970, 1, 1),
-        )
-        cls.user2 = User.objects.create_user(
-            email="test2@example.com",
-            password="Password@1",
-            nickname="test2",
-            name="name",
-            intro="test_intro",
-            birth_day=date(1999, 1, 1),
-        )
+        super().setUpTestData()
         # user1 → user2 팔로우 (user2가 user1의 팔로잉)
         cls.follow = Follows.objects.create(follower=cls.user1, following=cls.user2)
-        cls.follow.is_following = True
 
     def test_following_response(self) -> None:
+        self.follow.is_following = True  # type: ignore[attr-defined]
+
         serializer = FollowingResponseSerializer(self.follow)
         data = serializer.data
 
