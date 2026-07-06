@@ -1,4 +1,6 @@
-from django.db.models import QuerySet
+from django.db import transaction
+from django.db.models import F, QuerySet, Value
+from django.db.models.functions import Greatest
 
 from apps.notifications.models import Notification
 from apps.notifications.utils import reset_cache_noti, set_cache_noti_for_dm_all
@@ -11,20 +13,29 @@ def get_notification_list(user: User) -> QuerySet[Notification]:
 
 
 def read_all_notifications(user: User) -> None:
-    Notification.objects.filter(receiver=user, is_read=False).update(is_read=True)
+    with transaction.atomic():
+        Notification.objects.filter(receiver=user, is_read=False).update(is_read=True)
+        User.objects.filter(id=user.id).update(unread_noti_count=0)
 
     reset_cache_noti(user)
 
 
 def delete_all_notifications(user: User) -> None:
-    Notification.objects.filter(receiver=user).delete()
+    with transaction.atomic():
+        Notification.objects.filter(receiver=user).delete()
+        User.objects.filter(id=user.id).update(unread_noti_count=0)
 
     reset_cache_noti(user)
 
 
 def read_all_about_conversation_dm(user: User, conversation_id: str) -> None:
-    count = Notification.objects.filter(
-        receiver=user, target_id=conversation_id, is_read=False
-    ).update(is_read=True)
+    with transaction.atomic():
+        count = Notification.objects.filter(
+            receiver=user, target_id=conversation_id, is_read=False
+        ).update(is_read=True)
+        if count:
+            User.objects.filter(id=user.id).update(
+                unread_noti_count=Greatest(F("unread_noti_count") - count, Value(0))
+            )
 
     set_cache_noti_for_dm_all(user, count)

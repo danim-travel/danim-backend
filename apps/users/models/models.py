@@ -53,6 +53,7 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampModel):
     is_phone_verified = models.BooleanField(default=False)
     is_active = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
+    unread_noti_count = models.PositiveIntegerField(default=0)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = [
@@ -65,6 +66,12 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampModel):
 
     class Meta:
         db_table = "users"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(unread_noti_count__gte=0),
+                name="unread_noti_count_non_negative",
+            )
+        ]
 
     @property
     def profile_img_url(self) -> str | None:

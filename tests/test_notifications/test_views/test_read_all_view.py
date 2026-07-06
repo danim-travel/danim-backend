@@ -1,4 +1,5 @@
 from apps.notifications.models import Notification
+from apps.notifications.utils.create_notification import create_notification
 from tests.test_notifications.core.base import NotificationsBaseTest
 
 
@@ -6,9 +7,11 @@ class TestNotificationReadAllView(NotificationsBaseTest):
 
     def setUp(self):
         super().setUp()
-        self.noti = Notification.objects.create(**self.data_for_follow_noti)
-        self.noti_is_read = Notification.objects.create(
-            **self.data_for_follow_noti_is_read
+        create_notification(
+            self.data_for_follow_noti["receiver"].id,
+            self.data_for_follow_noti["sender"],
+            self.data_for_follow_noti["notification_type"],
+            self.data_for_follow_noti["target_id"],
         )
 
     def test_read_all_view(self):
@@ -16,6 +19,8 @@ class TestNotificationReadAllView(NotificationsBaseTest):
         self.client.force_authenticate(user=self.user_2)
         response = self.client.patch(self.noti_url_list)
         self.assertEqual(response.status_code, 200)
+        self.user_2.refresh_from_db()
+        self.assertEqual(self.user_2.unread_noti_count, 0)
         self.assertEqual(
             Notification.objects.filter(receiver=self.user_2, is_read=False).count(), 0
         )
@@ -36,7 +41,7 @@ class TestNotificationReadAllView(NotificationsBaseTest):
             Notification.objects.filter(receiver=self.user_2, is_read=False).count(), 1
         )
         self.assertEqual(
-            Notification.objects.filter(receiver=self.user_2, is_read=True).count(), 1
+            Notification.objects.filter(receiver=self.user_2, is_read=True).count(), 0
         )
 
     def test_not_receiver_read_all_view(self):
@@ -54,5 +59,5 @@ class TestNotificationReadAllView(NotificationsBaseTest):
             Notification.objects.filter(receiver=self.user_2, is_read=False).count(), 1
         )
         self.assertEqual(
-            Notification.objects.filter(receiver=self.user_2, is_read=True).count(), 1
+            Notification.objects.filter(receiver=self.user_2, is_read=True).count(), 0
         )
