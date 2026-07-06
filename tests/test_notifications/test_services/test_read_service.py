@@ -25,6 +25,8 @@ class TestNotificationReadService(NotificationsBaseTest):
         result = read_notification(self.noti.id, self.user_2)
         self.assertEqual(result["is_read"], True)
         self.assertEqual(result["notification_id"], self.noti.id)
+        self.user_2.refresh_from_db()
+        self.assertEqual(self.user_2.unread_noti_count, 0)
 
     def test_non_noti_id_read_service(self):
         """없는 게시글 개별 읽음 처리 service 실패 테스트"""

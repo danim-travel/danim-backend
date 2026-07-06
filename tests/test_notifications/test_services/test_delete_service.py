@@ -42,6 +42,8 @@ class TestNotificationDeleteService(NotificationsBaseTest):
             Notification.objects.filter(receiver=self.user_2, id=self.noti_2.id).exists(),
             True,
         )
+        self.user_2.refresh_from_db()
+        self.assertEqual(self.user_2.unread_noti_count, 1)
 
     def test_none_noti_id_delete_service(self):
         """없은 알림 개별 삭제 처리 service 실패 테스트"""

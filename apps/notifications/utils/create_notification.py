@@ -73,6 +73,7 @@ def create_noti(
                 logger.warning(
                     f"[알림 캐시 설정 실패] Redis 장애 가능성 receiver_id={receiver_id}"
                 )
+                _sync_cache_from_db_by_id(receiver_id)
                 return
         except (ValueError, TypeError):
             _sync_cache_from_db_by_id(receiver_id)
@@ -85,18 +86,6 @@ def create_noti(
         )
 
 
-def _sync_cache_from_db(receiver: User) -> None:
-    real_count = (
-        User.objects.filter(id=receiver.id)
-        .values_list("unread_noti_count", flat=True)
-        .first()
-        or 0
-    )
-    cache.set(
-        f"user_{receiver.id}_unread_count", real_count, timeout=CACHE_UNREAD_TIMEOUT
-    )
-
-
 def _sync_cache_from_db_by_id(receiver_id: str) -> None:
     real_count = (
         User.objects.filter(id=receiver_id)
@@ -107,6 +96,10 @@ def _sync_cache_from_db_by_id(receiver_id: str) -> None:
     cache.set(
         f"user_{receiver_id}_unread_count", real_count, timeout=CACHE_UNREAD_TIMEOUT
     )
+
+
+def _sync_cache_from_db(receiver: User) -> None:
+    _sync_cache_from_db_by_id(str(receiver.id))
 
 
 def push_channel_noti(receiver_id: str) -> None:
