@@ -74,10 +74,12 @@ def create_noti(
                     f"[알림 캐시 설정 실패] Redis 장애 가능성 receiver_id={receiver_id}"
                 )
                 _sync_cache_from_db_by_id(receiver_id)
-                return
-        except (ValueError, TypeError):
+        except Exception:
             _sync_cache_from_db_by_id(receiver_id)
-        push_channel_noti(receiver_id)
+        try:
+            push_channel_noti(receiver_id)
+        except Exception as e:
+            logger.warning(f"[알림 푸시 실패] receiver_id={receiver_id}, error={e}")
 
     except Exception as e:
         logger.error(
@@ -124,8 +126,7 @@ def set_cache_noti_for_rd(receiver: User) -> None:
                 f"[알림 캐시 설정 실패] Redis 장애 가능성 receiver_id={receiver.id}"
             )
             _sync_cache_from_db(receiver)
-            return
-        if cache_count < 0:
+        elif cache_count < 0:
             raise ValueError
     except (ValueError, TypeError):
         _sync_cache_from_db(receiver)
@@ -154,8 +155,7 @@ def set_cache_noti_for_dm_all(receiver: User, count: int) -> None:
                 f"[알림 캐시 설정 실패] Redis 장애 가능성 receiver_id={receiver.id}"
             )
             _sync_cache_from_db(receiver)
-            return
-        if cache_count < 0:
+        elif cache_count < 0:
             raise ValueError
     except (ValueError, TypeError):
         _sync_cache_from_db(receiver)

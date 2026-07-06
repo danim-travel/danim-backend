@@ -14,7 +14,7 @@ def sync_unread_count(apps, schema_editor):
         .annotate(cnt=Count("id"))
         .values("cnt")
     )
-    qs = User.objects.annotate(real_count=Subquery(unread_subquery))
+    qs = User.objects.annotate(real_count=Subquery(unread_subquery)).order_by("pk")
     CHUNK = 500
     offset = 0
     while True:
