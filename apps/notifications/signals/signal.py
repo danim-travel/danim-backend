@@ -5,16 +5,16 @@ from django.dispatch import receiver
 from apps.comments.models import Comment, CommentLike
 from apps.directmessages.models import Message
 from apps.follows.models import Follows
-from apps.notifications.utils import create_notification
+from apps.notifications.tasks import create_notification_task
 from apps.posts.models import PostLike
 
 
 @receiver(post_save, sender=Comment)
 def on_created_comment(sender, instance, created, **kwargs):
     if created:
-        create_notification(
+        create_notification_task.delay(
             receiver_id=instance.post.user_id,
-            sender=instance.user,
+            sender_id=instance.user.id,
             noti_type="comment",
             target_id=instance.post_id,
         )
@@ -23,9 +23,9 @@ def on_created_comment(sender, instance, created, **kwargs):
 @receiver(post_save, sender=CommentLike)
 def on_created_comment_like(sender, instance, created, **kwargs):
     if created:
-        create_notification(
+        create_notification_task.delay(
             receiver_id=instance.comment.user_id,
-            sender=instance.user,
+            sender_id=instance.user.id,
             noti_type="comment_like",
             target_id=instance.comment.post_id,
         )
@@ -34,9 +34,9 @@ def on_created_comment_like(sender, instance, created, **kwargs):
 @receiver(post_save, sender=PostLike)
 def on_created_post_like(sender, instance, created, **kwargs):
     if created:
-        create_notification(
+        create_notification_task.delay(
             receiver_id=instance.post.user_id,
-            sender=instance.user,
+            sender_id=instance.user.id,
             noti_type="post_like",
             target_id=instance.post_id,
         )
@@ -45,9 +45,9 @@ def on_created_post_like(sender, instance, created, **kwargs):
 @receiver(post_save, sender=Follows)
 def on_created_follow(sender, instance, created, **kwargs):
     if created:
-        create_notification(
+        create_notification_task.delay(
             receiver_id=instance.following_id,
-            sender=instance.follower,
+            sender_id=instance.follower.id,
             noti_type="follow",
             target_id=instance.follower_id,
         )
@@ -62,9 +62,9 @@ def on_created_message(sender, instance, created, **kwargs):
             else instance.conversation.user2_id
         )
         if not cache.get(f"dm_presence_{instance.conversation_id}_{receiver_id}"):
-            create_notification(
+            create_notification_task.delay(
                 receiver_id=receiver_id,
-                sender=instance.sender,
+                sender_id=instance.sender_id,
                 noti_type="dm",
                 target_id=instance.conversation_id,
             )

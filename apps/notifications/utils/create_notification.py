@@ -86,6 +86,7 @@ def create_noti(
             f"[알림 생성 실패] receiver_id={receiver_id}, noti_type={noti_type}, error={e}",
             exc_info=True,
         )
+        raise
 
 
 def _sync_cache_from_db_by_id(receiver_id: str) -> None:

@@ -3,6 +3,7 @@ from pathlib import Path
 import environ
 import sentry_sdk
 from botocore.config import Config
+from celery.schedules import crontab
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -197,3 +198,11 @@ FRONTEND_URL = env("FRONTEND_URL", default="https://danim.kr")
 CELERY_BROKER_URL = env("REDIS_URL")
 CELERY_RESULT_BACKEND = env("REDIS_URL")
 CELERY_TIMEZONE = "Asia/Seoul"
+CELERY_ENABLE_UTC = False
+
+CELERY_BEAT_SCHEDULE = {
+    "delete-old-notifications": {
+        "task": "apps.notifications.tasks.delete_notification_task",
+        "schedule": (crontab(hour=3, minute=0)),
+    },
+}

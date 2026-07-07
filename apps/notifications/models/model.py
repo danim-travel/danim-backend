@@ -53,5 +53,9 @@ class Notification(BaseModel):
                     "is_read",
                 ],
                 name="ix_receiver_target_id_is_read",
-            )
+            ),
+            models.Index(
+                fields=["created_at"],
+                name="ix_notification_created_at",
+            ),
         ]
