@@ -23,7 +23,11 @@ from django.utils import timezone
 
 from apps.comments.models import Comment
 from apps.core.utils.paths import get_latest_codebook_version
-from apps.explores.services.taste import build_codeword_counts, personalization_alpha
+from apps.explores.services.taste import (
+    build_codeword_counts_bulk,
+    collect_taste_events_bulk,
+    personalization_alpha,
+)
 from apps.posts.models import BookMark, PostClick, PostEmbedding, PostLike
 from apps.users.models import UserTaste
 
@@ -94,9 +98,15 @@ class Command(BaseCommand):
             cutoff = now - timedelta(days=USER_ACTIVE_DAYS)
             users = User.objects.filter(id__in=_active_user_ids(cutoff))
 
+        user_ids = list(users.values_list("id", flat=True))
+        events_by_user, last_active_by_user = collect_taste_events_bulk(user_ids, now=now)
+        counts_by_user = build_codeword_counts_bulk(
+            events_by_user, version=version, now=now
+        )
+
         updated = 0
         for user in users.iterator():
-            counts = build_codeword_counts(user, version=version)
+            counts = counts_by_user.get(user.id)
             if not counts:
                 continue
             UserTaste.objects.update_or_create(
@@ -104,7 +114,12 @@ class Command(BaseCommand):
                 defaults={
                     "codeword_counts": counts["counts"],
                     "codebook_version": counts["version"],
-                    "alpha": personalization_alpha(user),
+                    "alpha": personalization_alpha(
+                        user,
+                        events=events_by_user.get(user.id, []),
+                        last_active=last_active_by_user.get(user.id),
+                        now=now,
+                    ),
                 },
             )
             updated += 1
