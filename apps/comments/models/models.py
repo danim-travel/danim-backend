@@ -20,7 +20,10 @@ class Comment(TimeStampModel):
 
     class Meta:
         db_table = "comment"
-        indexes = [models.Index(fields=["post", "user"])]
+        indexes = [
+            models.Index(fields=["post", "user"]),
+            models.Index(fields=["user", "created_at"]),
+        ]
 
 
 class CommentLike(BaseModel):

@@ -14,4 +14,5 @@ class BookMark(BaseModel):
 
     class Meta:
         db_table = "bookmarks"
+        indexes = [models.Index(fields=["user", "created_at"])]
         unique_together = (("post", "user"),)

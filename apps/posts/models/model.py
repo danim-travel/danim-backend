@@ -74,5 +74,8 @@ class PostLike(BaseModel):
 
     class Meta:
         db_table = "post_likes"
-        indexes = [models.Index(fields=["post", "user"])]
+        indexes = [
+            models.Index(fields=["post", "user"]),
+            models.Index(fields=["user", "created_at"]),
+        ]
         unique_together = (("post", "user"),)
