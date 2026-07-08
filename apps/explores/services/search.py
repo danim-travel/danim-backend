@@ -3,18 +3,19 @@ from typing import Any, no_type_check
 
 from django.contrib.postgres.search import TrigramSimilarity
 from django.core.cache import cache
-from django.db.models import Case, F, FloatField, Q, Value, When
+from django.db.models import Case, Exists, F, FloatField, OuterRef, Q, Value, When
 from django.db.models.expressions import Combinable
 
 from apps.core.exceptions.exception import ValidationException
 from apps.core.storage.s3 import s3_svc
 from apps.core.utils.base62 import encode_cursor
 from apps.explores.dtos import ExploreRes
-from apps.posts.models import Post
+from apps.posts.models import Post, PostSpot
 
 SEARCH_TTL = 60 * 60 * 24
 PAGE_LIMIT = 10
 DESCRIPTION_SIM_LIMIT = 0.25
+LOCATION_MATCH_SCORE = 3.0
 
 _JAMO = re.compile(r"[\u3131-\u318E]")  # 한글 자음 모음 정규표현식
 
@@ -76,9 +77,19 @@ def _search(tokens: list[Any]) -> list[Any]:
     title_score: Combinable = Value(0.0, output_field=FloatField())
     hashtag_score: Combinable = Value(0.0, output_field=FloatField())
     description_sim: Combinable = Value(0.0, output_field=FloatField())
+    location_score: Combinable = Value(0.0, output_field=FloatField())
     tri_annots: dict[str, TrigramSimilarity] = {}
+    location_annots: dict[str, Exists] = {}
 
     for i, t in enumerate(tokens):
+
+        # 한 게시글이 스팟(주소)을 여러 개 가질 수 있어 join 대신 Exists 로
+        # "매칭되는 주소를 하나라도 갖고 있는가"만 불리언으로 확인 (row 중복 방지)
+        location_match = PostSpot.objects.filter(
+            post=OuterRef("pk"),
+            location__road_address_name__icontains=t,
+        )
+        location_annots[f"location_match_{i}"] = Exists(location_match)
 
         # 검색어에 맞는 후보
         flt |= (
@@ -87,6 +98,7 @@ def _search(tokens: list[Any]) -> list[Any]:
             | Q(user__nickname__icontains=t)
             # t가 보통 한글이라 annotate가 깨질까봐 i로 받음
             | Q(**{f"description_sim_{i}__gte": DESCRIPTION_SIM_LIMIT})
+            | Q(**{f"location_match_{i}": True})
         )
         # 후보를 정렬할 점수
         title_score = title_score + Case(
@@ -103,16 +115,25 @@ def _search(tokens: list[Any]) -> list[Any]:
         # tri_annots는 후보, description_sim은 정렬용
         tri_annots[f"description_sim_{i}"] = trigram
         description_sim = description_sim + trigram
+        location_score = location_score + Case(
+            When(**{f"location_match_{i}": True}, then=Value(LOCATION_MATCH_SCORE)),
+            default=Value(0.0),
+            output_field=FloatField(),
+        )
 
     qs = (
-        Post.objects.annotate(**tri_annots)
+        Post.objects.annotate(**tri_annots, **location_annots)
         .annotate(
             title_score=title_score,
             hashtag_score=hashtag_score,
             description_score=description_sim,
+            location_score=location_score,
         )
         .annotate(
-            score=F("title_score") + F("hashtag_score") + F("description_score"),
+            score=F("title_score")
+            + F("hashtag_score")
+            + F("description_score")
+            + F("location_score"),
         )
         .filter(flt)
         .distinct()
