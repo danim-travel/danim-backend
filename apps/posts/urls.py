@@ -1,5 +1,6 @@
 from django.urls import URLPattern, path
 
+from apps.posts.near_postspot import views as nearspot_views
 from apps.posts.views import (
     bookmark_list_view,
     bookmark_view,
@@ -30,4 +31,5 @@ urlpatterns: list[URLPattern] = [
         "/<str:post_id>/bookmark", bookmark_view.BookmarkView.as_view(), name="bookmark"
     ),
     path("/<str:post_id>/share", share_view.PostShareView.as_view(), name="post_share"),
+    path("/nearspots/user", nearspot_views.NearPostSpotUserView.as_view()),
 ]

@@ -1,0 +1,1 @@
+from apps.posts.near_postspot.views.near_user_views import NearPostSpotUserView
