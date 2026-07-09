@@ -67,26 +67,28 @@ def create_noti(
             User.objects.filter(id=receiver_id).update(
                 unread_noti_count=Greatest(F("unread_noti_count") + 1, Value(0))
             )
-        try:
-            cache_count = cache.incr(f"user_{receiver_id}_unread_count")
-            if cache_count is None:
-                logger.warning(
-                    f"[알림 캐시 설정 실패] Redis 장애 가능성 receiver_id={receiver_id}"
-                )
-                _sync_cache_from_db_by_id(receiver_id)
-        except Exception:
-            _sync_cache_from_db_by_id(receiver_id)
-        try:
-            push_channel_noti(receiver_id)
-        except Exception as e:
-            logger.warning(f"[알림 푸시 실패] receiver_id={receiver_id}, error={e}")
-
     except Exception as e:
         logger.error(
             f"[알림 생성 실패] receiver_id={receiver_id}, noti_type={noti_type}, error={e}",
             exc_info=True,
         )
         raise
+    try:
+        cache_count = cache.incr(f"user_{receiver_id}_unread_count")
+        if cache_count is None:
+            logger.warning(
+                f"[알림 캐시 설정 실패] Redis 장애 가능성 receiver_id={receiver_id}"
+            )
+            _sync_cache_from_db_by_id(receiver_id)
+    except Exception:
+        try:
+            _sync_cache_from_db_by_id(receiver_id)
+        except Exception as e:
+            logger.warning(f"[캐시 DB 동기화 실패] receiver_id={receiver_id}, error={e}")
+    try:
+        push_channel_noti(receiver_id)
+    except Exception as e:
+        logger.warning(f"[알림 푸시 실패] receiver_id={receiver_id}, error={e}")
 
 
 def _sync_cache_from_db_by_id(receiver_id: str) -> None:
@@ -111,7 +113,14 @@ def push_channel_noti(receiver_id: str) -> None:
       receiver = 알림을 수신할 유저
     """
     channel_layer = get_channel_layer()
-    unread_count = cache.get(f"user_{receiver_id}_unread_count", 0)
+    unread_count = cache.get(f"user_{receiver_id}_unread_count")
+    if unread_count is None:
+        unread_count = (
+            User.objects.filter(id=receiver_id)
+            .values_list("unread_noti_count", flat=True)
+            .first()
+            or 0
+        )
     async_to_sync(channel_layer.group_send)(
         f"user_{receiver_id}",
         {"type": "send_unread_count", "count": unread_count},
