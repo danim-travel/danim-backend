@@ -36,6 +36,13 @@ User = get_user_model()
 USER_ACTIVE_DAYS = 7
 CLICK_RETENTION_DAYS = 7
 TASTE_TTL_DAYS = 180
+USER_CHUNK_SIZE = 2000
+
+
+def _chunked(seq, size=USER_CHUNK_SIZE):
+    """--all 처럼 대상 유저가 많을 때 메모리/IN절 크기를 고정하기 위한 배치 분할."""
+    for i in range(0, len(seq), size):
+        yield seq[i : i + size]
 
 
 def _active_user_ids(cutoff):
@@ -99,30 +106,47 @@ class Command(BaseCommand):
             users = User.objects.filter(id__in=_active_user_ids(cutoff))
 
         user_ids = list(users.values_list("id", flat=True))
-        events_by_user, last_active_by_user = collect_taste_events_bulk(user_ids, now=now)
-        counts_by_user = build_codeword_counts_bulk(
-            events_by_user, version=version, now=now
-        )
 
         updated = 0
-        for user in users.iterator():
-            counts = counts_by_user.get(user.id)
-            if not counts:
-                continue
-            UserTaste.objects.update_or_create(
-                user=user,
-                defaults={
-                    "codeword_counts": counts["counts"],
-                    "codebook_version": counts["version"],
-                    "alpha": personalization_alpha(
-                        user,
-                        events=events_by_user.get(user.id, []),
-                        last_active=last_active_by_user.get(user.id),
+        for chunk in _chunked(user_ids):
+            events_by_user, last_active_by_user = collect_taste_events_bulk(
+                chunk, now=now
+            )
+            counts_by_user = build_codeword_counts_bulk(
+                events_by_user, version=version, now=now
+            )
+
+            rows = [
+                UserTaste(
+                    user_id=user_id,
+                    codeword_counts=counts["counts"],
+                    codebook_version=counts["version"],
+                    alpha=personalization_alpha(
+                        None,  # events 를 넘기면 user 는 내부에서 쓰이지 않음
+                        events=events_by_user[user_id],
+                        last_active=last_active_by_user.get(user_id),
                         now=now,
                     ),
-                },
+                )
+                for user_id, counts in counts_by_user.items()
+            ]
+
+            UserTaste.objects.bulk_create(
+                rows,
+                update_conflicts=True,
+                # updated_at(auto_now)은 update_fields에 명시해야 conflict 시에도 갱신됨.
+                # 빠지면 활성 유저의 updated_at이 최초 생성 시각에 고정돼
+                # 아래 TASTE_TTL_DAYS 정리 로직이 활성 유저를 오삭제하게 됨.
+                update_fields=[
+                    "codeword_counts",
+                    "codebook_version",
+                    "alpha",
+                    "updated_at",
+                ],
+                unique_fields=["user"],
+                batch_size=1000,
             )
-            updated += 1
+            updated += len(rows)
 
         # taste 계산이 클릭을 쓰니까 반드시 계산 이후에 삭제
         click_cutoff = now - timedelta(days=CLICK_RETENTION_DAYS)

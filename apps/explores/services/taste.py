@@ -64,8 +64,10 @@ def collect_taste_events_bulk(user_ids, now=None):
     events_by_user = defaultdict(list)
     last_active_by_user = {}
     for model, weight_key in _TASTE_SOURCES:
-        rows = model.objects.filter(user_id__in=user_ids, created_at__gte=cutoff).values(
-            "user_id", "post_id", "created_at"
+        rows = (
+            model.objects.filter(user_id__in=user_ids, created_at__gte=cutoff)
+            .values("user_id", "post_id", "created_at")
+            .iterator(chunk_size=2000)
         )
         for row in rows:
             uid = row["user_id"]
@@ -98,12 +100,6 @@ def personalization_alpha(user, *, events=None, last_active=None, now=None):
 
 def _sigmoid_decay(age_days, center=7, scale=5):
     return 1.0 / (1.0 + (age_days / center) ** scale)
-
-
-def _last_active_at(user):
-    """유저의 가장 최근 활동일이 언제인지 확인하는 함수"""
-    _, last_active = collect_taste_events(user)
-    return last_active
 
 
 def build_codeword_counts(user, version="v1", *, events=None, now=None):
@@ -170,12 +166,14 @@ def build_codeword_counts_bulk(events_by_user, version="v1", now=None):
 
 def _load_codewords(post_ids, version):
     """post_id 집합에 대응하는 codeword 목록을 1쿼리로 로드."""
-    return {
-        str(row["embedding__post_id"]): row["codewords"]
-        for row in PostCodeword.objects.filter(
+    rows = (
+        PostCodeword.objects.filter(
             embedding__post_id__in=post_ids, codebook_version=version
-        ).values("embedding__post_id", "codewords")
-    }
+        )
+        .values("embedding__post_id", "codewords")
+        .iterator(chunk_size=2000)
+    )
+    return {str(row["embedding__post_id"]): row["codewords"] for row in rows}
 
 
 def _accumulate_codeword_counts(events, codewords_by_post, now):
