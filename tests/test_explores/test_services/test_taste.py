@@ -7,7 +7,6 @@ from apps.comments.models import Comment
 from apps.explores.services.taste import (
     ALPHA_FULL,
     TASTE_WEIGHTS,
-    _last_active_at,
     _sigmoid_decay,
     build_codeword_counts,
     personalization_alpha,
@@ -97,35 +96,6 @@ class TestSigmoidDecay(TestCase):
         soft = _sigmoid_decay(120, center=60, scale=2)
         hard = _sigmoid_decay(120, center=60, scale=4)
         self.assertLess(hard, soft)
-
-
-# ── 최근 활동일 ────────────────────────────────────────────────────────────
-class TestLastActiveAt(TestCase):
-    @classmethod
-    def setUpTestData(cls):
-        cls.user = make_shared_user()
-
-    def test_no_interactions_returns_none(self):
-        self.assertIsNone(_last_active_at(self.user))
-
-    def test_single_interaction_returns_its_time(self):
-        post = make_post(self.user)
-        like = _like(self.user, post, days_ago=5)
-        self.assertEqual(_last_active_at(self.user), like.created_at)
-
-    def test_returns_latest_across_models(self):
-        """여러 모델에 걸쳐 가장 최근 created_at 을 반환."""
-        p1, p2, p3 = (make_post(self.user) for _ in range(3))
-        _like(self.user, p1, days_ago=10)
-        _click(self.user, p2, days_ago=3)
-        newest = _bookmark(self.user, p3, days_ago=1)  # 가장 최근
-        self.assertEqual(_last_active_at(self.user), newest.created_at)
-
-    def test_ignores_other_users(self):
-        other = _other_user()
-        post = make_post(self.user)
-        _like(other, post)  # 다른 유저의 활동
-        self.assertIsNone(_last_active_at(self.user))
 
 
 # ── 개인화 alpha ───────────────────────────────────────────────────────────
