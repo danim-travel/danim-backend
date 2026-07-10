@@ -15,6 +15,8 @@ from apps.users.models import User
 
 logger = logging.getLogger(__name__)
 
+DELETE_BATCH_SIZE = 5000
+
 
 @shared_task(bind=True, max_retries=3)
 def create_notification_task(
@@ -44,8 +46,7 @@ def create_notification_task(
 def delete_notification_task(self):
     try:
         cutoff = timezone.now() - timedelta(days=30)
-        batch = 5000
-        affected_user_ids: set[str] = set()
+        batch = DELETE_BATCH_SIZE
 
         while True:
             with transaction.atomic():
@@ -80,10 +81,13 @@ def delete_notification_task(self):
                     )
                 )
                 Notification.objects.filter(pk__in=ids).delete()
-                affected_user_ids.update(receiver_ids)
 
-        if affected_user_ids:
-            cache.delete_many([f"user_{uid}_unread_count" for uid in affected_user_ids])
+            try:
+                cache.delete_many([f"user_{uid}_unread_count" for uid in receiver_ids])
+            except Exception as e:
+                logger.warning(
+                    f"[캐시 무효화 실패] receiver_ids={len(receiver_ids)}건, error={e}"
+                )
 
     except Exception as e:
         raise self.retry(exc=e, countdown=2**self.request.retries)

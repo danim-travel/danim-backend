@@ -1,6 +1,8 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.core.cache import cache
+from django.db.models.query import QuerySet
 from django.utils import timezone
 
 from apps.notifications.models import Notification
@@ -140,4 +142,68 @@ class TestDeleteNotificationTask(NotificationsBaseTest):
         self.user_2.refresh_from_db()
         # 4 - 2 = 2 (오래된 미읽음 2개만 차감, 읽음은 차감 안 함)
         self.assertEqual(self.user_2.unread_noti_count, 2)
+        self.assertIsNone(cache.get(self._cache_key()))
+
+    @patch("apps.notifications.tasks.DELETE_BATCH_SIZE", 2)
+    def test_multi_batch_all_deleted_and_cache_invalidated(self):
+        """batch보다 많은 알림도 여러 배치로 나눠 전부 삭제되고 캐시가 무효화된다"""
+        # 오래된 미읽음 5개 → batch=2 이므로 3배치(2+2+1)로 처리
+        for _ in range(5):
+            self._create_notification(
+                receiver=self.user_2,
+                sender=self.user_1,
+                is_read=False,
+                created_days_ago=31,
+            )
+        User.objects.filter(id=self.user_2.id).update(unread_noti_count=5)
+        cache.set(self._cache_key(), 5)
+
+        delete_notification_task.apply()
+
+        # 5개 전부 삭제
+        self.assertEqual(Notification.objects.filter(receiver=self.user_2).count(), 0)
+        self.user_2.refresh_from_db()
+        # 5 - 5 = 0
+        self.assertEqual(self.user_2.unread_noti_count, 0)
+        # 여러 배치를 거쳐도 캐시가 무효화됨
+        self.assertIsNone(cache.get(self._cache_key()))
+
+    @patch("apps.notifications.tasks.DELETE_BATCH_SIZE", 2)
+    def test_mid_batch_failure_keeps_committed_batches(self):
+        """중간 배치에서 실패해도 앞서 커밋된 배치는 삭제/차감/캐시 무효화가 유지된다"""
+        # 오래된 미읽음 5개 → batch=2, 3배치 예정
+        for _ in range(5):
+            self._create_notification(
+                receiver=self.user_2,
+                sender=self.user_1,
+                is_read=False,
+                created_days_ago=31,
+            )
+        User.objects.filter(id=self.user_2.id).update(unread_noti_count=5)
+        cache.set(self._cache_key(), 5)
+
+        # patch 전에 원본 delete를 저장해두고, 두 번째 호출만 실패시킨다.
+        real_delete = QuerySet.delete
+        call_count = {"n": 0}
+
+        def fail_on_second_delete(qs, *args, **kwargs):
+            call_count["n"] += 1
+            if call_count["n"] == 2:
+                raise RuntimeError("두 번째 배치 삭제 실패")
+            return real_delete(qs, *args, **kwargs)
+
+        with patch.object(
+            QuerySet, "delete", autospec=True, side_effect=fail_on_second_delete
+        ):
+            # 재시도 소진 후 예외가 전파되므로 예외를 허용
+            with self.assertRaises(Exception):
+                delete_notification_task.apply(throw=True)
+
+        # 첫 배치(2개)는 커밋됨 → 5개 중 2개 삭제, 3개 남음
+        remaining = Notification.objects.filter(receiver=self.user_2).count()
+        self.assertEqual(remaining, 3)
+        self.user_2.refresh_from_db()
+        # 첫 배치 2개만 차감 → 5 - 2 = 3
+        self.assertEqual(self.user_2.unread_noti_count, 3)
+        # 첫 배치 커밋 직후 캐시가 무효화됨 (배치별 무효화이므로)
         self.assertIsNone(cache.get(self._cache_key()))
