@@ -44,8 +44,49 @@ class TestNearUserSpotSerializer(TestCase):
         with self.assertRaises(serializers.ValidationError):
             serializer.is_valid(raise_exception=True)
 
+    def test_request_serializer_fail_latitude_out_of_range(self):
+        """위도가 -90~90 범위를 벗어나면 검증에 실패한다"""
+        request_data = {"latitude": "91", "longitude": "127.0"}
+        serializer = NearUserQuerySerializer(data=request_data)
+        with self.assertRaises(serializers.ValidationError):
+            serializer.is_valid(raise_exception=True)
+
+    def test_request_serializer_fail_longitude_out_of_range(self):
+        """경도가 -180~180 범위를 벗어나면 검증에 실패한다"""
+        request_data = {"latitude": "37.0", "longitude": "200"}
+        serializer = NearUserQuerySerializer(data=request_data)
+        with self.assertRaises(serializers.ValidationError):
+            serializer.is_valid(raise_exception=True)
+
+    def test_request_serializer_fail_latitude_infinite(self):
+        """위도가 무한대(inf)이면 검증에 실패한다"""
+        request_data = {"latitude": "inf", "longitude": "127.0"}
+        serializer = NearUserQuerySerializer(data=request_data)
+        with self.assertRaises(serializers.ValidationError):
+            serializer.is_valid(raise_exception=True)
+
+    def test_request_serializer_fail_latitude_nan(self):
+        """위도가 NaN이면 검증에 실패한다 (min/max 범위 비교로는 걸러지지 않음)"""
+        request_data = {"latitude": "nan", "longitude": "127.0"}
+        serializer = NearUserQuerySerializer(data=request_data)
+        with self.assertRaises(serializers.ValidationError):
+            serializer.is_valid(raise_exception=True)
+
+    def test_request_serializer_boundary_values_valid(self):
+        """위도/경도 경계값(±90, ±180)은 유효한 값으로 통과한다"""
+        request_data = {"latitude": "90", "longitude": "180"}
+        serializer = NearUserQuerySerializer(data=request_data)
+        serializer.is_valid(raise_exception=True)
+        self.assertEqual(serializer.validated_data["latitude"], 90.0)
+        self.assertEqual(serializer.validated_data["longitude"], 180.0)
+
 
 class TestNearUserSpotResponseSerializer(NearPostSpotBase):
+
+    def setUp(self):
+        super().setUp()
+        self.postspot_user1.distance = 1.2
+        self.postspot_user2.distance = 1.2
 
     def test_response_serializer(self):
         """serializer응답 테스트"""

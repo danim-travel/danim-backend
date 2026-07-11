@@ -24,11 +24,11 @@ urlpatterns: list[URLPattern | URLResolver] = [
     path(
         "/bookmarks", bookmark_list_view.BookmarkListView.as_view(), name="bookmark_list"
     ),
+    path("/nearspots", include("apps.posts.near_postspot.urls")),
     path("/<str:post_id>", detail_view.PostDetailView.as_view(), name="post_detail"),
     path("/<str:post_id>/like", like_view.PostLikeView.as_view(), name="post_like"),
     path(
         "/<str:post_id>/bookmark", bookmark_view.BookmarkView.as_view(), name="bookmark"
     ),
     path("/<str:post_id>/share", share_view.PostShareView.as_view(), name="post_share"),
-    path("/nearspots", include("apps.posts.near_postspot.urls")),
 ]

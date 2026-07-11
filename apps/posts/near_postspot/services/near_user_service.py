@@ -1,25 +1,35 @@
 import math
 
-from django.db.models import F, FloatField, Value
+from django.db.models import F, FloatField, Q, Value
 from django.db.models.functions import ASin, Cast, Cos, Power, Radians, Sin, Sqrt
 
 from apps.posts.models import PostSpot
 
 DANIM_RADIUS = 3
 R = 6371.0
+KM_PER_DEGREE_LAT = 111.0
+
+
+def _normalize_longitude(longitude: float) -> float:
+    if longitude > 180:
+        longitude -= 360
+    elif longitude < -180:
+        longitude += 360
+    return longitude
 
 
 def _get_range_latitude(lat: float):
     """최대 위도값 ,최소 위도값 구하는 함수"""
-    min_lat = lat - (DANIM_RADIUS / 111.0)
-    max_lat = lat + (DANIM_RADIUS / 111.0)
+    min_lat = lat - (DANIM_RADIUS / KM_PER_DEGREE_LAT)
+    max_lat = lat + (DANIM_RADIUS / KM_PER_DEGREE_LAT)
     return min_lat, max_lat
 
 
 def _get_range_longitude(lon: float, lat: float):
     """최대 경도값 ,최소 경도값 구하는 함수"""
-    min_lon = lon - (DANIM_RADIUS / (111.0 * math.cos(math.radians(lat))))
-    max_lon = lon + (DANIM_RADIUS / (111.0 * math.cos(math.radians(lat))))
+    delta = min(DANIM_RADIUS / (KM_PER_DEGREE_LAT * math.cos(math.radians(lat))), 180)
+    min_lon = _normalize_longitude(lon - delta)
+    max_lon = _normalize_longitude(lon + delta)
     return min_lon, max_lon
 
 
@@ -31,20 +41,26 @@ def _get_queryset_on_range(
     이후 haversine으로 실제 거리로 2차 필터링
     이후 사용자와의 거리를 기준으로 정렬하고 top 10만 출력
     """
-    queryset = (
-        PostSpot.objects.filter(
-            location__x__lt=max_lon,
-            location__x__gt=min_lon,
-            location__y__lt=max_lat,
-            location__y__gt=min_lat,
+    if min_lon > max_lon:
+        queryset = PostSpot.objects.filter(
+            Q(location__x__lte=max_lon) | Q(location__x__gte=min_lon),
+            location__y__lte=max_lat,
+            location__y__gte=min_lat,
         )
-        .select_related("location", "post")
+    else:
+        queryset = PostSpot.objects.filter(
+            location__x__lte=max_lon,
+            location__x__gte=min_lon,
+            location__y__lte=max_lat,
+            location__y__gte=min_lat,
+        )
+
+    return (
+        queryset.select_related("location", "post")
         .annotate(distance=_get_haversine_expression(lat, lon))
         .filter(distance__lte=DANIM_RADIUS)
         .order_by("distance")[:10]
     )
-
-    return queryset
 
 
 def _get_haversine_expression(lat, lon):
@@ -61,7 +77,7 @@ def _get_haversine_expression(lat, lon):
     phi2 = Radians(y)
 
     a = Power(Sin(d_phi / 2), 2) + Cos(phi1) * Cos(phi2) * Power(Sin(d_lambda / 2), 2)
-    return 6371 * 2 * ASin(Sqrt(a))
+    return R * 2 * ASin(Sqrt(a))
 
 
 def get_near_post_queryset(data: dict):
