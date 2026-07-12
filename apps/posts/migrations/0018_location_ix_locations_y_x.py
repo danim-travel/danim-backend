@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
     atomic = False
 
     dependencies = [
-        ("posts", "0016_remove_postembedding_codebook_version_and_more"),
+        ("posts", "0017_bookmark_bookmarks_user_id_2ce2db_idx_and_more"),
     ]
 
     operations = [
