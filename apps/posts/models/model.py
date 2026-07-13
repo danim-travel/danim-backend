@@ -15,6 +15,7 @@ class Location(BaseModel):
 
     class Meta:
         db_table = "locations"
+        indexes = [models.Index(fields=["y", "x"], name="ix_locations_y_x")]
 
 
 def _get_random():
