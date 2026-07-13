@@ -2,7 +2,7 @@ from datetime import date
 
 from channels.testing.websocket import WebsocketCommunicator
 from django.core.cache import cache
-from django.test import TransactionTestCase
+from django.test import TransactionTestCase, override_settings
 
 from apps.core.websocket.websocket_key.service import make_socket_key
 from apps.follows.models import Follows
@@ -11,6 +11,7 @@ from apps.users.models.models import LoginType, User
 from config.asgi import application
 
 
+@override_settings(CELERY_TASK_ALWAYS_EAGER=True, CELERY_TASK_EAGER_PROPAGATES=True)
 class TestNotificationConsumer(TransactionTestCase):
 
     def setUp(self):

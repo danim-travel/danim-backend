@@ -9,11 +9,21 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U danim"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   django:
     build: .
@@ -26,8 +36,42 @@ services:
     env_file:
       - envs/.env
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery-worker:
+    build: .
+    command: uv run celery -A config worker -l info
+    volumes:
+      - .:/app
+      - venv:/app/.venv
+    env_file:
+      - envs/.env
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.local
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery-beat:
+    build: .
+    command: uv run celery -A config beat -l info
+    volumes:
+      - .:/app
+      - venv:/app/.venv
+    env_file:
+      - envs/.env
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.local
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
 volumes:
   postgres_data:
