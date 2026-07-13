@@ -1,7 +1,9 @@
 import random
 
 from django.conf import settings
+from django.contrib.postgres.indexes import GinIndex, OpClass
 from django.db import models
+from django.db.models.functions import Upper
 
 from apps.core.models import BaseModel, TimeStampModel
 
@@ -15,7 +17,23 @@ class Location(BaseModel):
 
     class Meta:
         db_table = "locations"
-        indexes = [models.Index(fields=["y", "x"], name="ix_locations_y_x")]
+        # Django의 __icontains 는 UPPER(col) LIKE UPPER(%s) 로 컴파일되므로
+        # 인덱스도 raw 컬럼이 아니라 Upper(컬럼) 식(expression)에 걸어야 실제로 쓰인다.
+        indexes = [
+            models.Index(fields=["y", "x"], name="ix_locations_y_x"),
+            GinIndex(
+                OpClass(Upper("address_name"), name="gin_trgm_ops"),
+                name="loc_addr_trgm",
+            ),
+            GinIndex(
+                OpClass(Upper("road_address_name"), name="gin_trgm_ops"),
+                name="loc_road_addr_trgm",
+            ),
+            GinIndex(
+                OpClass(Upper("place_name"), name="gin_trgm_ops"),
+                name="loc_place_trgm",
+            ),
+        ]
 
 
 def _get_random():
