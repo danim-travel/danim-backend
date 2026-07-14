@@ -39,5 +39,31 @@ services:
       - django
     restart: always
 
+  celery-worker:
+    image: kochanyeol/danim-backend:dev
+    command: uv run celery -A config worker -l info --pool=solo
+    env_file:
+      - envs/.env.dev
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.dev
+    depends_on:
+      - db
+      - redis
+    restart: always
+    mem_limit: 300m
+
+  celery-beat:
+    image: kochanyeol/danim-backend:dev
+    command: uv run celery -A config beat -l info
+    env_file:
+      - envs/.env.dev
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.dev
+    depends_on:
+      - db
+      - redis
+    restart: always
+    mem_limit: 250m
+
 volumes:
   postgres_data:
