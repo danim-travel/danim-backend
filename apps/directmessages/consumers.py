@@ -95,7 +95,10 @@ class DMConsumer(BaseConsumer):
         if await self._is_blocked_conversation(user):
             await self.send(
                 json.dumps(
-                    {"type": "error", "detail": "차단 관계에서는 메시지를 보낼 수 없습니다."}
+                    {
+                        "type": "error",
+                        "detail": "차단 관계에서는 메시지를 보낼 수 없습니다.",
+                    }
                 )
             )
             return

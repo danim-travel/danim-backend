@@ -8,9 +8,7 @@ class BlockListSerializer(serializers.ModelSerializer):
 
     user_id = serializers.CharField(source="blocked.id")
     nickname = serializers.CharField(source="blocked.nickname")
-    profile_img = serializers.CharField(
-        source="blocked.profile_img_url", allow_null=True
-    )
+    profile_img = serializers.CharField(source="blocked.profile_img_url", allow_null=True)
 
     class Meta:
         model = Block

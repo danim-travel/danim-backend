@@ -92,6 +92,4 @@ class BlockGatesTest(TestCase):
             noti_type="follow",
             target_id=self.blocker.id,
         )
-        self.assertEqual(
-            Notification.objects.filter(receiver_id=stranger.id).count(), 1
-        )
+        self.assertEqual(Notification.objects.filter(receiver_id=stranger.id).count(), 1)
