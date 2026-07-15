@@ -30,13 +30,9 @@ class WebsocketMiddleware:
             # 같지만, 여기서는 명시적으로 잡아 로그를 남긴다.
             auth_cache = caches["auth"]
             try:
-                user_id = await sync_to_async(auth_cache.get)(
-                    f"socket_key_{socket_key}"
-                )
+                user_id = await sync_to_async(auth_cache.get)(f"socket_key_{socket_key}")
                 if user_id:
-                    await sync_to_async(auth_cache.delete)(
-                        f"socket_key_{socket_key}"
-                    )
+                    await sync_to_async(auth_cache.delete)(f"socket_key_{socket_key}")
                     scope["user"] = await get_user(user_id)
                 else:
                     scope["user"] = AnonymousUser()
