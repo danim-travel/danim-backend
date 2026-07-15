@@ -18,7 +18,7 @@ class UserUpdateRequestSerializerTest(TestCase):
             data={
                 "nickname": "test_nickname",
                 "intro": "test_intro",
-                "key": "test_key",
+                "key": "local/upload/image/user/profile/01JZWK7R2MNBX5QD8FHYC3VT9E.png",
             }
         )
         self.assertTrue(serializer.is_valid())
@@ -41,7 +41,7 @@ class UserUpdateRequestSerializerTest(TestCase):
             data={
                 "nickname": "안녕",
                 "intro": "test_intro",
-                "key": "test_key",
+                "key": "local/upload/image/user/profile/01JZWK7R2MNBX5QD8FHYC3VT9E.png",
             }
         )
         self.assertFalse(serializer.is_valid())
@@ -53,7 +53,7 @@ class UserUpdateRequestSerializerTest(TestCase):
             data={
                 "nickname": "test_nickname",
                 "intro": None,
-                "key": "test_key",
+                "key": "local/upload/image/user/profile/01JZWK7R2MNBX5QD8FHYC3VT9E.png",
             }
         )
         self.assertFalse(serializer.is_valid())
@@ -70,12 +70,12 @@ class UserUpdateResponseSerializerTest(UserBase):
     def test_update_response(self, mock_presigned) -> None:
         """정상적인 응답 데이터"""
         mock_presigned.return_value = (
-            "https://bucket.s3.amazonaws.com/test_key?X-Amz-Signature=abc"
+            "https://bucket.s3.amazonaws.com/local/upload/image/user/profile/01JZWK7R2MNBX5QD8FHYC3VT9E.png?X-Amz-Signature=abc"
         )
         serializer = UserUpdateResponseSerializer(self.user1)
         self.assertEqual(serializer.data["nickname"], "test")
         self.assertEqual(serializer.data["intro"], "test_intro")
-        self.assertIn("test_key", serializer.data["profile_img"])
+        self.assertIn("local/upload/image/user/profile/01JZWK7R2MNBX5QD8FHYC3VT9E.png", serializer.data["profile_img"])
         self.assertIn("X-Amz-Signature", serializer.data["profile_img"])
 
     def test_update_response_profile_img_is_none(self) -> None:
@@ -101,10 +101,10 @@ class UserMeInfoResponseSerializerTest(UserBase):
     def test_get_me_info(self, mock_presigned) -> None:
         """GET 요청 응답 성공"""
         mock_presigned.return_value = (
-            "https://bucket.s3.amazonaws.com/test_key?X-Amz-Signature=abc"
+            "https://bucket.s3.amazonaws.com/local/upload/image/user/profile/01JZWK7R2MNBX5QD8FHYC3VT9E.png?X-Amz-Signature=abc"
         )
         serializer = UserInfoResponseSerializer(self.user1)
         self.assertEqual(serializer.data["nickname"], "test")
-        self.assertIn("test_key", serializer.data["profile_img"])
+        self.assertIn("local/upload/image/user/profile/01JZWK7R2MNBX5QD8FHYC3VT9E.png", serializer.data["profile_img"])
         self.assertIn("X-Amz-Signature", serializer.data["profile_img"])
         self.assertEqual(serializer.data["user_id"], self.user1.id)

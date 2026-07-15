@@ -11,7 +11,7 @@ class PostCreateSerializerTest(TestCase):
             data={
                 "title": "test_title",
                 "description": "test_description",
-                "thumbnail": "prod/posts/thumbnail/uuid.jpg",
+                "thumbnail": "local/upload/image/post/thumbnail/01JZWK7R2MNBX5QD8FHYC3VT9E.jpg",
                 "spots": [
                     {
                         "order": 1,
@@ -26,7 +26,7 @@ class PostCreateSerializerTest(TestCase):
                         "images": [
                             {
                                 "original_img": "제주도1일차.png",
-                                "key": "prod/posts/uuid.jpg",
+                                "key": "local/upload/image/post/01JZWK7R2MNBX5QD8FHYC3VT9E.jpg",
                             }
                         ],
                     }

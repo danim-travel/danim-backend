@@ -1,11 +1,19 @@
 from rest_framework import serializers
 
+from apps.core.storage.s3.services import CategoryEnum
+from apps.core.storage.s3.validators import validate_attach_key
+
 
 class PostSpotImageCreateSerializer(serializers.Serializer):
     """게시글 핀 이미지 생성 Request Body 검증 serializer"""
 
     original_img = serializers.CharField()
-    key = serializers.CharField()
+    key = serializers.CharField(max_length=255)
+
+    def validate_key(self, value: str) -> str:
+        # post 카테고리로 발급된 key만 허용 — DM 등 다른 문맥의 key를
+        # 게시글에 심어 공개 재배포하는 교차 카테고리 세탁 차단
+        return validate_attach_key(value, CategoryEnum.POST)
 
 
 class LocationCreateSerializer(serializers.Serializer):
@@ -34,3 +42,8 @@ class PostCreateSerializer(serializers.Serializer):
     description = serializers.CharField(required=False, allow_blank=True, default="")
     thumbnail = serializers.CharField(required=False, allow_blank=True, default="")
     spots = PostSpotCreateSerializer(many=True, required=False, default=list)
+
+    def validate_thumbnail(self, value: str) -> str:
+        if not value:  # 빈 값 = 썸네일 없음 (기존 계약 유지)
+            return value
+        return validate_attach_key(value, CategoryEnum.POST)

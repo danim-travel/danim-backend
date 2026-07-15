@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from apps.core.storage.s3.services import CategoryEnum
+from apps.core.storage.s3.validators import validate_attach_key
 from apps.users.validators import validate_nickname_format
 
 
@@ -12,6 +14,12 @@ class UserUpdateRequestSerializer(serializers.Serializer):
 
     def validate_nickname(self, value: str) -> str:
         return validate_nickname_format(value)
+
+    def validate_key(self, value: str | None) -> str | None:
+        if not value:  # None/빈 값 = 프로필 이미지 제거 (기존 계약 유지)
+            return value
+        # user 카테고리로 발급된 key만 프로필 이미지로 허용
+        return validate_attach_key(value, CategoryEnum.USER)
 
 
 class UserUpdateResponseSerializer(serializers.Serializer):

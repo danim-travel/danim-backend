@@ -85,7 +85,7 @@ class CommentBaseTest(TestCase):
         self.data_for_content = {"post_id": self.post.id, "content": "test_content"}
         self.data_for_img = {
             "post_id": self.post.id,
-            "comment_img": {"key": "prod/.../AXd399...png", "original_img": "dog.png"},
+            "comment_img": {"key": "local/upload/image/comment/01JZWK7R2MNBX5QD8FHYC3VT9E.png", "original_img": "dog.png"},
         }
         self.fail_data_for_content = {"post_id": self.post.id, "content": "a" * 101}
         self.fail_data_for_img = {
@@ -107,7 +107,7 @@ class CommentBaseTest(TestCase):
         }
         self.data_for_update_img = {
             "comment_img": {
-                "key": "prod/.../update...png",
+                "key": "local/upload/image/comment/01JZWK7R2MNBX5QD8FHYC3VT8D.png",
                 "original_img": "update_dog.png",
             }
         }
