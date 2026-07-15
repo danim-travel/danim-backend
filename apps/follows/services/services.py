@@ -1,5 +1,7 @@
+from apps.blocks.services import is_blocked_between
 from apps.core.exceptions.exception import (
     ConflictException,
+    ForbiddenException,
     NotFoundException,
     ValidationException,
 )
@@ -14,6 +16,10 @@ def create_follow(target_user_id, request_user):
 
     if not User.objects.filter(id=target_user_id).exists():
         raise NotFoundException("해당 유저를 찾을 수 없습니다.")
+
+    # 어느 쪽이 차단했든 팔로우 불가 (차단 시 기존 팔로우는 block_user가 절단)
+    if is_blocked_between(request_user.id, target_user_id):
+        raise ForbiddenException("차단 관계의 유저는 팔로우할 수 없습니다.")
 
     _, created = Follows.objects.get_or_create(
         following_id=target_user_id, follower_id=request_user.id

@@ -41,6 +41,12 @@ def create_notification(
 ) -> None:
     if receiver_id == sender.id:
         return
+    # 차단 관계면 알림을 만들지 않는다 — 시그널 5곳을 개별 수정하는 대신
+    # 모든 알림이 통과하는 이 중앙 게이트 한 곳에서 막는다.
+    from apps.blocks.services import is_blocked_between
+
+    if is_blocked_between(receiver_id, sender.id):
+        return
     target_type, msg_base = NOTIFICATION_MAP[noti_type]
     msg = msg_base.format(sender.nickname)
     create_noti(sender, receiver_id, noti_type, target_id, target_type, msg)

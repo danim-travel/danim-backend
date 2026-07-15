@@ -43,6 +43,7 @@ OWN_APPS: list[str] = [
     "apps.posts",
     "apps.comments",
     "apps.follows",
+    "apps.blocks",
     "apps.notifications",
     "apps.directmessages",
     "apps.explores",
