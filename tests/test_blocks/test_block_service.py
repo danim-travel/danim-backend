@@ -25,10 +25,13 @@ def _make_user(tag: str) -> User:
         nickname=f"{tag}_nick",
         name=tag,
         birth_day=date(1995, 1, 1),
+        is_active=True,  # create_user 기본값은 비활성 — 대화 생성의 is_active 필터 통과용
     )
 
 
 class BlockServiceTest(TestCase):
+    user_a: User
+    user_b: User
 
     @classmethod
     def setUpTestData(cls) -> None:
