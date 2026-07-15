@@ -21,9 +21,7 @@ class PostLikeService:
         try:
             with transaction.atomic():
                 PostLike.objects.create(post=post, user=user)
-                Post.objects.filter(id=post_id).update(
-                    like_count=F("like_count") + 1
-                )
+                Post.objects.filter(id=post_id).update(like_count=F("like_count") + 1)
         except IntegrityError:
             raise ConflictException({"field_name": ["like"]})
 
@@ -46,9 +44,7 @@ class PostLikeService:
         with transaction.atomic():
             deleted, _ = PostLike.objects.filter(post=post, user=user).delete()
             if deleted:
-                Post.objects.filter(id=post_id).update(
-                    like_count=F("like_count") - 1
-                )
+                Post.objects.filter(id=post_id).update(like_count=F("like_count") - 1)
 
         post.refresh_from_db()
         return post
