@@ -115,3 +115,35 @@ class AttachKeySerializerIntegrationTest(TestCase):
         serializer = UserUpdateRequestSerializer(data={"key": post_key})
         self.assertFalse(serializer.is_valid())
         self.assertIn("key", serializer.errors)
+
+    def test_signup_rejects_cross_category_profile_key(self):
+        """회원가입 경로가 me 수정의 검증을 우회하지 못한다 (리뷰 지적 회귀 방지)"""
+        from apps.users.serializers.signup_serializer import UserSignUpSerializer
+
+        dm_key = f"local/upload/image/dm/{ULID}.png"
+        serializer = UserSignUpSerializer(
+            data={
+                "password": "Password@1",
+                "password_confirm": "Password@1",
+                "nickname": "nick",
+                "name": "name",
+                "birth_day": "1995-01-01",
+                "email_token": "token",
+                "profile_img": dm_key,
+            }
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("profile_img", serializer.errors)
+
+    def test_spot_image_rejects_cross_category_key(self):
+        """게시글 스팟 이미지 key도 교차 카테고리를 거부한다"""
+        from apps.posts.serializers.create_serializer import (
+            PostSpotImageCreateSerializer,
+        )
+
+        dm_key = f"local/upload/image/dm/{ULID}.png"
+        serializer = PostSpotImageCreateSerializer(
+            data={"original_img": "a.png", "key": dm_key}
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("key", serializer.errors)
