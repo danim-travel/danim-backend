@@ -41,9 +41,14 @@ class PostLikeService:
         # 좋아요하지 않은 상태의 취소 요청(반복 호출·경합)이 무조건 -1을 실행하면
         # 임의 게시글의 like_count를 소거할 수 있고, 0에서는 PositiveIntegerField의
         # DB CHECK 위반(500)이 난다. 북마크 서비스와 동일한 멱등 삭제 계약.
-        deleted, _ = PostLike.objects.filter(post=post, user=user).delete()
-        if deleted:
-            Post.objects.filter(id=post_id).update(like_count=F("like_count") - 1)
+        # 삭제+감소를 atomic으로 묶어 like_post·delete_comment와 대칭을 유지한다
+        # (삭제 커밋 후 감소 실패 시 영구 over-count 방지).
+        with transaction.atomic():
+            deleted, _ = PostLike.objects.filter(post=post, user=user).delete()
+            if deleted:
+                Post.objects.filter(id=post_id).update(
+                    like_count=F("like_count") - 1
+                )
 
         post.refresh_from_db()
         return post
