@@ -17,10 +17,7 @@ def _correlated_count(queryset: QuerySet, group_field: str) -> Coalesce:
     """
     return Coalesce(
         Subquery(
-            queryset.order_by()
-            .values(group_field)
-            .annotate(c=Count("pk"))
-            .values("c"),
+            queryset.order_by().values(group_field).annotate(c=Count("pk")).values("c"),
             output_field=IntegerField(),
         ),
         0,

@@ -106,9 +106,7 @@ class ProfilePostsPreviewLimitTest(TestCase):
             birth_day=date(1991, 1, 1),
         )
         total = PROFILE_POSTS_PREVIEW_LIMIT + 3
-        posts = [
-            Post.objects.create(user=owner, title=f"t{i}") for i in range(total)
-        ]
+        posts = [Post.objects.create(user=owner, title=f"t{i}") for i in range(total)]
 
         user = ProfileService().get_profile(user_id=owner.id, request_user=viewer)
         data = ProfileResponseSerializer(user).data
