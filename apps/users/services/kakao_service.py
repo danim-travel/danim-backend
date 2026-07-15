@@ -4,7 +4,7 @@ from urllib.parse import urlencode
 
 import httpx
 from django.conf import settings
-from django.core.cache import cache
+from django.core.cache import caches
 from django.db import IntegrityError, transaction
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -13,6 +13,10 @@ from apps.core.utils.base62 import generate_token
 from apps.users.models import LoginType, User
 from apps.users.models.socialaccount import SocialAccount
 from apps.users.redis_keys import SocialRedisKey
+
+# 소셜 state·인증/재설정 토큰은 인증 상태 — fail-closed 별칭 사용
+# (이름을 cache로 유지해 기존 테스트의 patch 대상 호환)
+cache = caches["auth"]
 
 logger = logging.getLogger(__name__)
 

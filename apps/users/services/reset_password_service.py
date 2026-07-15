@@ -1,9 +1,13 @@
-from django.core.cache import cache
+from django.core.cache import caches
 from redis import RedisError
 
 from apps.core.exceptions.exception import InternalServerException, UnauthorizedException
 from apps.users.models import LoginType, User
 from apps.users.redis_keys import EmailRedisKey
+
+# 소셜 state·인증/재설정 토큰은 인증 상태 — fail-closed 별칭 사용
+# (이름을 cache로 유지해 기존 테스트의 patch 대상 호환)
+cache = caches["auth"]
 
 
 class ResetPasswordService:

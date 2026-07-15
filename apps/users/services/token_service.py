@@ -1,5 +1,11 @@
-from django.core.cache import cache
+from django.core.cache import caches
 from redis import RedisError
+
+# 토큰 블랙리스트는 인증 상태 — fail-closed 별칭. default 별칭은
+# IGNORE_EXCEPTIONS=True라 장애 시 None을 돌려줘 아래 RedisError 캐치에
+# 도달하지 못하고, 로그아웃된 토큰이 재발급되는 fail-open이 된다.
+# (이름을 cache로 유지해 기존 테스트의 patch 대상 호환)
+cache = caches["auth"]
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
