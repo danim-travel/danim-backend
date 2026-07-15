@@ -7,7 +7,6 @@ from apps.core.exceptions.exception import (
     ForbiddenException,
     NotFoundException,
 )
-from apps.notifications.utils import create_notification
 from apps.posts.models import Post
 
 
@@ -97,7 +96,14 @@ def delete_comment(comment_id, user):
         raise ForbiddenException("본인이 작성한 댓글만 삭제 할 수 있습니다.")
 
     with transaction.atomic():
-        target_comment.delete()
+        # 삭제된 행이 있을 때만 카운터를 감소시킨다.
+        # 소유권 확인(위 조회)과 삭제 사이에 다른 요청이 먼저 지운 경우(더블탭·재시도)
+        # 무조건 -1을 실행하면 comment_count가 실제 댓글 수보다 작아지고,
+        # 0에 도달하면 PositiveIntegerField의 DB CHECK 위반으로
+        # 남은 댓글의 삭제가 전부 500으로 막힌다.
+        deleted, _ = Comment.objects.filter(id=target_comment.id).delete()
+        if not deleted:
+            raise NotFoundException("댓글에 대한 정보를 찾지 못했습니다.")
         Post.objects.filter(id=target_comment.post_id).update(
             comment_count=F("comment_count") - 1
         )

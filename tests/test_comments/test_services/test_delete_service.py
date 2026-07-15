@@ -26,3 +26,19 @@ class TestCommentDeleteService(CommentBaseTest):
             with transaction.atomic():
                 delete_comment(self.none_comment_id, self.user)
         self.assertEqual(Comment.objects.count(), 2)
+
+    def test_delete_comment_decrements_persisted_count_once(self) -> None:
+        """삭제 1회 = comment_count 감소 1회. 같은 댓글 재삭제는 404 + 카운터 유지.
+
+        무조건 -1 회귀가 생기면 카운터가 실제 댓글 수보다 작아지고
+        0 도달 시 PositiveIntegerField CHECK 위반으로 남은 댓글 삭제가 500이 된다.
+        """
+        delete_comment(self.comment_content.id, self.user)
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.comment_count, 1)  # 2 → 1 (DB 영속값)
+
+        with self.assertRaises(NotFoundException):
+            with transaction.atomic():
+                delete_comment(self.comment_content.id, self.user)
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.comment_count, 1)  # 중복 감소 없음
