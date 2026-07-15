@@ -37,6 +37,8 @@ class CachePolicyTest(TestCase):
         from apps.core.websocket.websocket_key.service import key_service  # noqa: F401
         from apps.users.services import (
             email_service,
+            google_service,
+            kakao_service,
             login_logout_service,
             reset_password_service,
             signup_service,
@@ -48,6 +50,8 @@ class CachePolicyTest(TestCase):
             token_service,
             login_logout_service,
             email_service,
+            google_service,
+            kakao_service,
             reset_password_service,
             signup_service,
         ):

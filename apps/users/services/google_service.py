@@ -5,9 +5,14 @@ import httpx
 from django.conf import settings
 from django.core.cache import caches
 from django.db import IntegrityError, transaction
+from redis import RedisError
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.core.exceptions.exception import ConflictException, ValidationException
+from apps.core.exceptions.exception import (
+    ConflictException,
+    InternalServerException,
+    ValidationException,
+)
 from apps.core.utils.base62 import generate_token
 from apps.users.models import LoginType, User
 from apps.users.models.socialaccount import SocialAccount
@@ -41,7 +46,10 @@ class GoogleService:
     def build_authorize_url(self) -> str:
         """소셜로그인 url에 담길 정보 생성"""
         state = generate_token()
-        cache.set(SocialRedisKey.state(state), True, self.STATE_TTL)
+        try:
+            cache.set(SocialRedisKey.state(state), True, self.STATE_TTL)
+        except RedisError:
+            raise InternalServerException("서버 오류, 다시 시도해주세요.")
 
         params = {
             "client_id": settings.GOOGLE_CLIENT_ID,
@@ -54,9 +62,16 @@ class GoogleService:
 
     def _verify_state(self, state: str) -> None:
         """요청한 데이터에 담긴 redis 키 값 유효성 검증"""
-        if not cache.get(SocialRedisKey.state(state)):
+        try:
+            exists = cache.get(SocialRedisKey.state(state))
+        except RedisError:
+            raise InternalServerException("서버 오류, 다시 시도해주세요.")
+        if not exists:
             raise ValidationException("유효하지 않은 요청입니다.")
-        cache.delete(SocialRedisKey.state(state))
+        try:
+            cache.delete(SocialRedisKey.state(state))
+        except RedisError:
+            pass  # 일회용 키 삭제 실패는 TTL(300s)이 정리 — 로그인 흐름을 막지 않는다
 
     def _get_google_token(self, code: str) -> str:
         """인가코드 (code)를 구글 access_token으로 교환한다"""

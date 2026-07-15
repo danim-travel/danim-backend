@@ -48,7 +48,10 @@ class EmailService:
             cache.set(cache_key, code, self.TTL)
             cache.delete(fail_key)  # 새 코드 발송 → 시도 횟수 리셋
         except RedisError:
-            cache.delete(cooldown_key)
+            try:
+                cache.delete(cooldown_key)  # 정리 실패는 쿨다운 TTL이 자연 해소
+            except RedisError:
+                pass
             raise InternalServerException("서버 오류, 다시 시도해주세요.")
 
         try:
