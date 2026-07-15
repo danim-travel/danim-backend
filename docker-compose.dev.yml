@@ -39,5 +39,36 @@ services:
       - django
     restart: always
 
+  # 알림(post_save 시그널)을 소비하는 Celery 워커. --pool=solo 로 단일 프로세스만
+  # 띄워 메모리를 최소화한다(prefork 는 CPU 수만큼 자식을 띄워 소형 dev 서버를 OOM).
+  # mem_limit 로 상한을 두어, 워커가 폭주해도 daphne 를 밀어내 502 를 유발하지 않게 한다.
+  celery-worker:
+    image: kochanyeol/danim-backend:dev
+    command: uv run celery -A config worker -l info --pool=solo
+    env_file:
+      - envs/.env.dev
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.dev
+    depends_on:
+      - db
+      - redis
+    restart: always
+    mem_limit: 400m
+    mem_reservation: 250m
+
+  # CELERY_BEAT_SCHEDULE(매일 03:00 오래된 알림 정리)를 도는 스케줄러. beat 는 가볍다.
+  celery-beat:
+    image: kochanyeol/danim-backend:dev
+    command: uv run celery -A config beat -l info
+    env_file:
+      - envs/.env.dev
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.dev
+    depends_on:
+      - db
+      - redis
+    restart: always
+    mem_limit: 250m
+
 volumes:
   postgres_data:
