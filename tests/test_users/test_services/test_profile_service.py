@@ -80,3 +80,39 @@ class ProfileServiceTest(TestCase):
                 user_id="01ZZZZZZZZZZZZZZZZZZZZZZZZ",
                 request_user=self.viewer,
             )
+
+
+class ProfilePostsPreviewLimitTest(TestCase):
+    """프로필 게시글 미리보기 상한 — 무제한 직렬화(DoS 벡터) 회귀 방지."""
+
+    def test_posts_preview_is_capped_and_latest_first(self) -> None:
+        from apps.users.serializers.profile_serializer import (
+            PROFILE_POSTS_PREVIEW_LIMIT,
+            ProfileResponseSerializer,
+        )
+
+        owner = User.objects.create_user(
+            email="heavy@example.com",
+            password="Password@1",
+            nickname="heavy_nick",
+            name="heavy",
+            birth_day=date(1990, 1, 1),
+        )
+        viewer = User.objects.create_user(
+            email="viewer2@example.com",
+            password="Password@1",
+            nickname="viewer2_nick",
+            name="viewer2",
+            birth_day=date(1991, 1, 1),
+        )
+        total = PROFILE_POSTS_PREVIEW_LIMIT + 3
+        posts = [Post.objects.create(user=owner, title=f"t{i}") for i in range(total)]
+
+        user = ProfileService().get_profile(user_id=owner.id, request_user=viewer)
+        data = ProfileResponseSerializer(user).data
+
+        # 미리보기는 상한까지만, 총 개수는 posts_count로 전달
+        self.assertEqual(len(data["posts"]), PROFILE_POSTS_PREVIEW_LIMIT)
+        self.assertEqual(data["posts_count"], total)
+        # 최신(-id) 순 유지 — 가장 최근 글이 첫 번째
+        self.assertEqual(data["posts"][0]["post_id"], posts[-1].id)
