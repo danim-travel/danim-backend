@@ -1,6 +1,7 @@
 from django.db import transaction
 from django.db.models import BooleanField, Exists, F, OuterRef, Value
 
+from apps.blocks.services import is_blocked_between
 from apps.comments.models import Comment, CommentLike
 from apps.core.exceptions.exception import (
     ConflictException,
@@ -14,8 +15,14 @@ def create_comment(data, user):
     """댓글 생성 및 응답을 위한 img_url 자체 생성 후 응답하는 서비스 로직"""
 
     post_id = data["post_id"]
-    if not Post.objects.filter(id=post_id).exists():
+    # exists() 대신 작성자 id를 함께 조회 (쿼리 수 동일) — 차단 게이트에 사용
+    post_author_id = (
+        Post.objects.filter(id=post_id).values_list("user_id", flat=True).first()
+    )
+    if post_author_id is None:
         raise NotFoundException("게시글에 대한 정보를 찾지 못했습니다.")
+    if is_blocked_between(user.id, post_author_id):
+        raise ForbiddenException("차단 관계의 게시글에는 댓글을 작성할 수 없습니다.")
 
     content = data.get("content")
     comment_img = data.get("comment_img")

@@ -1,6 +1,11 @@
 from django.utils import timezone
 
-from apps.core.exceptions.exception import NotFoundException, ValidationException
+from apps.blocks.services import is_blocked_between
+from apps.core.exceptions.exception import (
+    ForbiddenException,
+    NotFoundException,
+    ValidationException,
+)
 from apps.directmessages.models import Conversation
 from apps.users.models import User
 
@@ -15,6 +20,10 @@ def get_or_create_conversation(
         receiver = User.objects.get(id=receiver_id, is_active=True)
     except User.DoesNotExist:
         raise NotFoundException("존재하지 않는 유저입니다.")
+
+    # 어느 쪽이 차단했든 대화 시작 불가
+    if is_blocked_between(request_user.id, receiver_id):
+        raise ForbiddenException("차단 관계의 유저와는 대화를 시작할 수 없습니다.")
 
     user1, user2 = sorted([request_user, receiver], key=lambda u: u.id)
 

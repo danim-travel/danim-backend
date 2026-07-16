@@ -92,6 +92,19 @@ class DMConsumer(BaseConsumer):
         if not content and not img_key:
             return
 
+        # 차단 관계면 전송 거부 — 대화 생성은 서비스에서 막지만,
+        # 이미 열려 있던 대화방의 소켓으로 계속 보내는 경로가 남는다.
+        if await self._is_blocked_conversation(user):
+            await self.send(
+                json.dumps(
+                    {
+                        "type": "error",
+                        "detail": "차단 관계에서는 메시지를 보낼 수 없습니다.",
+                    }
+                )
+            )
+            return
+
         # dm 카테고리로 발급된 key만 허용. 웹소켓 입력은 serializer를 거치지
         # 않아 지금까지 임의 key를 그대로 presign(아래 create_download_presigned_url)
         # 해줬다 — 버킷 내 아무 객체나 서명 URL을 얻는 프리미티브 차단.
@@ -163,6 +176,14 @@ class DMConsumer(BaseConsumer):
         await self.send(
             json.dumps({"type": "message_deleted", "message_id": event["message_id"]})
         )
+
+    @database_sync_to_async
+    def _is_blocked_conversation(self, user: User) -> bool:
+        from apps.blocks.services import is_blocked_between
+
+        conv = self.conversation
+        other_id = conv.user2_id if conv.user1_id == user.id else conv.user1_id
+        return is_blocked_between(user.id, other_id)
 
     @database_sync_to_async
     def _get_conversation(self, conversation_id: str, user: User) -> Conversation | None:
