@@ -26,14 +26,17 @@ class UpdateViewTest(BaseTestCase):
             data={
                 "nickname": "update_nickname",
                 "intro": "update_intro",
-                "key": "update_key",
+                "key": "local/upload/image/user/profile/01JZWK7R2MNBX5QD8FHYC3VT8D.png",
             },
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["nickname"], "update_nickname")
         self.assertEqual(response.data["intro"], "update_intro")
-        self.assertIn("update_key", response.data["profile_img"])
+        self.assertIn(
+            "local/upload/image/user/profile/01JZWK7R2MNBX5QD8FHYC3VT8D.png",
+            response.data["profile_img"],
+        )
         self.assertIn("X-Amz-Signature", response.data["profile_img"])
 
     def test_user_not_unauthorized(self) -> None:
@@ -43,7 +46,7 @@ class UpdateViewTest(BaseTestCase):
             data={
                 "nickname": "update_nickname",
                 "intro": "update_intro",
-                "key": "update_key",
+                "key": "local/upload/image/user/profile/01JZWK7R2MNBX5QD8FHYC3VT8D.png",
             },
             format="json",
         )
