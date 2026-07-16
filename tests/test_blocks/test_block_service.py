@@ -90,6 +90,8 @@ class BlockServiceTest(TestCase):
         block_user(self.user_a, self.user_b.id)
         result = get_block_list(self.user_a)
         self.assertEqual(result.count(), 1)
-        self.assertEqual(result.first().blocked_id, self.user_b.id)
+        block = result.first()
+        assert block is not None
+        self.assertEqual(block.blocked_id, self.user_b.id)
         # 나를 차단한 목록이 아니라 내가 차단한 목록
         self.assertEqual(get_block_list(self.user_b).count(), 0)
