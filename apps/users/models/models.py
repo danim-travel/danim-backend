@@ -1,5 +1,6 @@
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
+from django.contrib.postgres.indexes import GinIndex
 from django.db import models
 
 from apps.core.models import TimeStampModel
@@ -71,6 +72,16 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampModel):
                 condition=models.Q(unread_noti_count__gte=0),
                 name="unread_noti_count_non_negative",
             )
+        ]
+        indexes = [
+            # 유저 검색(nickname__icontains)용 trigram GIN.
+            # 중위 LIKE('%x%')는 nickname의 unique B-tree를 못 타 풀스캔이었다.
+            # pg_trgm 확장은 posts 0008(TrigramExtension)에서 이미 활성화됨.
+            GinIndex(
+                fields=["nickname"],
+                opclasses=["gin_trgm_ops"],
+                name="ix_users_nickname_trgm",
+            ),
         ]
 
     @property

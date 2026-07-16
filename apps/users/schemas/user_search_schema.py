@@ -12,10 +12,11 @@ user_search_schema = extend_schema(
     tags=["users"],
     summary="유저 검색",
     description=(
-        "닉네임 또는 이름에 검색어가 포함된 유저를 조회합니다.\n\n"
+        "닉네임에 검색어가 포함된 유저를 조회합니다. "
+        "(이름(실명)은 검색 대상이 아닙니다 — 프라이버시 보호)\n\n"
         "- 커서 페이지네이션(기본 10개, `page_size`로 조절, 최대 100)\n"
         "- 다음 페이지는 응답의 `next` URL을 따라가면 됩니다(무한스크롤).\n"
-        "- 검색어(`search`)는 필수이며, 비어 있으면 400을 반환합니다."
+        "- 검색어(`search`)는 필수이며 **2자 이상** — 비어 있거나 1자면 400을 반환합니다."
     ),
     parameters=[
         OpenApiParameter(
@@ -23,7 +24,7 @@ user_search_schema = extend_schema(
             location=OpenApiParameter.QUERY,
             required=True,
             type=str,
-            description="검색어 (닉네임 또는 이름에 부분일치, 대소문자 무시)",
+            description="검색어 (닉네임 부분일치, 대소문자 무시, 2자 이상)",
         ),
         OpenApiParameter(
             name="page_size",
@@ -49,7 +50,7 @@ user_search_schema = extend_schema(
                 "results": UserSearchResponseSerializer(many=True),
             },
         ),
-        400: OpenApiResponse(description="검색어는 필수입니다."),
+        400: OpenApiResponse(description="검색어가 비어 있거나 2자 미만입니다."),
         401: OpenApiResponse(description="자격 인증 데이터가 제공되지 않습니다."),
     },
 )
