@@ -16,7 +16,7 @@ class PostUpdateSerializerTest(TestCase):
             data={
                 "title": "new_title",
                 "description": "new_description",
-                "thumbnail": "prod/posts/thumbnail/new_uuid.jpg",
+                "thumbnail": "local/upload/image/post/thumbnail/01JZWK7R2MNBX5QD8FHYC3VT8D.jpg",
                 "spots": [
                     {
                         "order": 1,
@@ -31,7 +31,7 @@ class PostUpdateSerializerTest(TestCase):
                         "images": [
                             {
                                 "original_img": "제주도1일차.png",
-                                "key": "prod/posts/uuid.jpg",
+                                "key": "local/upload/image/post/01JZWK7R2MNBX5QD8FHYC3VT9E.jpg",
                             }
                         ],
                     }

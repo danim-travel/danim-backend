@@ -23,8 +23,13 @@ K = 80  # 코드워드 개수
 TOP_N = 3  # 게시글당 배정할 코드워드 수
 SEED = 42  # 고정하면 매번 같은 코드북이 나옴
 
-CODEBOOK_DIR = get_next_codebook_dir()
-CODEBOOK_PATH = CODEBOOK_DIR / "codebook.npy"
+# 저장 경로. None이면 handle() 실행 시점에 새 버전 디렉토리를 만든다.
+# (테스트에서 mock.patch로 주입할 수 있도록 모듈 속성으로 유지)
+# 주의: get_next_codebook_dir()를 모듈 레벨에서 호출하면 "임포트만으로"
+# 빈 vN+1 디렉토리가 생긴다 — 테스트 실행·`manage.py help`조차 새 버전을 만들고,
+# get_latest_codebook_dir()가 그 빈 디렉토리를 최신으로 인식해
+# load_codewords/update_user_taste 파이프라인이 통째로 멈춘다.
+CODEBOOK_PATH = None
 
 
 def normalize(np_array):
@@ -55,4 +60,6 @@ class Command(BaseCommand):
         # centroids: 2차원 배열 행=클러스터 번호, 열=클러스터 벡터
         centroids = normalize(k_means.cluster_centers_.astype("float64"))
 
-        np.save(CODEBOOK_PATH, centroids)
+        # 새 버전 디렉토리는 저장 직전에만 생성한다 (임포트 부작용 방지).
+        codebook_path = CODEBOOK_PATH or (get_next_codebook_dir() / "codebook.npy")
+        np.save(codebook_path, centroids)

@@ -5,7 +5,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.views import APIView
 
-from apps.core.exceptions.exception import ConflictException
+from apps.core.exceptions.exception import ConflictException, InternalServerException
 from apps.users.models import LoginType
 from apps.users.schemas.google_schema import (
     google_callback_schema,
@@ -27,6 +27,11 @@ class GoogleCallbackView(APIView):
         except ConflictException:
             return redirect(
                 f"{settings.FRONT_REDIRECT_URI}?provider={LoginType.GOOGLE}&is_success=false&reason=email_exists"
+            )
+        except InternalServerException:
+            # Redis 장애 등 — 콜백은 브라우저 리다이렉트 타겟이라 JSON 500 대신 프론트로 돌려보낸다
+            return redirect(
+                f"{settings.FRONT_REDIRECT_URI}?provider={LoginType.GOOGLE}&is_success=false&reason=server_error"
             )
         response = redirect(
             f"{settings.FRONT_REDIRECT_URI}?provider={LoginType.GOOGLE}&is_success=true"

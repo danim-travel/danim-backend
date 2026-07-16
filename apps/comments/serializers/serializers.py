@@ -2,6 +2,8 @@ from rest_framework import serializers
 
 from apps.comments.models import Comment
 from apps.core.storage.s3 import s3_svc
+from apps.core.storage.s3.services import CategoryEnum
+from apps.core.storage.s3.validators import validate_attach_key
 
 
 class CommentImageURLMixin:
@@ -40,6 +42,12 @@ class CommentImageSerializer(serializers.Serializer):
     key = serializers.CharField(
         max_length=255, required=False, allow_null=True, allow_blank=True
     )
+
+    def validate_key(self, value: str | None) -> str | None:
+        if not value:  # None/빈 값은 상위 validate()의 쌍 검증이 처리
+            return value
+        # comment 카테고리로 발급된 key만 허용 (gif 포함 확장자셋)
+        return validate_attach_key(value, CategoryEnum.COMMENT)
 
 
 class CommentCreateSerializer(serializers.Serializer):

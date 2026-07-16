@@ -9,6 +9,8 @@ from django.db.models import Q
 from django.utils import timezone
 
 from apps.core.storage.s3 import s3_svc
+from apps.core.storage.s3.services import CategoryEnum
+from apps.core.storage.s3.validators import is_valid_attach_key
 from apps.core.websocket.base import BaseConsumer
 from apps.directmessages.models import Conversation, Message
 from apps.notifications.services.list_service import read_all_about_conversation_dm
@@ -100,6 +102,20 @@ class DMConsumer(BaseConsumer):
                         "detail": "차단 관계에서는 메시지를 보낼 수 없습니다.",
                     }
                 )
+            )
+            return
+
+        # dm 카테고리로 발급된 key만 허용. 웹소켓 입력은 serializer를 거치지
+        # 않아 지금까지 임의 key를 그대로 presign(아래 create_download_presigned_url)
+        # 해줬다 — 버킷 내 아무 객체나 서명 URL을 얻는 프리미티브 차단.
+        if img_key and not is_valid_attach_key(img_key, CategoryEnum.DM):
+            logger.warning(
+                "[DM] 유효하지 않은 img_key 거부: user=%s conversation=%s",
+                user.id,
+                self.conversation_id,
+            )
+            await self.send(
+                json.dumps({"type": "error", "detail": "유효하지 않은 이미지 key입니다."})
             )
             return
 

@@ -32,13 +32,13 @@ class PostUpdateViewTest(APITestCase):
             user=self.user,
             title="test_title",
             description="test_description",
-            thumbnail="prod/posts/thumbnail/uuid.jpg",
+            thumbnail="local/upload/image/post/thumbnail/01JZWK7R2MNBX5QD8FHYC3VT9E.jpg",
         )
         self.url = reverse("posts:post_detail", kwargs={"post_id": self.post.id})
         self.data = {
             "title": "updated_title",
             "description": "updated_description",
-            "thumbnail": "prod/posts/thumbnail/new_uuid.jpg",
+            "thumbnail": "local/upload/image/post/thumbnail/01JZWK7R2MNBX5QD8FHYC3VT8D.jpg",
             "spots": [
                 {
                     "order": 1,
@@ -53,7 +53,7 @@ class PostUpdateViewTest(APITestCase):
                     "images": [
                         {
                             "original_img": "제주도1일차.png",
-                            "key": "prod/posts/uuid.jpg",
+                            "key": "local/upload/image/post/01JZWK7R2MNBX5QD8FHYC3VT9E.jpg",
                         }
                     ],
                 }

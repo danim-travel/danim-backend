@@ -58,3 +58,28 @@ class PostLikeServiceTest(TestCase):
         """존재하지 않는 게시글 좋아요 취소 시 404 테스트"""
         with self.assertRaises(NotFoundException):
             self.service.unlike_post("nonexistent_id", self.user)
+
+    def test_unlike_post_without_like_keeps_count(self) -> None:
+        """좋아요하지 않은 게시글 취소 시 카운터가 감소하지 않는다 (멱등)"""
+        self.post.like_count = 3
+        self.post.save()
+        post = self.service.unlike_post(self.post.id, self.user)
+        self.assertEqual(post.like_count, 3)  # 무조건 -1 회귀 방지
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.like_count, 3)  # DB 영속값 검증
+
+    def test_unlike_post_twice_decrements_once(self) -> None:
+        """좋아요 1회 후 취소 2회 — 감소는 1회만, 0 미만(CHECK 위반 500) 방지"""
+        self.service.like_post(self.post.id, self.user)
+        self.service.unlike_post(self.post.id, self.user)
+        post = self.service.unlike_post(self.post.id, self.user)  # 두 번째 취소
+        self.assertEqual(post.like_count, 0)
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.like_count, 0)
+
+    def test_like_post_persists_count_in_db(self) -> None:
+        """좋아요 후 응답값이 아닌 DB 영속 like_count를 검증"""
+        self.service.like_post(self.post.id, self.user)
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.like_count, 1)
+        self.assertEqual(PostLike.objects.count(), 1)
