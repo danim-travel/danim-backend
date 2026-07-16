@@ -1,16 +1,29 @@
 from datetime import datetime
 
 from django.contrib.auth import authenticate
-from django.core.cache import cache
+from django.core.cache import caches
+from redis import RedisError
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.core.exceptions.exception import UnauthorizedException, ValidationException
+from apps.core.exceptions.exception import (
+    InternalServerException,
+    UnauthorizedException,
+    ValidationException,
+)
 from apps.users.redis_keys import LoginRedisKey
+
+# 토큰 블랙리스트는 인증 상태 — fail-closed 별칭 사용
+# (이름을 cache로 유지해 기존 테스트의 patch 대상 호환)
+cache = caches["auth"]
 
 
 def _blacklist_refresh_token(refresh_token: str) -> None:
-    """refresh_token을 만료 시점까지 블랙리스트에 등록. 이미 만료/손상된 토큰은 무시한다."""
+    """refresh_token을 만료 시점까지 블랙리스트에 등록. 이미 만료/손상된 토큰은 무시한다.
+
+    블랙리스트 등록 실패는 삼키지 않는다(fail-closed) — 실패를 삼키고 200을
+    돌려주면 사용자는 로그아웃됐다고 믿지만 토큰은 만료까지 살아 있다.
+    """
     try:
         token = RefreshToken(refresh_token)  # type: ignore[arg-type]
     except TokenError:
@@ -18,7 +31,10 @@ def _blacklist_refresh_token(refresh_token: str) -> None:
 
     ttl = int(token["exp"]) - int(datetime.now().timestamp())
     if ttl > 0:
-        cache.set(LoginRedisKey.blacklist(token["jti"]), True, ttl)
+        try:
+            cache.set(LoginRedisKey.blacklist(token["jti"]), True, ttl)
+        except RedisError:
+            raise InternalServerException("서버 오류, 다시 시도해주세요.")
 
 
 class LoginService:

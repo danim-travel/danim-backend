@@ -176,6 +176,13 @@ if SENTRY_DSN:
         send_default_pii=False,
     )
 
+# 캐시 장애 정책 (이원화 — 용도에 따라 반대 방향이 안전하다):
+# - default: 편의 캐시(피드·검색·DM presence·unread). Redis 장애 시 예외를 삼키고
+#   miss로 동작(fail-open) — 캐시가 없어도 DB로 서비스가 굴러가야 한다.
+# - auth: 보안 키(토큰 블랙리스트·이메일 인증코드·소켓 키). 장애를 삼키면
+#   "로그아웃했는데 토큰이 살아있는" fail-open이 되므로 예외를 그대로 던진다(fail-closed).
+# ⚠ 환경 파일(dev/prod/local)에서 CACHES를 재정의하지 말 것 — 과거 재정의가
+#   IGNORE_EXCEPTIONS를 누락시켜 환경별로 정책이 갈라졌던 이력이 있다.
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
@@ -184,8 +191,17 @@ CACHES = {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
             "IGNORE_EXCEPTIONS": True,
         },
-    }
+    },
+    "auth": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": env("REDIS_URL"),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+    },
 }
+# default 별칭이 삼킨 예외는 로그로 남긴다 (조용한 성능 저하의 가시화)
+DJANGO_REDIS_LOG_IGNORED_EXCEPTIONS = True
 
 # Google OAuth
 GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID", default="")

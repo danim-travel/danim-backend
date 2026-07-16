@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.core.cache import cache
+from django.core.cache import caches
 from django.core.mail import send_mail
 from redis import RedisError
 
@@ -13,6 +13,10 @@ from apps.core.exceptions.exception import (
 from apps.core.utils.base62 import generate_6digits_safe, generate_token
 from apps.users.models.models import LoginType, User
 from apps.users.redis_keys import EmailRedisKey
+
+# 인증 코드·실패 카운터·검증 토큰은 인증 상태다 — fail-closed 별칭 사용
+# (default 별칭은 IGNORE_EXCEPTIONS=True라 장애 시 코드 검증이 조용히 무력화된다)
+cache = caches["auth"]
 
 
 class EmailService:
@@ -44,7 +48,10 @@ class EmailService:
             cache.set(cache_key, code, self.TTL)
             cache.delete(fail_key)  # 새 코드 발송 → 시도 횟수 리셋
         except RedisError:
-            cache.delete(cooldown_key)
+            try:
+                cache.delete(cooldown_key)  # 정리 실패는 쿨다운 TTL이 자연 해소
+            except RedisError:
+                pass
             raise InternalServerException("서버 오류, 다시 시도해주세요.")
 
         try:
