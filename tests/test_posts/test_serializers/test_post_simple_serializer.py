@@ -29,7 +29,11 @@ class PostSimpleSerializerTest(TestCase):
             "https://s3.example.com/thumb.png"
         )
         post = Post.objects.create(
-            user=self.user, title="제주도 여행", thumbnail="thumb_key"
+            user=self.user,
+            title="제주도 여행",
+            thumbnail="thumb_key",
+            thumbnail_width=1080,
+            thumbnail_height=1350,
         )
 
         data = PostSimpleSerializer(post).data
@@ -37,6 +41,8 @@ class PostSimpleSerializerTest(TestCase):
         self.assertEqual(data["post_id"], post.id)
         self.assertEqual(data["title"], "제주도 여행")
         self.assertEqual(data["thumbnail"], "https://s3.example.com/thumb.png")
+        self.assertEqual(data["thumbnail_width"], 1080)
+        self.assertEqual(data["thumbnail_height"], 1350)
         mock_create_download_presigned_url.assert_called_once_with("thumb_key")
 
     @patch("apps.core.storage.s3.services.s3_svc.create_download_presigned_url")
@@ -49,6 +55,8 @@ class PostSimpleSerializerTest(TestCase):
         self.assertEqual(data["post_id"], post.id)
         self.assertEqual(data["title"], "썸네일 없는 글")
         self.assertIsNone(data["thumbnail"])
+        self.assertIsNone(data["thumbnail_width"])
+        self.assertIsNone(data["thumbnail_height"])
         mock_create_download_presigned_url.assert_not_called()
 
     @patch("apps.core.storage.s3.services.s3_svc.create_download_presigned_url")

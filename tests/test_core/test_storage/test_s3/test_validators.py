@@ -105,7 +105,14 @@ class AttachKeySerializerIntegrationTest(TestCase):
         from apps.posts.serializers.create_serializer import PostCreateSerializer
 
         key = f"local/upload/image/post/thumbnail/{ULID}.png"
-        serializer = PostCreateSerializer(data={"title": "t", "thumbnail": key})
+        serializer = PostCreateSerializer(
+            data={
+                "title": "t",
+                "thumbnail": key,
+                "thumbnail_width": 1080,
+                "thumbnail_height": 1350,
+            }
+        )
         self.assertTrue(serializer.is_valid(), serializer.errors)
 
     def test_user_update_rejects_post_key_as_profile(self):
