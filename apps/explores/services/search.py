@@ -55,6 +55,8 @@ def feeds_for_search(search: str, cursor: str | None) -> tuple[Any, Any, Any]:
             ExploreRes(
                 id=p.id,
                 thumbnail=s3_svc.create_download_presigned_url(p.thumbnail),
+                thumbnail_width=p.thumbnail_width,
+                thumbnail_height=p.thumbnail_height,
                 like_count=p.like_count,
                 comment_count=p.comment_count,
             )
