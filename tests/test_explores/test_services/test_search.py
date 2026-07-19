@@ -11,16 +11,18 @@ from apps.explores.services.response_base import build_next
 
 # ↓ 실제 모듈 경로로 수정하세요 (feeds_for_search 가 있는 파일)
 from apps.explores.services.search import (
+    LOCATION_MATCH_SCORE,
     PAGE_LIMIT,
+    SEARCH_KEY_VERSION,
     SEARCH_TTL,
     _clean,
     _search,
     _search_key,
     feeds_for_search,
 )
-from apps.posts.models import Post
+from apps.posts.models import Location, Post, PostSpot
 from apps.users.models import User
-from tests.test_explores.utils import user_and_posts
+from tests.test_explores.utils import user_and_post, user_and_posts
 
 LOCMEM = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
 
@@ -54,7 +56,9 @@ class SearchKeyTest(SimpleTestCase):
         self.assertEqual(_search_key(["Hello"]), _search_key(["hello"]))
 
     def test_prefix_and_format(self) -> None:
-        self.assertEqual(_search_key(["World", "Hello"]), "search:hello world")
+        self.assertEqual(
+            _search_key(["World", "Hello"]), f"search:{SEARCH_KEY_VERSION}:hello world"
+        )
 
 
 class BuildNextTest(SimpleTestCase):
@@ -120,6 +124,67 @@ class SearchTest(TestCase):
 
         self.assertIn(p.id, result)  # title__icontains 매치
         self.assertEqual(cache.get(key), result)  # 저장됐는지
+
+
+# ---------------------------------------------------------------------------
+# _search (주소 매칭)
+# ---------------------------------------------------------------------------
+@override_settings(CACHES=LOCMEM)
+class LocationSearchTest(TestCase):
+    def setUp(self) -> None:
+        cache.clear()
+
+    def tearDown(self) -> None:
+        cache.clear()
+
+    def _add_spot(self, post, *, road="", address="", place="", order=0):
+        location = Location.objects.create(
+            address_name=address,
+            road_address_name=road,
+            place_name=place,
+            x=127.0,
+            y=37.5,
+        )
+        return PostSpot.objects.create(post=post, location=location, order=order)
+
+    def test_location_only_match_becomes_candidate(self) -> None:
+        """제목·본문에 없는 토큰이 주소(place_name)에만 있어도 후보에 포함된다"""
+        _, post = user_and_post()
+        self._add_spot(post, place="zzlocationonly")
+
+        result = _search(["zzlocationonly"])
+
+        self.assertIn(post.id, result)
+
+    def test_location_score_added(self) -> None:
+        """주소 매칭 시 score 에 LOCATION_MATCH_SCORE 가 가산된다"""
+        user, post_title_and_location = user_and_post()
+        post_title_and_location.title = "zzscore 제목"
+        post_title_and_location.save(update_fields=["title"])
+        self._add_spot(post_title_and_location, place="zzscore")
+
+        # post_title_and_location 보다 나중에 만들어져 id가 더 크다.
+        # location_score가 안 붙으면 title_score(3.0)로 동점 -> -id 정렬 때문에
+        # 이쪽이 먼저 나온다. location_score가 제대로 가산돼야 그 순서가 뒤집힌다.
+        post_title_only = Post.objects.create(
+            user=user, title="zzscore 제목", thumbnail="t.jpg"
+        )
+
+        result = _search(["zzscore"])
+
+        self.assertGreater(LOCATION_MATCH_SCORE, 0)
+        self.assertEqual(result[0], post_title_and_location.id)
+        self.assertIn(post_title_only.id, result)
+
+    def test_multiple_spots_do_not_duplicate_post(self) -> None:
+        """같은 토큰에 매칭되는 스팟이 2개여도 결과에 post 가 1번만 나온다"""
+        _, post = user_and_post()
+        self._add_spot(post, place="zzdup spot1", order=0)
+        self._add_spot(post, place="zzdup spot2", order=1)
+
+        result = _search(["zzdup"])
+
+        self.assertEqual(result.count(post.id), 1)
 
 
 # ---------------------------------------------------------------------------

@@ -21,6 +21,7 @@ DJANGO_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.postgres",  # GinIndex(pg_trgm) 사용을 위해 필요
 ]
 
 THIRD_APPS = [

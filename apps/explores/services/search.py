@@ -10,11 +10,14 @@ from apps.core.exceptions.exception import ValidationException
 from apps.core.storage.s3 import s3_svc
 from apps.core.utils.base62 import encode_cursor
 from apps.explores.dtos import ExploreRes
-from apps.posts.models import Post
+from apps.posts.models import Post, PostSpot
 
 SEARCH_TTL = 60 * 60 * 24
 PAGE_LIMIT = 10
 DESCRIPTION_SIM_LIMIT = 0.25
+LOCATION_MATCH_SCORE = 3.0
+LOCATION_CANDIDATE_LIMIT = 5_000  # IN절 폭주 방지
+SEARCH_KEY_VERSION = "v2"  # 스코어링/매칭 로직 변경 시 올려서 캐시를 무효화한다
 
 _JAMO = re.compile(r"[\u3131-\u318E]")  # 한글 자음 모음 정규표현식
 
@@ -76,9 +79,23 @@ def _search(tokens: list[Any]) -> list[Any]:
     title_score: Combinable = Value(0.0, output_field=FloatField())
     hashtag_score: Combinable = Value(0.0, output_field=FloatField())
     description_sim: Combinable = Value(0.0, output_field=FloatField())
+    location_score: Combinable = Value(0.0, output_field=FloatField())
     tri_annots: dict[str, TrigramSimilarity] = {}
 
     for i, t in enumerate(tokens):
+
+        # 상관 서브쿼리(Exists) 대신 토큰당 독립 쿼리 1번으로 매칭 post_id를
+        # 미리 뽑아 재사용한다. 게시글마다 반복 평가되는 서브플랜을 없애야
+        # (한 게시글의 스팟 1~3개로 미리 좁혀진 상태에선 trgm 인덱스를 쓸
+        # 이유가 없어져서) locations 쪽 trgm 인덱스가 실제로 쓰인다.
+        # 도로명/지번/장소명 중 하나라도 걸리면 매칭 (예: "제주항"은 place_name에만 있음)
+        location_ids = set(
+            PostSpot.objects.filter(
+                Q(location__road_address_name__icontains=t)
+                | Q(location__address_name__icontains=t)
+                | Q(location__place_name__icontains=t)
+            ).values_list("post_id", flat=True)[:LOCATION_CANDIDATE_LIMIT]
+        )
 
         # 검색어에 맞는 후보
         flt |= (
@@ -87,6 +104,7 @@ def _search(tokens: list[Any]) -> list[Any]:
             | Q(user__nickname__icontains=t)
             # t가 보통 한글이라 annotate가 깨질까봐 i로 받음
             | Q(**{f"description_sim_{i}__gte": DESCRIPTION_SIM_LIMIT})
+            | Q(id__in=location_ids)
         )
         # 후보를 정렬할 점수
         title_score = title_score + Case(
@@ -103,6 +121,11 @@ def _search(tokens: list[Any]) -> list[Any]:
         # tri_annots는 후보, description_sim은 정렬용
         tri_annots[f"description_sim_{i}"] = trigram
         description_sim = description_sim + trigram
+        location_score = location_score + Case(
+            When(id__in=location_ids, then=Value(LOCATION_MATCH_SCORE)),
+            default=Value(0.0),
+            output_field=FloatField(),
+        )
 
     qs = (
         Post.objects.annotate(**tri_annots)
@@ -110,9 +133,13 @@ def _search(tokens: list[Any]) -> list[Any]:
             title_score=title_score,
             hashtag_score=hashtag_score,
             description_score=description_sim,
+            location_score=location_score,
         )
         .annotate(
-            score=F("title_score") + F("hashtag_score") + F("description_score"),
+            score=F("title_score")
+            + F("hashtag_score")
+            + F("description_score")
+            + F("location_score"),
         )
         .filter(flt)
         .distinct()
@@ -128,4 +155,4 @@ def _search(tokens: list[Any]) -> list[Any]:
 
 def _search_key(tokens: list[Any]) -> str:
     norm = " ".join(sorted(t.lower() for t in tokens))
-    return f"search:{norm}"
+    return f"search:{SEARCH_KEY_VERSION}:{norm}"
