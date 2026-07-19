@@ -40,6 +40,7 @@ class PostDetailSerializer(serializers.ModelSerializer):
                 else None
             ),
             "created_at": obj.created_at,
+            "updated_at": obj.updated_at,
         }
 
     def get_user(self, obj):
