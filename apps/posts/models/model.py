@@ -47,6 +47,9 @@ class Post(TimeStampModel):
     title = models.CharField(max_length=100)
     description = models.TextField(blank=True, default="")
     thumbnail = models.TextField(blank=True, default="")
+    # 레거시 게시글은 값이 없어 null 허용. 신규 게시글은 시리얼라이저에서 필수로 받는다.
+    thumbnail_width = models.PositiveIntegerField(null=True, blank=True)
+    thumbnail_height = models.PositiveIntegerField(null=True, blank=True)
     like_count = models.PositiveIntegerField(default=0)
     comment_count = models.PositiveIntegerField(default=0)
     view_count = models.PositiveIntegerField(default=0)
@@ -77,6 +80,9 @@ class PostSpotImage(TimeStampModel):
     img_key = models.TextField()
     original_img = models.TextField()
     img_order = models.PositiveIntegerField()
+    # 레거시 이미지는 값이 없어 null 허용. 신규 이미지는 시리얼라이저에서 필수로 받는다.
+    width = models.PositiveIntegerField(null=True, blank=True)
+    height = models.PositiveIntegerField(null=True, blank=True)
 
     class Meta:
         db_table = "post_spot_images"
