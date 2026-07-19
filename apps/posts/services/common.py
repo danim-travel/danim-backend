@@ -26,4 +26,6 @@ def create_spot_with_location_and_images(post: Post, spot_data: dict) -> None:
             img_key=image_data["key"],
             original_img=image_data["original_img"],
             img_order=img_order,
+            width=image_data["width"],
+            height=image_data["height"],
         )
