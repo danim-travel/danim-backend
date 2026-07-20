@@ -68,7 +68,13 @@ class FeedRoutingTests(TestCase):
 
     def test_full_page_sets_next_and_threads_service_seed(self):
         results = [object() for _ in range(10)]  # == page_size → has_next
-        validated = {"search": "", "cursor": "1", "page_size": 10, "seed": 42}
+        validated = {
+            "search": "",
+            "region": None,
+            "cursor": "1",
+            "page_size": 10,
+            "seed": 42,
+        }
 
         with (
             patch.object(views, "ExploreQuerySerializer", _query_stub(validated)),
@@ -97,7 +103,13 @@ class FeedRoutingTests(TestCase):
 
     def test_partial_page_no_next(self):
         results = [object() for _ in range(5)]  # < page_size → has_next False
-        validated = {"search": "", "cursor": None, "page_size": 10, "seed": 7}
+        validated = {
+            "search": "",
+            "region": None,
+            "cursor": None,
+            "page_size": 10,
+            "seed": 7,
+        }
 
         with (
             patch.object(views, "ExploreQuerySerializer", _query_stub(validated)),
@@ -124,7 +136,13 @@ class SearchRoutingTests(TestCase):
 
     def test_decodes_cursor_and_sets_next(self):
         feeds = [object(), object()]
-        validated = {"search": "hello", "cursor": "Cur5", "page_size": 10, "seed": 0}
+        validated = {
+            "search": "hello",
+            "region": None,
+            "cursor": "Cur5",
+            "page_size": 10,
+            "seed": 0,
+        }
 
         with (
             patch.object(views, "ExploreQuerySerializer", _query_stub(validated)),
@@ -151,7 +169,13 @@ class SearchRoutingTests(TestCase):
         self.assertEqual(payload["next"], "http://next?cursor=NEXTCUR")
 
     def test_without_cursor_skips_decode_and_no_next(self):
-        validated = {"search": "hi", "cursor": None, "page_size": 10, "seed": 0}
+        validated = {
+            "search": "hi",
+            "region": None,
+            "cursor": None,
+            "page_size": 10,
+            "seed": 0,
+        }
 
         with (
             patch.object(views, "ExploreQuerySerializer", _query_stub(validated)),
@@ -167,4 +191,90 @@ class SearchRoutingTests(TestCase):
         m_dec.assert_not_called()
         self.assertEqual(m_search.call_args.args, ("hi", None))
         m_next.assert_not_called()  # new_cursor None
+        self.assertIsNone(m_resp.call_args.args[0]["next"])
+
+
+# ───────────────────────── 지역 분기 ─────────────────────────
+class RegionRoutingTests(TestCase):
+    def setUp(self):
+        self.user = make_shared_user()
+
+    def test_search_takes_priority_over_region(self):
+        """search 와 region 이 둘 다 오면 search 가 우선."""
+        validated = {
+            "search": "hello",
+            "region": "강원",
+            "cursor": None,
+            "page_size": 10,
+            "seed": 0,
+        }
+
+        with (
+            patch.object(views, "ExploreQuerySerializer", _query_stub(validated)),
+            patch.object(
+                views, "feeds_for_search", return_value=([], None, 0)
+            ) as m_search,
+            patch.object(views, "feeds_for_region") as m_region,
+            patch.object(views, "ExploreResponseSerializer", _resp_stub()) as m_resp,
+        ):
+            ExploresView.as_view()(_make_request(self.user))
+
+        m_search.assert_called_once()
+        m_region.assert_not_called()
+
+    def test_decodes_cursor_and_sets_next(self):
+        feeds = [object(), object()]
+        validated = {
+            "search": "",
+            "region": "강원",
+            "cursor": "Cur5",
+            "page_size": 10,
+            "seed": 0,
+        }
+
+        with (
+            patch.object(views, "ExploreQuerySerializer", _query_stub(validated)),
+            patch.object(views, "decode_cursor", return_value=321) as m_dec,
+            patch.object(
+                views, "feeds_for_region", return_value=(feeds, "NEXTCUR", 0)
+            ) as m_region,
+            patch.object(
+                views, "build_next", return_value="http://next?cursor=NEXTCUR"
+            ) as m_next,
+            patch.object(views, "ExploreResponseSerializer", _resp_stub()) as m_resp,
+        ):
+            response = ExploresView.as_view()(_make_request(self.user))
+
+        self.assertEqual(response.status_code, 200)
+        m_dec.assert_called_once_with("Cur5")
+        self.assertEqual(m_region.call_args.args, ("강원", 321))
+        self.assertEqual(m_next.call_args.kwargs["region"], "강원")
+        self.assertEqual(m_next.call_args.kwargs["cursor"], "NEXTCUR")
+        payload = m_resp.call_args.args[0]
+        self.assertEqual(payload["results"], feeds)
+        self.assertEqual(payload["next"], "http://next?cursor=NEXTCUR")
+
+    def test_without_cursor_skips_decode_and_no_next(self):
+        validated = {
+            "search": "",
+            "region": "강원",
+            "cursor": None,
+            "page_size": 10,
+            "seed": 0,
+        }
+
+        with (
+            patch.object(views, "ExploreQuerySerializer", _query_stub(validated)),
+            patch.object(views, "decode_cursor") as m_dec,
+            patch.object(
+                views, "feeds_for_region", return_value=([], None, 0)
+            ) as m_region,
+            patch.object(views, "build_next") as m_next,
+            patch.object(views, "ExploreResponseSerializer", _resp_stub()) as m_resp,
+        ):
+            ExploresView.as_view()(_make_request(self.user))
+
+        m_dec.assert_not_called()
+        self.assertEqual(m_region.call_args.args, ("강원", None))
+        m_next.assert_not_called()
         self.assertIsNone(m_resp.call_args.args[0]["next"])

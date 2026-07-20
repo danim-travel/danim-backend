@@ -8,6 +8,7 @@ from apps.core.utils.base62 import decode_cursor
 from apps.explores.schemas import explore_schema
 from apps.explores.serializers import ExploreQuerySerializer, ExploreResponseSerializer
 from apps.explores.services.feed import get_explore_feed
+from apps.explores.services.region import feeds_for_region
 from apps.explores.services.response_base import build_next
 from apps.explores.services.search import feeds_for_search
 
@@ -21,6 +22,7 @@ class ExploresView(APIView):
         req.is_valid(raise_exception=True)
 
         search = req.validated_data["search"]
+        region = req.validated_data["region"]
         raw_cursor = req.validated_data["cursor"]
         page_size = req.validated_data["page_size"]
         seed = req.validated_data["seed"]
@@ -30,6 +32,10 @@ class ExploresView(APIView):
         if search:
             results, next_url, seed = self._search(
                 search, raw_cursor, page_size, base_url
+            )
+        elif region:
+            results, next_url, seed = self._region(
+                region, raw_cursor, page_size, base_url
             )
         else:
             results, next_url, seed = self._feed(
@@ -46,6 +52,17 @@ class ExploresView(APIView):
         feeds, new_cursor, seed = feeds_for_search(search, cursor)
         next_url = (
             build_next(base_url, search=search, cursor=new_cursor, page_size=page_size)
+            if new_cursor
+            else None
+        )
+        return feeds, next_url, seed
+
+    # ── 지역: 커서(post id) 기반 페이지네이션 ──────────────────────────────
+    def _region(self, region, raw_cursor, page_size, base_url):
+        cursor = decode_cursor(raw_cursor) if raw_cursor else None
+        feeds, new_cursor, seed = feeds_for_region(region, cursor)
+        next_url = (
+            build_next(base_url, region=region, cursor=new_cursor, page_size=page_size)
             if new_cursor
             else None
         )
