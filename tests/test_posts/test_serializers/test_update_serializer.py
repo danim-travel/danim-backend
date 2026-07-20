@@ -17,6 +17,8 @@ class PostUpdateSerializerTest(TestCase):
                 "title": "new_title",
                 "description": "new_description",
                 "thumbnail": "local/upload/image/post/thumbnail/01JZWK7R2MNBX5QD8FHYC3VT8D.jpg",
+                "thumbnail_width": 1080,
+                "thumbnail_height": 1350,
                 "spots": [
                     {
                         "order": 1,
@@ -32,6 +34,8 @@ class PostUpdateSerializerTest(TestCase):
                             {
                                 "original_img": "제주도1일차.png",
                                 "key": "local/upload/image/post/01JZWK7R2MNBX5QD8FHYC3VT9E.jpg",
+                                "width": 1080,
+                                "height": 1350,
                             }
                         ],
                     }

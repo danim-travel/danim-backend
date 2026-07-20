@@ -18,6 +18,8 @@ class PostCreateService:
                 title=data["title"],
                 description=data.get("description", ""),
                 thumbnail=data.get("thumbnail", ""),
+                thumbnail_width=data.get("thumbnail_width"),
+                thumbnail_height=data.get("thumbnail_height"),
             )
 
             for spot_data in data.get("spots", []):

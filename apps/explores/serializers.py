@@ -16,6 +16,8 @@ class ExploreQuerySerializer(serializers.Serializer):
 class ExploreFeedsSerializer(serializers.Serializer):
     post_id = serializers.CharField(source="id")
     thumbnail = serializers.URLField()
+    thumbnail_width = serializers.IntegerField(allow_null=True)
+    thumbnail_height = serializers.IntegerField(allow_null=True)
     like_count = serializers.IntegerField()
     comment_count = serializers.IntegerField()
 

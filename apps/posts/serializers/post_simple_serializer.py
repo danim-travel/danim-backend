@@ -7,11 +7,13 @@ from apps.posts.models import Post
 class PostSimpleSerializer(serializers.ModelSerializer):
 
     thumbnail = serializers.SerializerMethodField()
+    thumbnail_width = serializers.IntegerField(allow_null=True)
+    thumbnail_height = serializers.IntegerField(allow_null=True)
     post_id = serializers.CharField(source="id")
 
     class Meta:
         model = Post
-        fields = ["post_id", "title", "thumbnail"]
+        fields = ["post_id", "title", "thumbnail", "thumbnail_width", "thumbnail_height"]
 
     def get_thumbnail(self, obj: Post) -> str | None:
         if not obj.thumbnail:

@@ -39,7 +39,10 @@ class PostDetailSerializer(serializers.ModelSerializer):
                 if obj.thumbnail
                 else None
             ),
+            "thumbnail_width": obj.thumbnail_width,
+            "thumbnail_height": obj.thumbnail_height,
             "created_at": obj.created_at,
+            "updated_at": obj.updated_at,
         }
 
     def get_user(self, obj):
@@ -66,6 +69,8 @@ class PostDetailSerializer(serializers.ModelSerializer):
                         "original_img": image.original_img,
                         "img_order": image.img_order,
                         "key": image.img_key,
+                        "width": image.width,
+                        "height": image.height,
                     }
                     for image in spot.images.all()
                 ],

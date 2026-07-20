@@ -26,6 +26,10 @@ class PostUpdateService:
                 post.description = data["description"]
             if "thumbnail" in data:
                 post.thumbnail = data["thumbnail"]
+            if "thumbnail_width" in data:
+                post.thumbnail_width = data["thumbnail_width"]
+            if "thumbnail_height" in data:
+                post.thumbnail_height = data["thumbnail_height"]
             post.save()
 
             if "spots" in data:

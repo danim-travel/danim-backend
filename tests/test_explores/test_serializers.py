@@ -20,6 +20,8 @@ class ExploreSerializerTest(TestCase):
         cls.instance = {
             "id": cls.post.id,
             "thumbnail": cls.post.thumbnail,
+            "thumbnail_width": cls.post.thumbnail_width,
+            "thumbnail_height": cls.post.thumbnail_height,
             "like_count": cls.post.like_count,
             "comment_count": cls.post.comment_count,
         }
@@ -41,6 +43,8 @@ class ExploreSerializerTest(TestCase):
     def test_feeds_ser(self):
         self.assertEqual(self.ser.data["post_id"], self.post.id)
         self.assertEqual(self.ser.data["thumbnail"], self.post.thumbnail)
+        self.assertEqual(self.ser.data["thumbnail_width"], self.post.thumbnail_width)
+        self.assertEqual(self.ser.data["thumbnail_height"], self.post.thumbnail_height)
         self.assertEqual(self.ser.data["like_count"], self.post.like_count)
         self.assertEqual(self.ser.data["comment_count"], self.post.comment_count)
 
@@ -60,6 +64,8 @@ class ExploreSerializerTest(TestCase):
                 {
                     "post_id": self.post.id,
                     "thumbnail": self.post.thumbnail,
+                    "thumbnail_width": self.post.thumbnail_width,
+                    "thumbnail_height": self.post.thumbnail_height,
                     "like_count": self.post.like_count,
                     "comment_count": self.post.comment_count,
                 }

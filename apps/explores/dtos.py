@@ -6,6 +6,8 @@ from dataclasses import dataclass
 class ExploreRes:
     id: str
     thumbnail: str
+    thumbnail_width: int | None
+    thumbnail_height: int | None
     like_count: int
     comment_count: int
 

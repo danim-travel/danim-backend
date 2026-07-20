@@ -49,6 +49,8 @@ class PostUpdateServiceTest(TestCase):
                 {
                     "original_img": "제주도1일차.png",
                     "key": "prod/posts/uuid.jpg",
+                    "width": 1080,
+                    "height": 1350,
                 }
             ],
         }

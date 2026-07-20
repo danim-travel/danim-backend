@@ -24,6 +24,8 @@ class PostCreateServiceTest(TestCase):
             "title": "test_title",
             "description": "test_description",
             "thumbnail": "prod/posts/thumbnail/uuid.jpg",
+            "thumbnail_width": 1080,
+            "thumbnail_height": 1350,
             "spots": [
                 {
                     "order": 1,
@@ -39,6 +41,8 @@ class PostCreateServiceTest(TestCase):
                         {
                             "original_img": "제주도1일차.png",
                             "key": "prod/posts/uuid.jpg",
+                            "width": 1080,
+                            "height": 1350,
                         }
                     ],
                 }
