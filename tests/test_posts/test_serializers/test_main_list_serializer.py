@@ -6,20 +6,20 @@ from django.test import TestCase
 from apps.follows.models.models import Follows
 from apps.posts.models import Post
 from apps.posts.serializers.main_list_serializer import PostMainListSerializer
-from apps.posts.services.main_list_service import PostMainListService
+from apps.posts.services.post_service import PostService
 from apps.users.models import User
 from apps.users.models.models import LoginType
 
 
 class PostMainListSerializerTest(TestCase):
 
-    service: PostMainListService
+    service: PostService
     user: User
     author: User
     post: Post
 
     def setUp(self) -> None:
-        self.service = PostMainListService()
+        self.service = PostService()
         self.user = User.objects.create(
             email="test@example.com",
             name="test",
@@ -48,7 +48,7 @@ class PostMainListSerializerTest(TestCase):
     def test_main_list_serializer(self, mock_s3) -> None:
         """게시글 메인 리스트 serializer 성공 테스트"""
         mock_s3.return_value = "https://s3.example.com/prod/posts/thumbnail/uuid.jpg"
-        queryset = self.service.get_main_list(self.user)
+        queryset = self.service.get_list(self.user)
         serializer = PostMainListSerializer(queryset, many=True)
         data = serializer.data
 

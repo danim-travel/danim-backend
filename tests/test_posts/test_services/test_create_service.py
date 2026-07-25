@@ -3,7 +3,7 @@ from datetime import date
 from django.test import TestCase
 
 from apps.posts.models import Location, Post, PostSpot, PostSpotImage
-from apps.posts.services.create_service import PostCreateService
+from apps.posts.services.post_service import PostService
 from apps.users.models import User
 from apps.users.models.models import LoginType
 
@@ -11,7 +11,7 @@ from apps.users.models.models import LoginType
 class PostCreateServiceTest(TestCase):
 
     def setUp(self) -> None:
-        self.service = PostCreateService()
+        self.service = PostService()
         self.user = User.objects.create_user(
             email="test@example.com",
             name="test",

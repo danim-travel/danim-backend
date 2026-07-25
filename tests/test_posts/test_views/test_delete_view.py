@@ -49,10 +49,10 @@ class PostDeleteViewTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_fail_delete_post_view_not_owner(self) -> None:
-        """본인 게시글이 아닐 시 403 테스트"""
+        """본인 게시글이 아닐 시 404 테스트 (존재 여부를 노출하지 않음)"""
         self.client.force_authenticate(user=self.other_user)
         response = self.client.delete(self.url)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_fail_delete_post_view_not_found(self) -> None:
         """존재하지 않는 게시글 삭제 시 404 테스트"""

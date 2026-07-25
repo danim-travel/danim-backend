@@ -4,7 +4,7 @@ from django.test import TestCase
 
 from apps.core.exceptions.exception import ConflictException, NotFoundException
 from apps.posts.models import Post, PostLike
-from apps.posts.services.like_service import PostLikeService
+from apps.posts.services.post_like_service import PostLikeService
 from apps.users.models import User
 from apps.users.models.models import LoginType
 

@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.posts.schemas.share_view_schema import post_share_schema
-from apps.posts.services.share_service import PostShareService
+from apps.posts.services.post_service import PostService
 
 
 class PostShareView(APIView):
@@ -15,7 +15,7 @@ class PostShareView(APIView):
     """
 
     permission_classes = [AllowAny]
-    service = PostShareService()
+    service = PostService()
 
     @post_share_schema
     def get(self, request: Request, post_id: str) -> Response:

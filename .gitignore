@@ -223,6 +223,7 @@ __marimo__/
 # Custom
 exc_tttt.py
 CONVENTION.md
+CLAUDE.md
 artifacts/
 *.zip
 seed_recsys.py

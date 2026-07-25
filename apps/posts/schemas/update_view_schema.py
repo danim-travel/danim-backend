@@ -38,18 +38,8 @@ post_update_schema = extend_schema(
                 )
             ],
         ),
-        403: OpenApiResponse(
-            description="본인의 게시글만 수정할 수 있습니다.",
-            examples=[
-                OpenApiExample(
-                    "권한 없음",
-                    value={"error_detail": "본인의 게시글만 수정할 수 있습니다."},
-                    response_only=True,
-                )
-            ],
-        ),
         404: OpenApiResponse(
-            description="게시글을 찾을 수 없습니다.",
+            description="게시글을 찾을 수 없습니다. (존재하지 않거나 본인의 게시글이 아닌 경우)",
             examples=[
                 OpenApiExample(
                     "게시글 없음",

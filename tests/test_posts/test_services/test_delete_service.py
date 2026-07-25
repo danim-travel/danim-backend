@@ -2,9 +2,9 @@ from datetime import date
 
 from django.test import TestCase
 
-from apps.core.exceptions.exception import ForbiddenException, NotFoundException
+from apps.core.exceptions.exception import NotFoundException
 from apps.posts.models import Post
-from apps.posts.services.delete_service import PostDeleteService
+from apps.posts.services.post_service import PostService
 from apps.users.models import User
 from apps.users.models.models import LoginType
 
@@ -12,7 +12,7 @@ from apps.users.models.models import LoginType
 class PostDeleteServiceTest(TestCase):
 
     def setUp(self) -> None:
-        self.service = PostDeleteService()
+        self.service = PostService()
         self.user = User.objects.create_user(
             email="test@example.com",
             name="test",
@@ -47,6 +47,6 @@ class PostDeleteServiceTest(TestCase):
             self.service.delete_post("nonexistent_id", self.user)
 
     def test_fail_delete_post_not_owner(self) -> None:
-        """본인 게시글이 아닐 시 403 테스트"""
-        with self.assertRaises(ForbiddenException):
+        """본인 게시글이 아닐 시 404 테스트 (존재 여부를 노출하지 않음)"""
+        with self.assertRaises(NotFoundException):
             self.service.delete_post(self.post.id, self.other_user)

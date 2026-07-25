@@ -2,9 +2,9 @@ from datetime import date
 
 from django.test import TestCase
 
-from apps.core.exceptions.exception import ForbiddenException, NotFoundException
+from apps.core.exceptions.exception import NotFoundException
 from apps.posts.models import Location, Post, PostSpot, PostSpotImage
-from apps.posts.services.update_service import PostUpdateService
+from apps.posts.services.post_service import PostService
 from apps.users.models import User
 from apps.users.models.models import LoginType
 
@@ -12,7 +12,7 @@ from apps.users.models.models import LoginType
 class PostUpdateServiceTest(TestCase):
 
     def setUp(self) -> None:
-        self.service = PostUpdateService()
+        self.service = PostService()
         self.user = User.objects.create_user(
             email="test@example.com",
             name="test",
@@ -95,8 +95,8 @@ class PostUpdateServiceTest(TestCase):
             self.service.update_post("nonexistent_id", {"title": "new_title"}, self.user)
 
     def test_fail_update_post_not_owner(self) -> None:
-        """본인 게시글이 아닐 시 403 테스트"""
-        with self.assertRaises(ForbiddenException):
+        """본인 게시글이 아닐 시 404 테스트 (존재 여부를 노출하지 않음)"""
+        with self.assertRaises(NotFoundException):
             self.service.update_post(
                 self.post.id, {"title": "new_title"}, self.other_user
             )
