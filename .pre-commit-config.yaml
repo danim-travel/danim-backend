@@ -25,12 +25,13 @@ repos:
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     # mypy 공식 레포
-    rev: v1.11.0
+    rev: v1.13.0
     hooks:
       - id: mypy
         additional_dependencies:
           - python-ulid
-          - django-stubs
+          - django==6.0.5
+          - django-stubs==6.0.4
           - django-environ
           - daphne
           - channels
