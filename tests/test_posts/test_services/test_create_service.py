@@ -1,4 +1,5 @@
 from datetime import date
+from typing import Any
 
 from django.test import TestCase
 
@@ -20,7 +21,7 @@ class PostCreateServiceTest(TestCase):
             birth_day=date(1992, 6, 6),
             login_type=LoginType.EMAIL,
         )
-        self.data = {
+        self.data: dict[str, Any] = {
             "title": "test_title",
             "description": "test_description",
             "thumbnail": "prod/posts/thumbnail/uuid.jpg",

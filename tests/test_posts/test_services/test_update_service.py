@@ -1,4 +1,5 @@
 from datetime import date
+from typing import Any
 
 from django.test import TestCase
 
@@ -35,7 +36,7 @@ class PostUpdateServiceTest(TestCase):
             description="test_description",
             thumbnail="prod/posts/thumbnail/uuid.jpg",
         )
-        self.spot_data = {
+        self.spot_data: dict[str, Any] = {
             "order": 1,
             "content": "new_content",
             "location": {
