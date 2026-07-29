@@ -40,7 +40,7 @@ class PostMainListViewTest(APITestCase):
             description="test_description",
             thumbnail="prod/posts/thumbnail/uuid.jpg",
         )
-        self.url = reverse("posts:post_create")
+        self.url = reverse("posts:post_main_list")
 
     def test_get_main_list_view(self) -> None:
         """로그인한 유저의 메인 리스트 조회 성공 테스트"""

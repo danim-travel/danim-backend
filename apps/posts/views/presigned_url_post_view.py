@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from apps.core.storage.s3 import ActionEnum, CategoryEnum, SuffixEnum
 from apps.core.storage.s3.views import PresignedUrlView
-from apps.posts.schemas.presigned_url_schemas import post_presigned_schema
+from apps.posts.schemas import post_presigned_schema
 
 
 @post_presigned_schema

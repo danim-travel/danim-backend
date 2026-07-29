@@ -4,7 +4,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.posts.schemas.share_view_schema import post_share_schema
+from apps.posts.schemas import post_share_schema
 from apps.posts.services.post_service import PostService
 
 

@@ -6,7 +6,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.posts.schemas.like_view_schema import post_like_schema, post_unlike_schema
+from apps.posts.schemas import post_like_schema, post_unlike_schema
 from apps.posts.services.post_like_service import PostLikeService
 from apps.users.models import User
 

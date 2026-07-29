@@ -54,6 +54,27 @@ class PostUpdateSerializerTest(TestCase):
         serializer = PostUpdateSerializer(data={"title": "a" * 101})
         self.assertFalse(serializer.is_valid())
 
+    def test_fail_update_post_serializer_spot_content_too_long(self) -> None:
+        """spot content 3000자 초과 시 실패 테스트"""
+        serializer = PostUpdateSerializer(
+            data={
+                "spots": [
+                    {
+                        "order": 1,
+                        "content": "a" * 3001,
+                        "location": {
+                            "place_name": "성산일출봉",
+                            "address_name": "제주특별자치도 서귀포시 성산읍 성산리 1",
+                            "road_address_name": "제주특별자치도 서귀포시 성산읍 일출로 284-12",
+                            "x": "126.942492",
+                            "y": "33.458421",
+                        },
+                    }
+                ]
+            }
+        )
+        self.assertFalse(serializer.is_valid())
+
     def test_fail_update_post_serializer_spot_no_location(self) -> None:
         """spot에 location 누락 시 실패 테스트"""
         serializer = PostUpdateSerializer(

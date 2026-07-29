@@ -75,6 +75,8 @@ class PostUpdateServiceTest(TestCase):
         self.assertEqual(PostSpot.objects.filter(post=self.post).count(), 1)
         self.assertEqual(Location.objects.count(), 1)
         self.assertEqual(PostSpotImage.objects.count(), 1)
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.spot_count, 1)
 
     def test_update_post_spots_replaces_existing(self) -> None:
         """spots 수정 시 기존 spots 교체 테스트"""
@@ -88,6 +90,43 @@ class PostUpdateServiceTest(TestCase):
         PostSpot.objects.create(post=self.post, location=location, order=1)
         self.service.update_post(self.post.id, {"spots": [self.spot_data]}, self.user)
         self.assertEqual(PostSpot.objects.filter(post=self.post).count(), 1)
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.spot_count, 1)
+        # 교체 후 이전 spot이 쓰던 Location은 고아가 되어 정리되어야 한다
+        self.assertEqual(Location.objects.count(), 1)
+        self.assertFalse(Location.objects.filter(address_name="old_address").exists())
+
+    def test_update_post_spots_repeated_edits_do_not_accumulate_orphans(self) -> None:
+        """동일 post를 여러 번 수정해도 Location 고아가 누적되지 않는지 테스트"""
+        for _ in range(3):
+            self.service.update_post(self.post.id, {"spots": [self.spot_data]}, self.user)
+        self.assertEqual(Location.objects.count(), 1)
+
+    def test_update_post_spots_multiple_spots_and_images(self) -> None:
+        """spot·이미지가 여러 개일 때 spot_count와 img_order가 정확한지 테스트"""
+        data = {
+            "spots": [
+                {**self.spot_data, "order": 1},
+                {
+                    **self.spot_data,
+                    "order": 2,
+                    "images": [*self.spot_data["images"], *self.spot_data["images"]],
+                },
+            ]
+        }
+        self.service.update_post(self.post.id, data, self.user)
+        self.assertEqual(PostSpot.objects.filter(post=self.post).count(), 2)
+        self.assertEqual(PostSpotImage.objects.count(), 3)
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.spot_count, 2)
+
+    def test_update_post_spots_empty_resets_spot_count(self) -> None:
+        """spots를 빈 리스트로 수정 시 spot_count가 0으로 초기화되는지 테스트"""
+        self.service.update_post(self.post.id, {"spots": [self.spot_data]}, self.user)
+        self.service.update_post(self.post.id, {"spots": []}, self.user)
+        self.assertEqual(PostSpot.objects.filter(post=self.post).count(), 0)
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.spot_count, 0)
 
     def test_fail_update_post_not_found(self) -> None:
         """존재하지 않는 게시글 수정 시 404 테스트"""

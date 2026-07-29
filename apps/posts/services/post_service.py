@@ -27,10 +27,15 @@ class PostService:
                 title=data["title"],
                 description=data.get("description", ""),
                 thumbnail=data.get("thumbnail", ""),
+                thumbnail_width=data.get("thumbnail_width"),
+                thumbnail_height=data.get("thumbnail_height"),
             )
 
-            for spot_data in data.get("spots", []):
+            spots_data = data.get("spots", [])
+            for spot_data in spots_data:
                 self._create_spot_with_location_and_images(post, spot_data)
+            if spots_data:
+                Post.objects.filter(id=post.id).update(spot_count=len(spots_data))
 
         return post
 
@@ -111,9 +116,11 @@ class PostService:
 
             if "spots" in data:
                 post.spots.all().delete()
-                Post.objects.filter(id=post.id).update(spot_count=0)
-                for spot_data in data["spots"]:
+                Location.objects.filter(post_spots__isnull=True).delete()
+                spots_data = data["spots"]
+                for spot_data in spots_data:
                     self._create_spot_with_location_and_images(post, spot_data)
+                Post.objects.filter(id=post.id).update(spot_count=len(spots_data))
 
     def delete_post(self, post_id: str, user: User) -> None:
         with transaction.atomic():
@@ -122,6 +129,7 @@ class PostService:
             except Post.DoesNotExist:
                 raise NotFoundException("게시글을 찾을 수 없습니다.")
             post.delete()
+            Location.objects.filter(post_spots__isnull=True).delete()
 
     def get_share_url(self, post_id: str) -> str:
         """게시글 공유 서비스 로직"""
@@ -147,10 +155,9 @@ class PostService:
             content=spot_data.get("content", ""),
             order=spot_data["order"],
         )
-        Post.objects.filter(id=post.id).update(spot_count=F("spot_count") + 1)
 
-        for img_order, image_data in enumerate(spot_data.get("images", []), start=1):
-            PostSpotImage.objects.create(
+        images = [
+            PostSpotImage(
                 post_spot=post_spot,
                 img_key=image_data["key"],
                 original_img=image_data["original_img"],
@@ -158,3 +165,7 @@ class PostService:
                 width=image_data["width"],
                 height=image_data["height"],
             )
+            for img_order, image_data in enumerate(spot_data.get("images", []), start=1)
+        ]
+        if images:
+            PostSpotImage.objects.bulk_create(images)
