@@ -1,13 +1,13 @@
 repos:
   - repo: https://github.com/psf/black
     # black 공식레포
-    rev: 24.10.0
+    rev: 26.5.1
     hooks:
       - id: black
 
   - repo: https://github.com/PyCQA/isort
     # isort 공식레포
-    rev: 5.13.2
+    rev: 8.0.1
     hooks:
       - id: isort
 
@@ -32,6 +32,8 @@ repos:
           - python-ulid
           - django==6.0.5
           - django-stubs==6.0.4
+          - django-stubs-ext==6.0.4
+          - djangorestframework-stubs==3.17.0
           - django-environ
           - daphne
           - channels
