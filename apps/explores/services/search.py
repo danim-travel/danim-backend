@@ -6,10 +6,7 @@ from django.core.cache import cache
 from django.db.models import Case, F, FloatField, Q, Value, When
 from django.db.models.expressions import Combinable
 
-from apps.core.exceptions.exception import ValidationException
-from apps.core.storage.s3 import s3_svc
-from apps.core.utils.base62 import encode_cursor
-from apps.explores.dtos import ExploreRes
+from apps.explores.services.response_base import build_feed, page_from_ids
 from apps.posts.models import Post, PostSpot
 
 SEARCH_TTL = 60 * 60 * 24
@@ -31,36 +28,11 @@ def feeds_for_search(search: str, cursor: str | None) -> tuple[Any, Any, Any]:
         return [], None, seed
 
     ids = _search(tokens)
-
-    if cursor:
-        try:
-            start = ids.index(cursor) + 1
-        except ValueError:
-            raise ValidationException("잘못된 커서값입니다.")
-    else:
-        start = 0
-
-    page_ids = ids[start : start + PAGE_LIMIT]
+    page_ids, new_cursor = page_from_ids(ids, cursor, PAGE_LIMIT)
     if not page_ids:
         return [], None, seed
 
-    new_cursor = encode_cursor(page_ids[-1])
-    queryset = Post.objects.filter(id__in=page_ids)
-    rank = {pid: i for i, pid in enumerate(page_ids)}
-    posts = sorted(queryset, key=lambda p: rank[p.id])
-
-    feed = []
-    for p in posts:
-        feed.append(
-            ExploreRes(
-                id=p.id,
-                thumbnail=s3_svc.create_download_presigned_url(p.thumbnail),
-                thumbnail_width=p.thumbnail_width,
-                thumbnail_height=p.thumbnail_height,
-                like_count=p.like_count,
-                comment_count=p.comment_count,
-            )
-        )
+    feed = build_feed(page_ids)
     return feed, new_cursor, seed
 
 
