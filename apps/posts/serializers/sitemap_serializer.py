@@ -5,7 +5,7 @@ from apps.posts.models import Post
 
 class SitemapSerializer(serializers.ModelSerializer):
     post_id = serializers.CharField(source="id")
-    updated_at = serializers.DateField()
+    updated_at = serializers.DateTimeField(format="%Y-%m-%d")
 
     class Meta:
         model = Post
