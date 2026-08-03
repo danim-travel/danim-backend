@@ -6,11 +6,11 @@ from django.core.cache import cache
 from django.db.models import Case, F, FloatField, Q, Value, When
 from django.db.models.expressions import Combinable
 
-from apps.explores.services.response_base import build_feed, page_from_ids
+from apps.explores.services.feed_builder import build_feed, page_from_ids
+from apps.explores.services.response_base import PAGE_SIZE as PAGE_LIMIT
 from apps.posts.models import Post, PostSpot
 
 SEARCH_TTL = 60 * 60 * 24
-PAGE_LIMIT = 10
 DESCRIPTION_SIM_LIMIT = 0.25
 LOCATION_MATCH_SCORE = 3.0
 LOCATION_CANDIDATE_LIMIT = 5_000  # IN절 폭주 방지
@@ -68,7 +68,9 @@ def _search(tokens: list[Any]) -> list[Any]:
                 Q(location__road_address_name__icontains=t)
                 | Q(location__address_name__icontains=t)
                 | Q(location__place_name__icontains=t)
-            ).values_list("post_id", flat=True)[:LOCATION_CANDIDATE_LIMIT]
+            )
+            .order_by()
+            .values_list("post_id", flat=True)[:LOCATION_CANDIDATE_LIMIT]
         )
 
         # 검색어에 맞는 후보

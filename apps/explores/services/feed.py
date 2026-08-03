@@ -4,10 +4,9 @@ from datetime import datetime
 from django.core.cache import cache
 from django.utils import timezone
 
-from apps.core.storage.s3 import s3_svc
 from apps.explores.dtos import ExploreRes, TasteProfile
+from apps.explores.services.feed_builder import build_feed
 from apps.explores.services.order import main_order, new_order, sub_order
-from apps.posts.models import Post
 from apps.users.models import User, UserTaste
 
 SLOT_LAYOUT = ["N", "M", "N", "M", "N", "S", "N", "M", "N", "M"]
@@ -68,23 +67,7 @@ def _feed(
 
     start = page * limit
     page_ids = all_ids[start : start + limit]
-    if not page_ids:
-        return []
-
-    posts = Post.objects.select_related("user").filter(id__in=page_ids)
-    order = {pid: idx for idx, pid in enumerate(page_ids)}
-    ordered = sorted(posts, key=lambda p: order[p.id])
-    return [
-        ExploreRes(
-            id=p.id,
-            thumbnail=s3_svc.create_download_presigned_url(p.thumbnail),
-            thumbnail_width=p.thumbnail_width,
-            thumbnail_height=p.thumbnail_height,
-            like_count=p.like_count,
-            comment_count=p.comment_count,
-        )
-        for p in ordered
-    ]
+    return build_feed(page_ids)
 
 
 def _get_or_build_order(

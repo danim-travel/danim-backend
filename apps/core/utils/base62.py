@@ -1,5 +1,4 @@
 import base64
-import binascii
 import secrets
 
 from apps.core.exceptions.exception import ValidationException
@@ -22,5 +21,6 @@ def encode_cursor(cursor):
 def decode_cursor(cursor):
     try:
         return base64.b64decode(cursor.encode("utf-8")).decode("utf-8")
-    except (binascii.Error, UnicodeDecodeError, ValueError):
+    except ValueError:
+        # binascii.Error, UnicodeDecodeError 모두 ValueError의 서브클래스
         raise ValidationException("잘못된 커서값입니다.")
