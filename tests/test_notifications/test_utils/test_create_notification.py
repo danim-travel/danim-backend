@@ -207,3 +207,93 @@ class TestCreateNotification(NotificationsBaseTest):
             target_id=self.post.id,
         )
         self.assertEqual(Notification.objects.count(), 0)
+
+
+class TestCreateNotificationDedup(NotificationsBaseTest):
+    """알림 중복 생성 방지(dedup) 테스트.
+
+    좋아요/팔로우는 취소 후 재실행을 반복하면 post_save(created=True)가 매번 발화해
+    알림이 무제한 생성된다. celery worker가 큐를 소비하기 시작하면 즉시 문제가 되므로
+    TTL 안에서는 한 번만 생성되어야 한다.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.post = Post.objects.create(title="test_title", user=self.user_2)
+        self.other_post = Post.objects.create(title="other_title", user=self.user_2)
+        self._dedup_keys: list[str] = []
+
+    def tearDown(self):
+        for key in self._dedup_keys:
+            cache.delete(key)
+        cache.delete(f"user_{self.user_2.id}_unread_count")
+        super().tearDown()
+
+    def _notify(self, noti_type, target_id, sender=None):
+        sender = sender or self.user_1
+        self._dedup_keys.append(
+            f"noti:dedup:{self.user_2.id}:{sender.id}:{noti_type}:{target_id}"
+        )
+        create_notification(
+            receiver_id=self.user_2.id,
+            sender=sender,
+            noti_type=noti_type,
+            target_id=target_id,
+        )
+
+    def test_post_like_repeat_creates_single_notification(self):
+        """같은 유저가 같은 게시글에 좋아요를 반복해도 알림은 1건만 생성된다"""
+        for _ in range(5):
+            self._notify("post_like", self.post.id)
+
+        self.assertEqual(Notification.objects.count(), 1)
+        self.assertEqual(cache.get(f"user_{self.user_2.id}_unread_count"), 1)
+
+    def test_post_like_different_target_not_deduped(self):
+        """대상 게시글이 다르면 각각 알림이 생성된다"""
+        self._notify("post_like", self.post.id)
+        self._notify("post_like", self.other_post.id)
+
+        self.assertEqual(Notification.objects.count(), 2)
+
+    def test_post_like_different_sender_not_deduped(self):
+        """발신자가 다르면 각각 알림이 생성된다"""
+        self._notify("post_like", self.post.id, sender=self.user_1)
+        self._notify("post_like", self.post.id, sender=self.user_3)
+
+        self.assertEqual(Notification.objects.count(), 2)
+
+    def test_follow_repeat_creates_single_notification(self):
+        """같은 유저가 팔로우를 반복해도 알림은 1건만 생성된다"""
+        for _ in range(3):
+            self._notify("follow", self.user_1.id)
+
+        self.assertEqual(Notification.objects.count(), 1)
+
+    def test_comment_not_deduped(self):
+        """댓글은 dedup 대상이 아니다.
+
+        target_id가 게시글 ID라 같은 게시글의 서로 다른 댓글이 같은 키로 뭉개진다.
+        정상 알림이 막히면 안 되므로 dedup을 적용하지 않는다.
+        """
+        self._notify("comment", self.post.id)
+        self._notify("comment", self.post.id)
+
+        self.assertEqual(Notification.objects.count(), 2)
+
+    def test_comment_like_not_deduped(self):
+        """댓글 좋아요도 같은 이유로 dedup 대상이 아니다"""
+        self._notify("comment_like", self.post.id)
+        self._notify("comment_like", self.post.id)
+
+        self.assertEqual(Notification.objects.count(), 2)
+
+    def test_dedup_key_released_after_expiry(self):
+        """TTL이 만료되면 같은 알림이 다시 생성된다"""
+        self._notify("post_like", self.post.id)
+        self.assertEqual(Notification.objects.count(), 1)
+
+        cache.delete(self._dedup_keys[0])  # TTL 만료를 대체
+        self._notify("post_like", self.post.id)
+
+        self.assertEqual(Notification.objects.count(), 2)

@@ -15,6 +15,14 @@ logger = logging.getLogger(__name__)
 
 CACHE_UNREAD_TIMEOUT = 60 * 60 * 24  # 24시간
 
+NOTI_DEDUP_TTL = 30
+
+# dedup 키는 target_id로 행위 대상을 식별하는데, target_id는 "알림 클릭 시 이동할 위치"
+# (TargetChoices)를 담는 필드라 댓글 계열은 전부 게시글 ID가 들어간다. 즉 comment/
+# comment_like/dm은 서로 다른 댓글·메시지가 같은 키로 뭉개져 정상 알림까지 막힌다.
+# target_id가 행위 대상과 1:1로 대응하는 두 종류에만 적용한다.
+DEDUP_NOTI_TYPES = frozenset({NotificationType.POST_LIKE, NotificationType.FOLLOW})
+
 NOTIFICATION_MAP: dict[str, tuple[str, str]] = {
     NotificationType.COMMENT: (
         TargetChoices.POST,
@@ -41,6 +49,8 @@ def create_notification(
 ) -> None:
     if receiver_id == sender.id:
         return
+    if not _mark_not_duplicated(receiver_id, sender.id, noti_type, target_id):
+        return
     # 차단 관계면 알림을 만들지 않는다 — 시그널 5곳을 개별 수정하는 대신
     # 모든 알림이 통과하는 이 중앙 게이트 한 곳에서 막는다.
     from apps.blocks.services import is_blocked_between
@@ -50,6 +60,26 @@ def create_notification(
     target_type, msg_base = NOTIFICATION_MAP[noti_type]
     msg = msg_base.format(sender.nickname)
     create_noti(sender, receiver_id, noti_type, target_id, target_type, msg)
+
+
+def _mark_not_duplicated(
+    receiver_id: str, sender_id: str, noti_type: str, target_id: str
+) -> bool:
+    """같은 알림이 짧은 시간에 반복 생성되는 것을 막는다.
+
+    기능: 좋아요/팔로우 취소 후 재실행을 반복하면 post_save(created=True)가 매번
+        발화해 알림이 무제한 생성된다. TTL 안에서 첫 호출만 True를 반환한다.
+    조건: DEDUP_NOTI_TYPES에 속한 종류에만 적용한다. 그 외에는 항상 True.
+    예외: Redis 장애 시 cache.add가 None을 반환하면(캐시 default 별칭은
+        IGNORE_EXCEPTIONS=True) 알림을 통과시킨다 — 알림 유실보다 중복이 낫다(fail-open).
+    """
+    if noti_type not in DEDUP_NOTI_TYPES:
+        return True
+    dedup_key = f"noti:dedup:{receiver_id}:{sender_id}:{noti_type}:{target_id}"
+    added = cache.add(dedup_key, 1, timeout=NOTI_DEDUP_TTL)
+    if added is None:
+        return True
+    return added
 
 
 def create_noti(
