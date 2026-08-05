@@ -116,11 +116,10 @@ STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
 }
-# admin 노출 경로 — 운영은 secrets로 추측 어려운 값 주입, 미설정/빈값이면 admin/
-# (env가 빈 문자열을 돌려줘도 기본값으로 떨어지도록 or 처리)
-ADMIN_URL = env("ADMIN_URL", default="admin/") or "admin/"
-if not ADMIN_URL.endswith("/"):
-    ADMIN_URL += "/"
+# admin 노출 경로 — 운영/dev는 secrets로 추측 어려운 값 주입.
+# 선행 슬래시가 들어오면 path()가 영원히 매치되지 않으므로 앞뒤 슬래시를 정규화한다.
+# (운영은 prod.py에서 기본값 admin/이면 부팅 실패로 강제)
+ADMIN_URL = (env("ADMIN_URL", default="") or "admin").strip().strip("/") + "/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "users.User"
 

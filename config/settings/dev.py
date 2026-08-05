@@ -26,3 +26,12 @@ CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS")
 CORS_ALLOW_CREDENTIALS = True
 
 S3_CONFIG = Config(s3={"addressing_style": "virtual"})
+
+# nginx가 443에서 TLS를 종료하고 http로 프록시하므로 X-Forwarded-Proto를 신뢰
+# (admin 로그인 등 CSRF Origin 검사에 필요 — prod.py와 동일한 이유)
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+CSRF_TRUSTED_ORIGINS = env.list(
+    "CSRF_TRUSTED_ORIGINS", default=["https://dev-api.danim.kr"]
+)
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
