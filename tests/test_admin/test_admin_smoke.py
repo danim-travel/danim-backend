@@ -51,9 +51,11 @@ class TestAdminAccess:
 
     def test_admin_login_post_passes_csrf_origin_check_behind_proxy(self, settings):
         """nginx(TLS 종료) 뒤 시나리오 재현 — SECURE_PROXY_SSL_HEADER가 없으면
-        Origin(https) != good_origin(http) 불일치로 403이 나는 회귀를 방지한다."""
+        Origin(https) != good_origin(http) 불일치로 403이 나는 회귀를 방지한다.
+
+        CSRF_TRUSTED_ORIGINS는 일부러 설정하지 않는다 — 설정하면 Origin 정확일치로
+        통과해 버려서 프록시 헤더가 유일한 통과 경로라는 검증이 무력화된다."""
         settings.SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-        settings.CSRF_TRUSTED_ORIGINS = ["https://testserver"]
 
         get_user_model().objects.create_superuser(**SUPERUSER_KWARGS)
         csrf_client = Client(enforce_csrf_checks=True)
@@ -110,14 +112,20 @@ class TestProdSettingsGuard:
     }
 
     def _fresh_import_prod(self):
-        sys.modules.pop("config.settings.prod", None)
-        sys.modules.pop("config.settings.base", None)
+        # 원본 모듈을 보관했다가 복원 — 이후 테스트가 재실행된 top-level
+        # (read_env, sentry init)을 보지 않도록 격리한다
+        originals = {
+            name: sys.modules.pop(name, None)
+            for name in ("config.settings.prod", "config.settings.base")
+        }
         try:
             return importlib.import_module("config.settings.prod")
         finally:
-            # 다른 테스트가 캐시된 모듈을 보지 않도록 정리
-            sys.modules.pop("config.settings.prod", None)
-            sys.modules.pop("config.settings.base", None)
+            for name, module in originals.items():
+                if module is not None:
+                    sys.modules[name] = module
+                else:
+                    sys.modules.pop(name, None)
 
     def test_prod_defines_proxy_ssl_and_secure_cookies(self, monkeypatch):
         for key, value in self.PROD_ENV.items():

@@ -26,6 +26,11 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         extra_fields.setdefault("is_email_verified", True)
+        # Django 기본 매니저와 동일한 가드 — superuser인데 권한 플래그를 끄는 호출 방지
+        if extra_fields.get("is_staff") is not True:
+            raise ValueError("superuser는 is_staff=True여야 합니다.")
+        if extra_fields.get("is_superuser") is not True:
+            raise ValueError("superuser는 is_superuser=True여야 합니다.")
         return self.create_user(email, password=password, **extra_fields)
 
     def create_social_user(self, email, **extra_fields):
