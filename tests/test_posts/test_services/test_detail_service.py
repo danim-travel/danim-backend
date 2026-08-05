@@ -1,5 +1,7 @@
 from datetime import date
+from typing import cast
 
+from django.contrib.auth.models import AnonymousUser
 from django.test import TestCase
 
 from apps.core.exceptions.exception import NotFoundException
@@ -14,6 +16,7 @@ class PostDetailServiceTest(TestCase):
 
     service: PostDetailService
     user: User
+    anonymoususer: User
     other_user: User
     post: Post
 
@@ -35,6 +38,7 @@ class PostDetailServiceTest(TestCase):
             birth_day=date(1992, 6, 6),
             login_type=LoginType.EMAIL,
         )
+        self.anonymoususer = cast(User, AnonymousUser())
         self.post = Post.objects.create(
             user=self.user,
             title="test_title",
@@ -77,3 +81,15 @@ class PostDetailServiceTest(TestCase):
         """존재하지 않는 게시글 조회 시 NotFoundException 테스트"""
         with self.assertRaises(NotFoundException):
             self.service.get_post_detail("nonexistent_id", self.user)
+
+    def test_get_post_detail_anoymous_does_not_increase_view_count(self) -> None:
+        """비로그인 사용자 조회 시 view_count가 증가하지 않는 테스트"""
+        self.service.get_post_detail(self.post.id, self.anonymoususer)
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.view_count, 0)
+
+    def test_get_post_detail_authenticated_increases_view_count(self) -> None:
+        """로그인 사용자 조회 시 view_count가 증가하는 테스트"""
+        self.service.get_post_detail(self.post.id, self.user)
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.view_count, 1)
