@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.http import HttpRequest
 
 from apps.users.models import User
 
@@ -22,7 +23,10 @@ class UserAdmin(admin.ModelAdmin):
     )
     list_filter = ("login_type", "is_active", "is_staff")
     search_fields = ("email", "nickname")
-    ordering = ("-created_at",)
+    # ULID PK는 사전순=시간순이라 -id가 -created_at과 동일하면서 PK 인덱스를 탄다
+    # (created_at에는 인덱스가 없어 전체 정렬이 됨)
+    ordering = ("-id",)
+    show_full_result_count = False
 
     fields = (
         "email",
@@ -53,8 +57,10 @@ class UserAdmin(admin.ModelAdmin):
         "updated_at",
     )
 
-    def has_add_permission(self, request):
+    def has_add_permission(self, request: HttpRequest) -> bool:
         return False
 
-    def has_delete_permission(self, request, obj=None):
+    def has_delete_permission(
+        self, request: HttpRequest, obj: User | None = None
+    ) -> bool:
         return False
