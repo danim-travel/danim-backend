@@ -4,7 +4,6 @@ from urllib.parse import urlencode
 from django.core.cache import cache
 from django.test import SimpleTestCase, TestCase, override_settings
 
-from apps.core.exceptions.exception import ValidationException
 from apps.core.storage.s3 import s3_svc
 from apps.core.utils.base62 import encode_cursor
 from apps.explores.services.response_base import build_next
@@ -265,9 +264,15 @@ class FeedsForSearchTest(TestCase):
         self.assertIsNone(new_cursor)
         self.assertEqual(seed, 0)
 
-    def test_invalid_cursor_raises(self) -> None:
-        with self.assertRaises(ValidationException):
-            feeds_for_search(self.search, "INVALID_CURSOR")
+    def test_invalid_cursor_falls_back_to_first_page(self) -> None:
+        # 캐시 재빌드로 커서가 목록에서 사라진 경우와 동일하게 취급 -> 400 대신 첫 페이지로 폴백
+        feeds, new_cursor, seed = feeds_for_search(self.search, "INVALID_CURSOR")
+        expected_feeds, expected_cursor, expected_seed = feeds_for_search(
+            self.search, None
+        )
+        self.assertEqual(feeds, expected_feeds)
+        self.assertEqual(new_cursor, expected_cursor)
+        self.assertEqual(seed, expected_seed)
 
     # --- 매핑 / S3 ---
     def test_search_result_mapping(self) -> None:

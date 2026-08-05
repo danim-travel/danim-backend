@@ -7,6 +7,7 @@ def build_next(
     url: str,
     *,
     search: str | None = None,
+    region: str | None = None,
     cursor: str | None = None,
     page_size: int | None = None,
     seed: int | None = None,
@@ -14,7 +15,8 @@ def build_next(
     """다음 페이지 URL 생성.
 
     - 검색 path: search + cursor(post id, base62) + page_size
-    - 탐색 피드 path: cursor(page 번호) + page_size + seed
+    - 지역 path: region + cursor(post id, base62) + page_size
+    - 탐색 피드 path: cursor(페이지 번호) + page_size + seed
     None 인 파라미터는 쿼리스트링에서 제외한다.
     """
     if page_size is None:
@@ -22,6 +24,7 @@ def build_next(
 
     query_params = {
         "search": search,
+        "region": region,
         "cursor": cursor,
         "page_size": page_size,
         "seed": seed,
