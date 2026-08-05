@@ -55,6 +55,8 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_APPS + OWN_APPS
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    # Daphne는 static을 서빙하지 않으므로 admin 정적 파일은 whitenoise가 담당
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -107,6 +109,18 @@ USE_TZ = True
 APPEND_SLASH = False
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+# Manifest 방식은 collectstatic 누락 시 500을 내므로 압축만 사용(안전 우선).
+# 파일 스토리지는 커스텀 S3 서비스(boto3 직접 호출)를 쓰므로 default는 기본값 유지.
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
+}
+# admin 노출 경로 — 운영은 secrets로 추측 어려운 값 주입, 미설정/빈값이면 admin/
+# (env가 빈 문자열을 돌려줘도 기본값으로 떨어지도록 or 처리)
+ADMIN_URL = env("ADMIN_URL", default="admin/") or "admin/"
+if not ADMIN_URL.endswith("/"):
+    ADMIN_URL += "/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "users.User"
 

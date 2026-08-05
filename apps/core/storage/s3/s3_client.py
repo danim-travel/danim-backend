@@ -1,7 +1,12 @@
+from typing import TYPE_CHECKING
+
 import boto3
 from botocore.config import Config
 from django.conf import settings
-from mypy_boto3_s3.type_defs import DeleteObjectOutputTypeDef
+
+if TYPE_CHECKING:
+    # 타입 스텁(dev 의존성)은 런타임에 import하면 --no-dev 환경에서 부팅이 깨진다
+    from mypy_boto3_s3.type_defs import DeleteObjectOutputTypeDef
 
 
 class S3Client:
@@ -34,7 +39,7 @@ class S3Client:
         )
 
     # boto3의 delete_object를 래핑
-    def delete_object(self, bucket: str, key: str) -> DeleteObjectOutputTypeDef:
+    def delete_object(self, bucket: str, key: str) -> "DeleteObjectOutputTypeDef":
         return self._s3.delete_object(Bucket=bucket, Key=key)
 
 

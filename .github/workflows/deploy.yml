@@ -67,6 +67,7 @@ jobs:
             echo "FRONT_REDIRECT_URI=${{ secrets.FRONT_REDIRECT_URI }}" >> envs/.env.prod
             echo "SENTRY_DSN=${{ secrets.SENTRY_DSN }}" >> envs/.env.prod
             echo "FRONTEND_URL=${{ secrets.FRONTEND_URL }}" >> envs/.env.prod
+            echo "ADMIN_URL=${{ secrets.ADMIN_URL }}" >> envs/.env.prod
             echo "DJANGO_ENV=prod" >> envs/.env.prod
 
             # 새 이미지 pull 및 재시작
@@ -77,6 +78,7 @@ jobs:
             docker compose -f docker-compose.prod.yml up -d
             sleep 10
             docker compose -f docker-compose.prod.yml exec -T django uv run python manage.py migrate
+            docker compose -f docker-compose.prod.yml exec -T django uv run python manage.py collectstatic --noinput
             docker image prune -f
 
       - name: Close SSH port

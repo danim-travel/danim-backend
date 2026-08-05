@@ -33,3 +33,6 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOW_CREDENTIALS = True
 
 SHOW_SWAGGER = True
+
+# 로컬은 collectstatic 없이 앱 static 디렉토리에서 바로 서빙 (admin 화면용)
+WHITENOISE_USE_FINDERS = True
