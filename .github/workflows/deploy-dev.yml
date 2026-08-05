@@ -64,6 +64,7 @@ jobs:
             echo "FRONT_REDIRECT_URI=${{ secrets.DEV_FRONT_REDIRECT_URI }}" >> envs/.env.dev
             echo "SENTRY_DSN=${{ secrets.SENTRY_DSN }}" >> envs/.env.dev
             echo "FRONTEND_URL=${{ secrets.DEV_FRONTEND_URL }}" >> envs/.env.dev
+            echo "ADMIN_URL=${{ secrets.DEV_ADMIN_URL }}" >> envs/.env.dev
             echo "DJANGO_ENV=dev" >> envs/.env.dev
 
             # 새 이미지 pull 및 재시작

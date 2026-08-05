@@ -39,6 +39,21 @@ jobs:
           DJANGO_SETTINGS_MODULE: config.settings.local
         run: uv run mypy .
 
+      - name: django deploy check (prod settings)
+        env:
+          SECRET_KEY: test-secret-key
+          DB_NAME: danim
+          DB_USER: danim
+          DB_PASSWORD: danim
+          DB_HOST: localhost
+          DB_PORT: 5432
+          REDIS_URL: redis://localhost:6379/1
+          REDIS_AUTH_URL: redis://localhost:6379/2
+          ALLOWED_HOSTS: api.danim.kr
+          CORS_ALLOWED_ORIGINS: https://danim.kr
+          ADMIN_URL: ci-check-path/
+        run: uv run python manage.py check --deploy --settings=config.settings.prod
+
   test:
     runs-on: ubuntu-latest
 

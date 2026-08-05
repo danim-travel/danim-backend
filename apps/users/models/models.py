@@ -17,13 +17,21 @@ class UserManager(BaseUserManager):
         return user
 
     def create_superuser(self, email, password=None, **extra_fields):
-        """super_user 생성"""
-        email = self.normalize_email(email)
-        user = self.create_user(email, password=password, **extra_fields)
-        user.is_staff = True
-        user.is_superuser = True
-        user.save()
-        return user
+        """super_user 생성.
+
+        is_active 기본값이 False(가입 플로우 전제)라 명시적으로 켜지 않으면
+        createsuperuser로 만든 관리자가 admin 로그인에서 거부된다.
+        """
+        extra_fields.setdefault("is_active", True)
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+        extra_fields.setdefault("is_email_verified", True)
+        # Django 기본 매니저와 동일한 가드 — superuser인데 권한 플래그를 끄는 호출 방지
+        if extra_fields.get("is_staff") is not True:
+            raise ValueError("superuser는 is_staff=True여야 합니다.")
+        if extra_fields.get("is_superuser") is not True:
+            raise ValueError("superuser는 is_superuser=True여야 합니다.")
+        return self.create_user(email, password=password, **extra_fields)
 
     def create_social_user(self, email, **extra_fields):
         email = self.normalize_email(email)

@@ -12,7 +12,8 @@ def hello(request):
 
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
+    # admin 경로는 환경변수로 관리 (기본 admin/, 운영은 secrets로 변경)
+    path(settings.ADMIN_URL, admin.site.urls),
     path("api/v1/users", include("apps.users.urls", namespace="users")),
     path("api/v1/comments", include("apps.comments.urls", namespace="comments")),
     path("api/v1/posts", include("apps.posts.urls", namespace="posts")),
