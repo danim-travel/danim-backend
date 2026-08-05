@@ -54,14 +54,18 @@ class TestAdminAccess:
         Origin(https) != good_origin(http) 불일치로 403이 나는 회귀를 방지한다.
 
         CSRF_TRUSTED_ORIGINS는 일부러 설정하지 않는다 — 설정하면 Origin 정확일치로
-        통과해 버려서 프록시 헤더가 유일한 통과 경로라는 검증이 무력화된다."""
+        통과해 버려서 프록시 헤더가 유일한 통과 경로라는 검증이 무력화된다.
+
+        HTTP_HOST는 nginx의 proxy_set_header Host 재현이다 — 없으면 테스트 클라이언트가
+        SERVER_NAME:80으로 호스트를 만들어 good_origin이 https://testserver:80이 되는
+        테스트 아티팩트로 실패한다(실환경에는 없는 조건)."""
         settings.SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
         get_user_model().objects.create_superuser(**SUPERUSER_KWARGS)
         csrf_client = Client(enforce_csrf_checks=True)
         login_url = reverse("admin:login")
 
-        csrf_client.get(login_url, HTTP_X_FORWARDED_PROTO="https")
+        csrf_client.get(login_url, HTTP_X_FORWARDED_PROTO="https", HTTP_HOST="testserver")
         csrftoken = csrf_client.cookies["csrftoken"].value
         response = csrf_client.post(
             login_url,
@@ -72,6 +76,7 @@ class TestAdminAccess:
                 "next": reverse("admin:index"),
             },
             HTTP_X_FORWARDED_PROTO="https",
+            HTTP_HOST="testserver",
             HTTP_ORIGIN="https://testserver",
         )
         assert response.status_code != 403
