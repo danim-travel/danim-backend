@@ -28,6 +28,7 @@ urlpatterns = [
         include("apps.notifications.urls", namespace="notifications"),
     ),
     path("api/v1/explore", include("apps.explores.urls", namespace="explores")),
+    path("api/v1/supports", include("apps.supports.urls", namespace="supports")),
     path("hello/", hello),
     path("api/v1/websocket-key", WebSocketKey.as_view(), name="websocket_key"),
 ]
