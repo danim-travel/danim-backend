@@ -122,7 +122,7 @@ class TestFAQFeedback:
         return reverse("supports:faq_feedback", kwargs={"faq_id": str(faq.id)})
 
     def test_anonymous_feedback_created(self, api_client, faq):
-        response = api_client.post(self._url(faq), {"is_helpful": False})
+        response = api_client.post(self._url(faq), {"is_helpful": False}, format="json")
 
         assert response.status_code == 201
         feedback = FAQFeedback.objects.get(faq=faq)
@@ -139,13 +139,13 @@ class TestFAQFeedback:
         )
         api_client.force_authenticate(user=user)
 
-        response = api_client.post(self._url(faq), {"is_helpful": True})
+        response = api_client.post(self._url(faq), {"is_helpful": True}, format="json")
 
         assert response.status_code == 201
         assert FAQFeedback.objects.get(faq=faq).user == user
 
     def test_missing_is_helpful_400(self, api_client, faq):
-        response = api_client.post(self._url(faq), {})
+        response = api_client.post(self._url(faq), {}, format="json")
         assert response.status_code == 400
 
     def test_unknown_faq_404(self, api_client):

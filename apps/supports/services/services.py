@@ -6,7 +6,7 @@
 무효화는 signals/signal.py에서 admin 저장/삭제 시 수행된다.
 """
 
-from typing import Any
+from typing import Any, cast
 
 from django.core.cache import cache
 
@@ -33,7 +33,7 @@ def get_faq_categories() -> list[dict[str, Any]]:
         return cached
 
     categories = FAQCategory.objects.filter(is_active=True)
-    data = FAQCategorySerializer(categories, many=True).data
+    data = [dict(item) for item in FAQCategorySerializer(categories, many=True).data]
     cache.set(CATEGORIES_CACHE_KEY, data, FAQ_CACHE_TTL)
     return data
 
@@ -49,7 +49,7 @@ def get_faqs_by_category(category_id: str) -> list[dict[str, Any]]:
         raise NotFoundException("존재하지 않는 카테고리입니다.")
 
     faqs = FAQ.objects.filter(category_id=category_id, is_active=True)
-    data = FAQListSerializer(faqs, many=True).data
+    data = [dict(item) for item in FAQListSerializer(faqs, many=True).data]
     cache.set(key, data, FAQ_CACHE_TTL)
     return data
 
@@ -93,5 +93,7 @@ def invalidate_faq_cache() -> None:
     (delete_pattern은 django-redis 전용 API — 프로젝트 캐시 백엔드 고정)
     """
     cache.delete(CATEGORIES_CACHE_KEY)
-    cache.delete_pattern(FAQ_LIST_CACHE_KEY.format(category_id="*"))
-    cache.delete_pattern(FAQ_DETAIL_CACHE_KEY.format(faq_id="*"))
+    # delete_pattern은 django-redis 전용이라 BaseCache 타입에 없음 — Any로 캐스팅
+    redis_cache = cast(Any, cache)
+    redis_cache.delete_pattern(FAQ_LIST_CACHE_KEY.format(category_id="*"))
+    redis_cache.delete_pattern(FAQ_DETAIL_CACHE_KEY.format(faq_id="*"))
