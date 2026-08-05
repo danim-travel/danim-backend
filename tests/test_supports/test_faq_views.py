@@ -167,15 +167,14 @@ class TestFAQFeedback:
         assert feedbacks.count() == 1
         assert feedbacks.get().is_helpful is True
 
-    def test_anonymous_feedback_rate_limited(self, api_client, faq, settings):
-        """익명 피드백은 IP 기준 rate limit — 초과 시 429 (통계 오염 방어)"""
-        settings.REST_FRAMEWORK = {
-            **settings.REST_FRAMEWORK,
-            "DEFAULT_THROTTLE_RATES": {"faq_feedback": "3/min"},
-        }
+    def test_anonymous_feedback_rate_limited(self, api_client, faq):
+        """익명 피드백은 IP 기준 rate limit(10/min) — 초과 시 429 (통계 오염 방어).
+
+        REST_FRAMEWORK 오버라이드는 SimpleRateThrottle.THROTTLE_RATES가 클래스
+        정의 시점 스냅샷이라 반영되지 않으므로, 실제 설정 rate 그대로 검증한다."""
         cache.clear()  # 이전 테스트의 스로틀 카운터 제거
 
-        for _ in range(3):
+        for _ in range(10):
             response = api_client.post(
                 self._url(faq), {"is_helpful": True}, format="json"
             )
@@ -183,6 +182,8 @@ class TestFAQFeedback:
 
         response = api_client.post(self._url(faq), {"is_helpful": True}, format="json")
         assert response.status_code == 429
+
+        cache.clear()  # 이후 테스트의 익명 POST가 스로틀에 걸리지 않도록 정리
 
     def test_unknown_faq_404(self, api_client):
         response = api_client.post(
