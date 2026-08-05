@@ -135,6 +135,11 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "apps.core.exceptions.exception_handler.custom_exception_handler",
+    # 스코프별 rate limit — 전역 스로틀은 걸지 않고, 무인증 쓰기 등
+    # 필요한 뷰에서만 ScopedRateThrottle + throttle_scope로 선택 적용한다
+    "DEFAULT_THROTTLE_RATES": {
+        "faq_feedback": "10/min",
+    },
 }
 
 SPECTACULAR_SETTINGS = {

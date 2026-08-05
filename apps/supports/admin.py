@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.db.models import Count, QuerySet
 from django.http import HttpRequest
 
 from apps.supports.models import FAQ, FAQCategory, FAQFeedback
@@ -22,9 +23,13 @@ class FAQCategoryAdmin(admin.ModelAdmin):
     ordering = ("order",)
     inlines = [FAQInline]
 
-    @admin.display(description="질문 수")
+    def get_queryset(self, request: HttpRequest) -> QuerySet[FAQCategory]:
+        # 행마다 count 쿼리가 나가는 N+1 방지 — annotate로 1쿼리
+        return super().get_queryset(request).annotate(_faq_count=Count("faqs"))
+
+    @admin.display(description="질문 수", ordering="_faq_count")
     def faq_count(self, obj: FAQCategory) -> int:
-        return obj.faqs.count()
+        return int(getattr(obj, "_faq_count", 0))
 
 
 @admin.register(FAQ)

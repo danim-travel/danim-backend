@@ -62,3 +62,12 @@ class FAQFeedback(BaseModel):
     class Meta:
         db_table = "faq_feedbacks"
         indexes = [models.Index(fields=["faq", "is_helpful"])]
+        constraints = [
+            # 로그인 사용자는 FAQ당 응답 1개(재응답은 갱신) — 통계 중복 오염 방지.
+            # 익명(user null)은 제약 대상이 아니므로 rate limit으로 방어한다.
+            models.UniqueConstraint(
+                fields=["faq", "user"],
+                condition=models.Q(user__isnull=False),
+                name="uniq_faq_feedback_per_user",
+            )
+        ]

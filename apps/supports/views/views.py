@@ -5,6 +5,7 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from apps.core.exceptions.exception import ValidationException
@@ -60,9 +61,15 @@ class FAQDetailView(APIView):
 
 
 class FAQFeedbackView(APIView):
-    """POST /api/v1/supports/faqs/{faq_id}/feedback — "해결되셨나요?" 응답"""
+    """POST /api/v1/supports/faqs/{faq_id}/feedback — "해결되셨나요?" 응답
+
+    무인증 쓰기 엔드포인트라 IP/유저 기준 rate limit으로 통계 오염을 방어한다
+    (로그인 사용자의 중복은 서비스 레이어 upsert + DB 유니크 제약이 담당).
+    """
 
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "faq_feedback"
 
     @extend_schema(
         tags=["고객센터"],

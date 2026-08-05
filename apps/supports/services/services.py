@@ -75,13 +75,22 @@ def get_faq_detail(faq_id: str) -> dict[str, Any]:
 
 
 def create_faq_feedback(faq_id: str, is_helpful: bool, user: User | None) -> None:
-    """ "해결되셨나요?" 응답 저장. 비로그인이면 user=None."""
+    """ "해결되셨나요?" 응답 저장. 비로그인이면 user=None.
+
+    로그인 사용자는 FAQ당 1응답(재응답 시 갱신)으로 통계 중복을 막는다.
+    익명은 식별자가 없어 중복 제약이 불가능하므로 뷰의 rate limit으로 방어.
+    """
     if not FAQ.objects.filter(
         id=faq_id, is_active=True, category__is_active=True
     ).exists():
         raise NotFoundException("존재하지 않는 FAQ입니다.")
 
-    FAQFeedback.objects.create(faq_id=faq_id, is_helpful=is_helpful, user=user)
+    if user is not None:
+        FAQFeedback.objects.update_or_create(
+            faq_id=faq_id, user=user, defaults={"is_helpful": is_helpful}
+        )
+    else:
+        FAQFeedback.objects.create(faq_id=faq_id, is_helpful=is_helpful, user=None)
 
 
 def invalidate_faq_cache() -> None:

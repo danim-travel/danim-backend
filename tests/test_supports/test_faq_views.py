@@ -1,6 +1,7 @@
 """FAQ 챗봇 조회/피드백 API 테스트."""
 
 import pytest
+from django.core.cache import cache
 from django.urls import reverse
 from rest_framework.test import APIClient
 
@@ -148,6 +149,41 @@ class TestFAQFeedback:
         response = api_client.post(self._url(faq), {}, format="json")
         assert response.status_code == 400
 
+    def test_authenticated_feedback_upserts(self, api_client, faq):
+        """로그인 사용자는 FAQ당 응답 1개 — 재응답하면 갱신 (통계 중복 방지)"""
+        user = User.objects.create_user(
+            email="upsert@danim.kr",
+            password="Password!234",
+            nickname="upserter",
+            name="갱신러",
+            birth_day="2000-01-01",
+        )
+        api_client.force_authenticate(user=user)
+
+        api_client.post(self._url(faq), {"is_helpful": False}, format="json")
+        api_client.post(self._url(faq), {"is_helpful": True}, format="json")
+
+        feedbacks = FAQFeedback.objects.filter(faq=faq, user=user)
+        assert feedbacks.count() == 1
+        assert feedbacks.get().is_helpful is True
+
+    def test_anonymous_feedback_rate_limited(self, api_client, faq, settings):
+        """익명 피드백은 IP 기준 rate limit — 초과 시 429 (통계 오염 방어)"""
+        settings.REST_FRAMEWORK = {
+            **settings.REST_FRAMEWORK,
+            "DEFAULT_THROTTLE_RATES": {"faq_feedback": "3/min"},
+        }
+        cache.clear()  # 이전 테스트의 스로틀 카운터 제거
+
+        for _ in range(3):
+            response = api_client.post(
+                self._url(faq), {"is_helpful": True}, format="json"
+            )
+            assert response.status_code == 201
+
+        response = api_client.post(self._url(faq), {"is_helpful": True}, format="json")
+        assert response.status_code == 429
+
     def test_unknown_faq_404(self, api_client):
         response = api_client.post(
             reverse(
@@ -192,5 +228,18 @@ class TestFAQCacheInvalidation:
 
         faq.is_active = False
         faq.save()
+
+        assert api_client.get(detail_url).status_code == 404
+
+    def test_deactivated_category_hides_cached_faq_detail(
+        self, api_client, category, faq
+    ):
+        """카테고리 비활성화(FAQCategory 시그널)가 하위 질문의 '캐시된' 상세까지
+        숨기는지 — 전체 무효화 계약을 고착하는 테스트"""
+        detail_url = reverse("supports:faq_detail", kwargs={"faq_id": str(faq.id)})
+        api_client.get(detail_url)  # 캐시 적재
+
+        category.is_active = False
+        category.save()  # FAQCategory 시그널 → detail 패턴까지 전체 무효화
 
         assert api_client.get(detail_url).status_code == 404
