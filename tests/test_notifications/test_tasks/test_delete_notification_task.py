@@ -207,3 +207,89 @@ class TestDeleteNotificationTask(NotificationsBaseTest):
         self.assertEqual(self.user_2.unread_noti_count, 3)
         # 첫 배치 커밋 직후 캐시가 무효화됨 (배치별 무효화이므로)
         self.assertIsNone(cache.get(self._cache_key()))
+
+    @patch("apps.notifications.tasks.MAX_BATCHES_PER_RUN", 2)
+    @patch("apps.notifications.tasks.DELETE_BATCH_SIZE", 2)
+    def test_run_stops_at_batch_cap_and_resumes_next_run(self):
+        """회당 상한에 도달하면 남은 분량은 다음 스케줄로 넘긴다.
+
+        solo 풀에서는 정리가 도는 동안 신규 알림 태스크가 직렬로 대기하므로,
+        한 번 도는 시간을 상한으로 묶는다.
+        """
+        for _ in range(7):
+            self._create_notification(
+                receiver=self.user_2,
+                sender=self.user_1,
+                is_read=False,
+                created_days_ago=31,
+            )
+        User.objects.filter(id=self.user_2.id).update(unread_noti_count=7)
+
+        delete_notification_task.apply()
+
+        # 2배치 × 2건 = 4건만 처리되고 3건이 남는다
+        self.assertEqual(Notification.objects.filter(receiver=self.user_2).count(), 3)
+
+        delete_notification_task.apply()
+
+        # 다음 실행이 남은 분량을 이어서 처리한다
+        self.assertEqual(Notification.objects.filter(receiver=self.user_2).count(), 0)
+
+    @patch("apps.notifications.tasks.MAX_BATCHES_PER_RUN", 2)
+    @patch("apps.notifications.tasks.DELETE_BATCH_SIZE", 2)
+    def test_cap_reached_logs_warning(self):
+        """상한에 걸려 남은 분량이 있으면 경고 로그를 남긴다.
+
+        상한 도입으로 "태스크 완료 = 전부 삭제" 보장이 사라졌으므로, 정상 완료와
+        상한 도달이 로그로 구분되어야 운영에서 적체를 알아챌 수 있다.
+        """
+        for _ in range(7):
+            self._create_notification(
+                receiver=self.user_2,
+                sender=self.user_1,
+                is_read=False,
+                created_days_ago=31,
+            )
+
+        with self.assertLogs("apps.notifications.tasks", level="WARNING") as logs:
+            delete_notification_task.apply()
+
+        self.assertTrue(any("상한 도달" in line for line in logs.output))
+
+    @patch("apps.notifications.tasks.MAX_BATCHES_PER_RUN", 2)
+    @patch("apps.notifications.tasks.DELETE_BATCH_SIZE", 2)
+    def test_exact_cap_without_leftover_does_not_warn(self):
+        """총량이 정확히 상한×배치면 전부 지워지므로 경고하지 않는다.
+
+        마지막 배치가 남은 분량을 정확히 소진하면 break를 만날 기회 없이 루프가
+        끝나므로, 잔여 확인 없이 경고하면 거짓 적체 신호가 된다.
+        """
+        for _ in range(4):  # 2배치 × 2건 = 정확히 상한
+            self._create_notification(
+                receiver=self.user_2,
+                sender=self.user_1,
+                is_read=False,
+                created_days_ago=31,
+            )
+
+        with self.assertNoLogs("apps.notifications.tasks", level="WARNING"):
+            delete_notification_task.apply()
+
+        self.assertEqual(Notification.objects.filter(receiver=self.user_2).count(), 0)
+
+    @patch("apps.notifications.tasks.MAX_BATCHES_PER_RUN", 10)
+    @patch("apps.notifications.tasks.DELETE_BATCH_SIZE", 2)
+    def test_completed_run_does_not_log_cap_warning(self):
+        """상한에 닿지 않고 끝나면 경고를 남기지 않는다"""
+        for _ in range(3):
+            self._create_notification(
+                receiver=self.user_2,
+                sender=self.user_1,
+                is_read=False,
+                created_days_ago=31,
+            )
+
+        with self.assertNoLogs("apps.notifications.tasks", level="WARNING"):
+            delete_notification_task.apply()
+
+        self.assertEqual(Notification.objects.filter(receiver=self.user_2).count(), 0)

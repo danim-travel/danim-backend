@@ -49,33 +49,53 @@ def create_notification(
 ) -> None:
     if receiver_id == sender.id:
         return
-    if not _mark_not_duplicated(receiver_id, sender.id, noti_type, target_id):
+    dedup_key = _build_dedup_key(receiver_id, sender.id, noti_type, target_id)
+    if dedup_key is not None and not _reserve_dedup_key(dedup_key):
         return
-    # 차단 관계면 알림을 만들지 않는다 — 시그널 5곳을 개별 수정하는 대신
-    # 모든 알림이 통과하는 이 중앙 게이트 한 곳에서 막는다.
-    from apps.blocks.services import is_blocked_between
+    try:
+        # 차단 관계면 알림을 만들지 않는다 — 시그널 5곳을 개별 수정하는 대신
+        # 모든 알림이 통과하는 이 중앙 게이트 한 곳에서 막는다.
+        from apps.blocks.services import is_blocked_between
 
-    if is_blocked_between(receiver_id, sender.id):
-        return
-    target_type, msg_base = NOTIFICATION_MAP[noti_type]
-    msg = msg_base.format(sender.nickname)
-    create_noti(sender, receiver_id, noti_type, target_id, target_type, msg)
+        if is_blocked_between(receiver_id, sender.id):
+            return
+        target_type, msg_base = NOTIFICATION_MAP[noti_type]
+        msg = msg_base.format(sender.nickname)
+        create_noti(sender, receiver_id, noti_type, target_id, target_type, msg)
+    except Exception:
+        # 선점만 해두고 생성에 실패하면 키가 TTL 동안 남아, celery 재시도
+        # (countdown 1·2·4초, 전부 TTL 안)가 중복으로 오인돼 조용히 no-op이 된다.
+        # 태스크는 성공으로 기록되어 알림이 영구 유실되므로 선점을 되돌린다.
+        # create_noti의 예외는 transaction.atomic() 안에서 발생해 커밋된 것이 없으므로
+        # 재시도가 중복 알림을 만들지 않는다.
+        if dedup_key is not None:
+            cache.delete(dedup_key)
+        raise
 
 
-def _mark_not_duplicated(
+def _build_dedup_key(
     receiver_id: str, sender_id: str, noti_type: str, target_id: str
-) -> bool:
-    """같은 알림이 짧은 시간에 반복 생성되는 것을 막는다.
+) -> str | None:
+    """dedup 대상이면 키를, 아니면 None을 반환한다.
+
+    조건: DEDUP_NOTI_TYPES에 속한 종류에만 키를 만든다. target_id는 원래 "알림 클릭 시
+        이동할 위치"를 담는 필드라, 댓글 계열은 서로 다른 댓글이 같은 게시글 ID로
+        뭉개져 정상 알림까지 막히기 때문이다.
+    """
+    if noti_type not in DEDUP_NOTI_TYPES:
+        return None
+    return f"noti:dedup:{receiver_id}:{sender_id}:{noti_type}:{target_id}"
+
+
+def _reserve_dedup_key(dedup_key: str) -> bool:
+    """중복이 아니면 키를 선점하고 True를 반환한다.
 
     기능: 좋아요/팔로우 취소 후 재실행을 반복하면 post_save(created=True)가 매번
-        발화해 알림이 무제한 생성된다. TTL 안에서 첫 호출만 True를 반환한다.
-    조건: DEDUP_NOTI_TYPES에 속한 종류에만 적용한다. 그 외에는 항상 True.
+        발화해 알림이 무제한 생성된다. cache.add는 키가 없을 때만 저장하는 원자적
+        연산이라, 동시 요청 중 하나만 통과한다.
     예외: Redis 장애 시 cache.add가 None을 반환하면(캐시 default 별칭은
         IGNORE_EXCEPTIONS=True) 알림을 통과시킨다 — 알림 유실보다 중복이 낫다(fail-open).
     """
-    if noti_type not in DEDUP_NOTI_TYPES:
-        return True
-    dedup_key = f"noti:dedup:{receiver_id}:{sender_id}:{noti_type}:{target_id}"
     added = cache.add(dedup_key, 1, timeout=NOTI_DEDUP_TTL)
     if added is None:
         return True

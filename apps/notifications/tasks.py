@@ -17,6 +17,11 @@ logger = logging.getLogger(__name__)
 
 DELETE_BATCH_SIZE = 5000
 
+# 워커를 --pool=solo 로 띄우면 태스크가 한 번에 하나씩만 처리된다. 정리 배치가 남은
+# 데이터를 다 지울 때까지 돌면 그동안 신규 알림이 전부 뒤에서 대기하므로, 회당 처리량을
+# 묶어 한 번 도는 시간을 예측 가능한 범위로 유지한다. 남은 분량은 다음 스케줄이 이어간다.
+MAX_BATCHES_PER_RUN = 10
+
 
 @shared_task(bind=True, max_retries=3)
 def create_notification_task(
@@ -48,7 +53,7 @@ def delete_notification_task(self):
         cutoff = timezone.now() - timedelta(days=30)
         batch = DELETE_BATCH_SIZE
 
-        while True:
+        for _ in range(MAX_BATCHES_PER_RUN):
             with transaction.atomic():
                 ids = list(
                     Notification.objects.filter(created_at__lt=cutoff).values_list(
@@ -87,6 +92,19 @@ def delete_notification_task(self):
             except Exception as e:
                 logger.warning(
                     f"[캐시 무효화 실패] receiver_ids={len(receiver_ids)}건, error={e}"
+                )
+        else:
+            # break 없이 루프가 끝났다 = 상한을 다 썼다. 상한 도입으로 "태스크 완료 =
+            # 전부 삭제" 보장이 사라졌으므로 정상 완료와 적체를 로그로 구분한다.
+            # 다만 마지막 배치가 남은 분량을 정확히 소진하면 break를 만날 기회 없이
+            # 루프가 끝나므로, 실제로 남았는지 확인한 뒤에만 경고한다.
+            # 이 경고가 반복되면 삭제 속도가 생성 속도를 따라가지 못하는 것이므로
+            # 상한이나 스케줄 주기를 조정해야 한다.
+            if Notification.objects.filter(created_at__lt=cutoff).exists():
+                logger.warning(
+                    f"[알림 정리 상한 도달] {MAX_BATCHES_PER_RUN}배치"
+                    f"({MAX_BATCHES_PER_RUN * batch}건) 처리 후 종료, "
+                    f"남은 분량은 다음 스케줄에서 처리됩니다."
                 )
 
     except Exception as e:

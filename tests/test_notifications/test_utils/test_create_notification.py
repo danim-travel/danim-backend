@@ -1,4 +1,5 @@
 from datetime import date
+from unittest.mock import patch
 
 from django.core.cache import cache
 
@@ -6,6 +7,7 @@ from apps.comments.models import Comment
 from apps.directmessages.models import Conversation
 from apps.notifications.models import Notification
 from apps.notifications.utils import create_notification
+from apps.notifications.utils.create_notification import NOTI_DEDUP_TTL, create_noti
 from apps.posts.models import Post
 from apps.users.models import LoginType, User
 from tests.test_notifications.core.base import NotificationsBaseTest
@@ -297,3 +299,101 @@ class TestCreateNotificationDedup(NotificationsBaseTest):
         self._notify("post_like", self.post.id)
 
         self.assertEqual(Notification.objects.count(), 2)
+
+    def test_dedup_key_is_set_with_configured_ttl(self):
+        """dedup 키가 NOTI_DEDUP_TTL 값으로 설정된다"""
+        with patch(
+            "apps.notifications.utils.create_notification.cache.add", return_value=True
+        ) as mock_add:
+            self._notify("post_like", self.post.id)
+
+        _, kwargs = mock_add.call_args
+        self.assertEqual(kwargs["timeout"], NOTI_DEDUP_TTL)
+
+    def test_different_receiver_not_deduped(self):
+        """수신자가 다르면 각각 알림이 생성된다"""
+        create_notification(
+            receiver_id=self.user_2.id,
+            sender=self.user_1,
+            noti_type="follow",
+            target_id=self.user_1.id,
+        )
+        create_notification(
+            receiver_id=self.user_3.id,
+            sender=self.user_1,
+            noti_type="follow",
+            target_id=self.user_1.id,
+        )
+        self._dedup_keys.append(
+            f"noti:dedup:{self.user_2.id}:{self.user_1.id}:follow:{self.user_1.id}"
+        )
+        self._dedup_keys.append(
+            f"noti:dedup:{self.user_3.id}:{self.user_1.id}:follow:{self.user_1.id}"
+        )
+
+        self.assertEqual(Notification.objects.count(), 2)
+
+    def test_redis_failure_passes_through(self):
+        """Redis 장애로 cache.add가 None을 반환하면 알림을 통과시킨다(fail-open)"""
+        with patch(
+            "apps.notifications.utils.create_notification.cache.add", return_value=None
+        ):
+            self._notify("post_like", self.post.id)
+            self._notify("post_like", self.post.id)
+
+        self.assertEqual(Notification.objects.count(), 2)
+
+    def test_dedup_key_released_when_creation_fails(self):
+        """생성 실패 시 선점한 키를 해제해 재시도가 정상 진행된다.
+
+        키를 해제하지 않으면 celery 재시도(countdown 1·2·4초)가 전부 TTL 30초 안에
+        들어와 중복으로 오인되고, 예외 없이 return하므로 태스크가 성공으로 기록되어
+        알림이 영구 유실된다.
+        """
+        with patch(
+            "apps.notifications.utils.create_notification.create_noti",
+            side_effect=RuntimeError("일시 DB 오류"),
+        ):
+            with self.assertRaises(RuntimeError):
+                self._notify("post_like", self.post.id)
+
+        self.assertIsNone(cache.get(self._dedup_keys[0]))
+
+        self._notify("post_like", self.post.id)
+        self.assertEqual(Notification.objects.count(), 1)
+
+    def test_task_retry_creates_notification_after_transient_failure(self):
+        """일시 장애로 재시도된 태스크가 결국 알림을 생성한다"""
+        calls = {"count": 0}
+        original = create_noti
+
+        def fail_once(*args, **kwargs):
+            calls["count"] += 1
+            if calls["count"] == 1:
+                raise RuntimeError("일시 DB 오류")
+            return original(*args, **kwargs)
+
+        self._dedup_keys.append(
+            f"noti:dedup:{self.user_2.id}:{self.user_1.id}:post_like:{self.post.id}"
+        )
+        with patch(
+            "apps.notifications.utils.create_notification.create_noti",
+            side_effect=fail_once,
+        ):
+            with self.assertRaises(RuntimeError):
+                create_notification(
+                    receiver_id=self.user_2.id,
+                    sender=self.user_1,
+                    noti_type="post_like",
+                    target_id=self.post.id,
+                )
+            # celery 재시도에 해당 — 키가 해제돼 있어야 통과한다
+            create_notification(
+                receiver_id=self.user_2.id,
+                sender=self.user_1,
+                noti_type="post_like",
+                target_id=self.post.id,
+            )
+
+        self.assertEqual(calls["count"], 2)
+        self.assertEqual(Notification.objects.count(), 1)
