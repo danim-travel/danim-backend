@@ -1,6 +1,8 @@
 import base64
 import secrets
 
+from apps.core.exceptions.exception import ValidationException
+
 
 def generate_6digits_safe():
     """6자리 인증코드 발급을 위한 함수"""
@@ -17,4 +19,8 @@ def encode_cursor(cursor):
 
 
 def decode_cursor(cursor):
-    return base64.b64decode(cursor.encode("utf-8")).decode("utf-8")
+    try:
+        return base64.b64decode(cursor.encode("utf-8")).decode("utf-8")
+    except ValueError:
+        # binascii.Error, UnicodeDecodeError 모두 ValueError의 서브클래스
+        raise ValidationException("잘못된 커서값입니다.")

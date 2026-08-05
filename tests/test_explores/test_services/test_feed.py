@@ -24,6 +24,7 @@ from django.core.cache import cache
 from django.test import TestCase
 from django.utils import timezone
 
+from apps.core.storage.s3 import s3_svc
 from apps.explores.dtos import ExploreRes, TasteProfile
 from apps.explores.services import feed as feed_mod
 from apps.explores.services.feed import (
@@ -283,7 +284,7 @@ class GetExploreFeedTests(_CacheTestCase):
             patch.object(feed_mod, "_get_or_build_order", return_value=ids),
             patch.object(TasteProfile, "from_taste", return_value=TasteProfile()),
             patch.object(
-                feed_mod.s3_svc,
+                s3_svc,
                 "create_download_presigned_url",
                 side_effect=lambda k: f"https://x/{k}",
             ),
