@@ -20,6 +20,7 @@ from apps.supports.serializers import (
 from apps.supports.services import (
     create_faq_feedback,
     create_inquiry,
+    delete_my_inquiry,
     get_faq_categories,
     get_faq_detail,
     get_faqs_by_category,
@@ -126,7 +127,7 @@ class InquiryListCreateView(APIView):
 
 
 class InquiryDetailView(APIView):
-    """GET /api/v1/supports/inquiries/{inquiry_id} — 내 문의 상세 + 답변"""
+    """GET/DELETE /api/v1/supports/inquiries/{inquiry_id} — 내 문의 상세 + 답변 / 삭제"""
 
     permission_classes = [IsAuthenticated]
 
@@ -137,6 +138,15 @@ class InquiryDetailView(APIView):
     )
     def get(self, request: Request, inquiry_id: str) -> Response:
         return Response(get_my_inquiry_detail(inquiry_id, cast(User, request.user)))
+
+    @extend_schema(
+        tags=["고객센터"],
+        summary="내 문의 삭제 (미답변 상태에서만)",
+        responses={204: None},
+    )
+    def delete(self, request: Request, inquiry_id: str) -> Response:
+        delete_my_inquiry(inquiry_id, cast(User, request.user))
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class InquiryPresignedUrlView(PresignedUrlView):

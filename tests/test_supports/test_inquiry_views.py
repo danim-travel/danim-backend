@@ -183,6 +183,84 @@ class TestInquiryDetail:
         assert response.status_code == 404
 
 
+class TestInquiryDelete:
+    def test_pending_inquiry_deleted(self, api_client, user, inquiry):
+        api_client.force_authenticate(user=user)
+
+        response = api_client.delete(
+            reverse("supports:inquiry_detail", args=[inquiry.id])
+        )
+
+        assert response.status_code == 204
+        assert not Inquiry.objects.filter(id=inquiry.id).exists()
+
+    def test_answered_inquiry_cannot_be_deleted(
+        self, api_client, user, inquiry, django_capture_on_commit_callbacks
+    ):
+        """답변 후 삭제를 허용하면 운영 처리 이력이 사라진다."""
+        with patch("apps.supports.signals.signal.notify_inquiry_answered_task.delay"):
+            with django_capture_on_commit_callbacks(execute=True):
+                InquiryAnswer.objects.create(inquiry=inquiry, content="답변")
+        api_client.force_authenticate(user=user)
+
+        response = api_client.delete(
+            reverse("supports:inquiry_detail", args=[inquiry.id])
+        )
+
+        assert response.status_code == 409
+        assert Inquiry.objects.filter(id=inquiry.id).exists()
+
+    def test_closed_inquiry_cannot_be_deleted(self, api_client, user, inquiry):
+        """운영진이 스팸으로 종결한 건도 사용자가 되돌릴 대상이 아니다."""
+        Inquiry.objects.filter(id=inquiry.id).update(status=InquiryStatus.CLOSED)
+        api_client.force_authenticate(user=user)
+
+        response = api_client.delete(
+            reverse("supports:inquiry_detail", args=[inquiry.id])
+        )
+
+        assert response.status_code == 409
+
+    def test_others_inquiry_delete_is_404(self, api_client, other_user, inquiry):
+        api_client.force_authenticate(user=other_user)
+
+        response = api_client.delete(
+            reverse("supports:inquiry_detail", args=[inquiry.id])
+        )
+
+        assert response.status_code == 404
+        assert Inquiry.objects.filter(id=inquiry.id).exists()
+
+
+class TestAdminCloseAction:
+    def test_closes_only_unanswered(
+        self, inquiry, user, django_capture_on_commit_callbacks
+    ):
+        """답변이 달린 문의를 CLOSED로 덮으면 처리 이력이 흐려진다."""
+        from django.contrib.admin.sites import AdminSite
+        from django.test import RequestFactory
+
+        from apps.supports.admin import InquiryAdmin
+
+        answered = Inquiry.objects.create(
+            user=user, category="ETC", title="답변된 문의", content="내용"
+        )
+        with patch("apps.supports.signals.signal.notify_inquiry_answered_task.delay"):
+            with django_capture_on_commit_callbacks(execute=True):
+                InquiryAnswer.objects.create(inquiry=answered, content="답변")
+
+        admin_obj = InquiryAdmin(Inquiry, AdminSite())
+        request = RequestFactory().post("/")
+        request.user = user
+        with patch.object(admin_obj, "message_user"):
+            admin_obj.close_inquiries(request, Inquiry.objects.all())
+
+        inquiry.refresh_from_db()
+        answered.refresh_from_db()
+        assert inquiry.status == InquiryStatus.CLOSED
+        assert answered.status == InquiryStatus.ANSWERED
+
+
 class TestAnswerSideEffects:
     def test_answer_marks_answered_and_schedules_notification(
         self, inquiry, django_capture_on_commit_callbacks

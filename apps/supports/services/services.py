@@ -11,8 +11,8 @@ from typing import Any, cast
 from django.core.cache import cache
 from django.db.models import QuerySet
 
-from apps.core.exceptions.exception import NotFoundException
-from apps.supports.models import FAQ, FAQCategory, FAQFeedback, Inquiry
+from apps.core.exceptions.exception import ConflictException, NotFoundException
+from apps.supports.models import FAQ, FAQCategory, FAQFeedback, Inquiry, InquiryStatus
 from apps.supports.serializers import (
     FAQCategorySerializer,
     FAQDetailSerializer,
@@ -119,6 +119,29 @@ def get_my_inquiry_detail(inquiry_id: str, user: User) -> dict[str, Any]:
     if inquiry is None:
         raise NotFoundException("존재하지 않는 문의입니다.")
     return dict(InquiryDetailSerializer(inquiry).data)
+
+
+def delete_my_inquiry(inquiry_id: str, user: User) -> None:
+    """내 문의 삭제.
+
+    기능: 잘못 올렸거나 개인정보를 적어 지우고 싶은 경우를 위한 경로다. 수정은
+        제공하지 않는다 — 운영진이 이미 읽고 처리 중인 문의의 본문이 바뀌면
+        답변과 질문이 어긋난다. 지우고 다시 쓰는 편이 명확하다.
+    조건: 본인 문의이면서 아직 PENDING일 때만 지울 수 있다. 상태로 판정하는 이유는
+        운영진이 스팸을 답변 없이 CLOSED로 정리한 건도 이미 분류가 끝난 것이라
+        사용자가 되돌릴 대상이 아니기 때문이다.
+    예외: 남의 문의는 404(get_my_inquiry_detail과 같은 이유), 이미 처리된 문의는 409.
+
+    첨부 이미지(S3 객체)는 함께 지우지 않는다 — 이 프로젝트의 어느 도메인도
+    레코드 삭제 시 S3 객체를 지우지 않으며(수명주기 정책 영역), 문의만 예외로
+    두면 동작이 불규칙해진다.
+    """
+    inquiry = Inquiry.objects.filter(id=inquiry_id, user=user).first()
+    if inquiry is None:
+        raise NotFoundException("존재하지 않는 문의입니다.")
+    if inquiry.status != InquiryStatus.PENDING:
+        raise ConflictException("이미 처리된 문의는 삭제할 수 없습니다.")
+    inquiry.delete()
 
 
 def invalidate_faq_cache() -> None:

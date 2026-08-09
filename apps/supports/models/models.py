@@ -56,9 +56,17 @@ class InquiryCategory(models.TextChoices):
 
 
 class InquiryStatus(models.TextChoices):
+    """PENDING → ANSWERED는 답변 저장 시 자동 전이(signals/signal.py).
+
+    CLOSED는 자동 전이가 없다. 사용자가 답변에 재질문하는 경로가 없어 "답변 후
+    일정 기간 경과"로 상태가 달라질 이유가 없기 때문이다. 대신 스팸·중복처럼
+    **답변할 가치가 없는 문의를 답변 없이 종결**하는 운영 수단으로 쓴다
+    (admin의 '선택한 문의를 종결 처리' 액션).
+    """
+
     PENDING = "PENDING", "접수"
     ANSWERED = "ANSWERED", "답변 완료"
-    CLOSED = "CLOSED", "종료"
+    CLOSED = "CLOSED", "종결"
 
 
 class FAQFeedback(BaseModel):

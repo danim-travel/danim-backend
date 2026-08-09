@@ -3,6 +3,7 @@ from typing import Any
 from django.contrib import admin
 from django.db.models import Count, QuerySet
 from django.http import HttpRequest
+from django.utils import timezone
 from django.utils.html import format_html
 
 from apps.supports.models import (
@@ -147,6 +148,7 @@ class InquiryAdmin(admin.ModelAdmin):
     ordering = ("-created_at",)
     list_select_related = ("user",)
     inlines = [InquiryAnswerInline]
+    actions = ["close_inquiries"]
     # 문의 본문은 사용자가 쓴 것이라 운영진이 고칠 수 없어야 한다. status는 CLOSED
     # 정리를 위해 남겨 둔다.
     readonly_fields = ("user", "category", "title", "content", "image_key", "created_at")
@@ -161,6 +163,22 @@ class InquiryAdmin(admin.ModelAdmin):
             _STATUS_COLORS.get(obj.status, "#5f6368"),
             obj.get_status_display(),
         )
+
+    @admin.action(description="선택한 문의를 종결 처리 (답변 없이 닫기)")
+    def close_inquiries(self, request: HttpRequest, queryset: QuerySet) -> None:
+        """스팸·중복처럼 답변할 가치가 없는 문의를 일괄 종결한다.
+
+        답변이 달린 문의는 제외한다 — ANSWERED를 CLOSED로 덮으면 "답변했다"는
+        사실이 목록에서 사라져 처리 이력이 흐려진다. queryset.update는 auto_now를
+        건너뛰므로 updated_at을 명시한다.
+        """
+        target = queryset.filter(answer__isnull=True).exclude(status=InquiryStatus.CLOSED)
+        updated = target.update(status=InquiryStatus.CLOSED, updated_at=timezone.now())
+        skipped = queryset.count() - updated
+        message = f"{updated}건을 종결 처리했습니다."
+        if skipped:
+            message += f" ({skipped}건은 이미 답변·종결된 문의라 제외)"
+        self.message_user(request, message)
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         # 문의는 사용자가 API로만 만든다.
