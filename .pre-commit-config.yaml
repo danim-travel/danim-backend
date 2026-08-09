@@ -31,9 +31,13 @@ repos:
         additional_dependencies:
           - python-ulid
           - django==6.0.5
-          - django-stubs==6.0.4
+          # [compatible-mypy] extra 는 스텁이 요구하는 mypy 버전 제약을 활성화한다.
+          # 없으면 rev 와 스텁 버전이 어긋나도 pip 이 조용히 설치하고, 실제 실행 때
+          # mypy 가 INTERNAL ERROR 로 죽는다(이 PR 이 고친 장애). 붙여두면 훅 설치
+          # 시점에 의존성 충돌로 즉시 실패해 원인이 바로 드러난다.
+          - django-stubs[compatible-mypy]==6.0.4
           - django-stubs-ext==6.0.4
-          - djangorestframework-stubs==3.17.0
+          - djangorestframework-stubs[compatible-mypy]==3.17.0
           - django-environ
           - daphne
           - channels
