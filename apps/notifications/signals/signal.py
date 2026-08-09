@@ -19,7 +19,8 @@ def on_created_comment(sender, instance, created, **kwargs):
                 sender_id=instance.user_id,
                 noti_type="comment",
                 target_id=instance.post_id,
-            )
+            ),
+            robust=True,
         )
 
 
@@ -32,7 +33,8 @@ def on_created_comment_like(sender, instance, created, **kwargs):
                 sender_id=instance.user_id,
                 noti_type="comment_like",
                 target_id=instance.comment.post_id,
-            )
+            ),
+            robust=True,
         )
 
 
@@ -45,7 +47,8 @@ def on_created_post_like(sender, instance, created, **kwargs):
                 sender_id=instance.user_id,
                 noti_type="post_like",
                 target_id=instance.post_id,
-            )
+            ),
+            robust=True,
         )
 
 
@@ -58,7 +61,8 @@ def on_created_follow(sender, instance, created, **kwargs):
                 sender_id=instance.follower_id,
                 noti_type="follow",
                 target_id=instance.follower_id,
-            )
+            ),
+            robust=True,
         )
 
 
@@ -77,5 +81,6 @@ def on_created_message(sender, instance, created, **kwargs):
                     sender_id=instance.sender_id,
                     noti_type="dm",
                     target_id=instance.conversation_id,
-                )
+                ),
+                robust=True,
             )

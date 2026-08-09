@@ -1,11 +1,14 @@
 from datetime import date
+from unittest.mock import patch
 
 from django.core.cache import cache
 
 from apps.comments.models import Comment
 from apps.directmessages.models import Conversation
 from apps.notifications.models import Notification
+from apps.notifications.tasks import create_notification_task
 from apps.notifications.utils import create_notification
+from apps.notifications.utils.create_notification import NOTI_DEDUP_TTL, create_noti
 from apps.posts.models import Post
 from apps.users.models import LoginType, User
 from tests.test_notifications.core.base import NotificationsBaseTest
@@ -207,3 +210,192 @@ class TestCreateNotification(NotificationsBaseTest):
             target_id=self.post.id,
         )
         self.assertEqual(Notification.objects.count(), 0)
+
+
+class TestCreateNotificationDedup(NotificationsBaseTest):
+    """알림 중복 생성 방지(dedup) 테스트.
+
+    좋아요/팔로우는 취소 후 재실행을 반복하면 post_save(created=True)가 매번 발화해
+    알림이 무제한 생성된다. celery worker가 큐를 소비하기 시작하면 즉시 문제가 되므로
+    TTL 안에서는 한 번만 생성되어야 한다.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.post = Post.objects.create(title="test_title", user=self.user_2)
+        self.other_post = Post.objects.create(title="other_title", user=self.user_2)
+        self._dedup_keys: list[str] = []
+
+    def tearDown(self):
+        for key in self._dedup_keys:
+            cache.delete(key)
+        cache.delete(f"user_{self.user_2.id}_unread_count")
+        super().tearDown()
+
+    def _notify(self, noti_type, target_id, sender=None):
+        sender = sender or self.user_1
+        self._dedup_keys.append(
+            f"noti:dedup:{self.user_2.id}:{sender.id}:{noti_type}:{target_id}"
+        )
+        create_notification(
+            receiver_id=self.user_2.id,
+            sender=sender,
+            noti_type=noti_type,
+            target_id=target_id,
+        )
+
+    def test_post_like_repeat_creates_single_notification(self):
+        """같은 유저가 같은 게시글에 좋아요를 반복해도 알림은 1건만 생성된다"""
+        for _ in range(5):
+            self._notify("post_like", self.post.id)
+
+        self.assertEqual(Notification.objects.count(), 1)
+        self.assertEqual(cache.get(f"user_{self.user_2.id}_unread_count"), 1)
+
+    def test_post_like_different_target_not_deduped(self):
+        """대상 게시글이 다르면 각각 알림이 생성된다"""
+        self._notify("post_like", self.post.id)
+        self._notify("post_like", self.other_post.id)
+
+        self.assertEqual(Notification.objects.count(), 2)
+
+    def test_post_like_different_sender_not_deduped(self):
+        """발신자가 다르면 각각 알림이 생성된다"""
+        self._notify("post_like", self.post.id, sender=self.user_1)
+        self._notify("post_like", self.post.id, sender=self.user_3)
+
+        self.assertEqual(Notification.objects.count(), 2)
+
+    def test_follow_repeat_creates_single_notification(self):
+        """같은 유저가 팔로우를 반복해도 알림은 1건만 생성된다"""
+        for _ in range(3):
+            self._notify("follow", self.user_1.id)
+
+        self.assertEqual(Notification.objects.count(), 1)
+
+    def test_comment_not_deduped(self):
+        """댓글은 dedup 대상이 아니다.
+
+        target_id가 게시글 ID라 같은 게시글의 서로 다른 댓글이 같은 키로 뭉개진다.
+        정상 알림이 막히면 안 되므로 dedup을 적용하지 않는다.
+        """
+        self._notify("comment", self.post.id)
+        self._notify("comment", self.post.id)
+
+        self.assertEqual(Notification.objects.count(), 2)
+
+    def test_comment_like_not_deduped(self):
+        """댓글 좋아요도 같은 이유로 dedup 대상이 아니다"""
+        self._notify("comment_like", self.post.id)
+        self._notify("comment_like", self.post.id)
+
+        self.assertEqual(Notification.objects.count(), 2)
+
+    def test_dedup_key_released_after_expiry(self):
+        """TTL이 만료되면 같은 알림이 다시 생성된다"""
+        self._notify("post_like", self.post.id)
+        self.assertEqual(Notification.objects.count(), 1)
+
+        cache.delete(self._dedup_keys[0])  # TTL 만료를 대체
+        self._notify("post_like", self.post.id)
+
+        self.assertEqual(Notification.objects.count(), 2)
+
+    def test_dedup_key_is_set_with_configured_ttl(self):
+        """dedup 키가 NOTI_DEDUP_TTL 값으로 설정된다"""
+        with patch(
+            "apps.notifications.utils.create_notification.cache.add", return_value=True
+        ) as mock_add:
+            self._notify("post_like", self.post.id)
+
+        _, kwargs = mock_add.call_args
+        self.assertEqual(kwargs["timeout"], NOTI_DEDUP_TTL)
+
+    def test_different_receiver_not_deduped(self):
+        """수신자가 다르면 각각 알림이 생성된다"""
+        create_notification(
+            receiver_id=self.user_2.id,
+            sender=self.user_1,
+            noti_type="follow",
+            target_id=self.user_1.id,
+        )
+        create_notification(
+            receiver_id=self.user_3.id,
+            sender=self.user_1,
+            noti_type="follow",
+            target_id=self.user_1.id,
+        )
+        self._dedup_keys.append(
+            f"noti:dedup:{self.user_2.id}:{self.user_1.id}:follow:{self.user_1.id}"
+        )
+        self._dedup_keys.append(
+            f"noti:dedup:{self.user_3.id}:{self.user_1.id}:follow:{self.user_1.id}"
+        )
+
+        self.assertEqual(Notification.objects.count(), 2)
+
+    def test_redis_failure_passes_through(self):
+        """Redis 장애로 cache.add가 None을 반환하면 알림을 통과시킨다(fail-open)"""
+        with patch(
+            "apps.notifications.utils.create_notification.cache.add", return_value=None
+        ):
+            self._notify("post_like", self.post.id)
+            self._notify("post_like", self.post.id)
+
+        self.assertEqual(Notification.objects.count(), 2)
+
+    def test_dedup_key_released_when_creation_fails(self):
+        """생성 실패 시 선점한 키를 해제해 재시도가 정상 진행된다.
+
+        키를 해제하지 않으면 celery 재시도(countdown 1·2·4초)가 전부 TTL 30초 안에
+        들어와 중복으로 오인되고, 예외 없이 return하므로 태스크가 성공으로 기록되어
+        알림이 영구 유실된다.
+        """
+        with patch(
+            "apps.notifications.utils.create_notification.create_noti",
+            side_effect=RuntimeError("일시 DB 오류"),
+        ):
+            with self.assertRaises(RuntimeError):
+                self._notify("post_like", self.post.id)
+
+        self.assertIsNone(cache.get(self._dedup_keys[0]))
+
+        self._notify("post_like", self.post.id)
+        self.assertEqual(Notification.objects.count(), 1)
+
+    def test_task_retry_creates_notification_after_transient_failure(self):
+        """일시 장애로 재시도된 태스크가 결국 알림을 생성한다.
+
+        eager 실행(`.apply()`)에서도 celery는 재시도를 실제로 재실행하므로
+        (`retval.sig.apply(retries + 1)`), 태스크의 "일반 예외 → self.retry" 분기와
+        보상(키 해제)이 함께 동작하는지를 한 번에 고정한다.
+        """
+        calls = {"count": 0}
+        original = create_noti
+
+        def fail_once(*args, **kwargs):
+            calls["count"] += 1
+            if calls["count"] == 1:
+                raise RuntimeError("일시 DB 오류")
+            return original(*args, **kwargs)
+
+        self._dedup_keys.append(
+            f"noti:dedup:{self.user_2.id}:{self.user_1.id}:post_like:{self.post.id}"
+        )
+        with patch(
+            "apps.notifications.utils.create_notification.create_noti",
+            side_effect=fail_once,
+        ):
+            result = create_notification_task.apply(
+                kwargs={
+                    "receiver_id": self.user_2.id,
+                    "sender_id": self.user_1.id,
+                    "noti_type": "post_like",
+                    "target_id": self.post.id,
+                }
+            )
+
+        # 1회차 실패 → celery가 재시도 → 2회차 성공
+        self.assertTrue(result.successful())
+        self.assertEqual(calls["count"], 2)
+        self.assertEqual(Notification.objects.count(), 1)

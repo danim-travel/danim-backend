@@ -43,7 +43,7 @@ services:
 
   celery-worker:
     build: .
-    command: uv run celery -A config worker -l info
+    command: uv run celery -A config worker -l info --pool=solo
     volumes:
       - .:/app
       - venv:/app/.venv
