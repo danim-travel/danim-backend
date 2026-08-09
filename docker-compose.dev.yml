@@ -36,7 +36,7 @@ services:
   # 뒤에야 재배달된다. 그런 작업은 별도 큐(-Q)와 워커로 분리할 것.
   celery-worker:
     image: kochanyeol/danim-backend:dev
-    command: uv run celery -A config worker -l info --pool=solo
+    command: uv run --no-sync celery -A config worker -l info --pool=solo
     env_file:
       - envs/.env.dev
     environment:
@@ -51,7 +51,7 @@ services:
   # CELERY_BEAT_SCHEDULE(매일 03:00 오래된 알림 정리)를 도는 스케줄러. beat 는 가볍다.
   celery-beat:
     image: kochanyeol/danim-backend:dev
-    command: uv run celery -A config beat -l info
+    command: uv run --no-sync celery -A config beat -l info
     env_file:
       - envs/.env.dev
     environment:
