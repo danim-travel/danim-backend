@@ -6,6 +6,7 @@ from django.core.cache import cache
 from apps.comments.models import Comment
 from apps.directmessages.models import Conversation
 from apps.notifications.models import Notification
+from apps.notifications.tasks import create_notification_task
 from apps.notifications.utils import create_notification
 from apps.notifications.utils.create_notification import NOTI_DEDUP_TTL, create_noti
 from apps.posts.models import Post
@@ -363,7 +364,12 @@ class TestCreateNotificationDedup(NotificationsBaseTest):
         self.assertEqual(Notification.objects.count(), 1)
 
     def test_task_retry_creates_notification_after_transient_failure(self):
-        """일시 장애로 재시도된 태스크가 결국 알림을 생성한다"""
+        """일시 장애로 재시도된 태스크가 결국 알림을 생성한다.
+
+        eager 실행(`.apply()`)에서도 celery는 재시도를 실제로 재실행하므로
+        (`retval.sig.apply(retries + 1)`), 태스크의 "일반 예외 → self.retry" 분기와
+        보상(키 해제)이 함께 동작하는지를 한 번에 고정한다.
+        """
         calls = {"count": 0}
         original = create_noti
 
@@ -380,20 +386,16 @@ class TestCreateNotificationDedup(NotificationsBaseTest):
             "apps.notifications.utils.create_notification.create_noti",
             side_effect=fail_once,
         ):
-            with self.assertRaises(RuntimeError):
-                create_notification(
-                    receiver_id=self.user_2.id,
-                    sender=self.user_1,
-                    noti_type="post_like",
-                    target_id=self.post.id,
-                )
-            # celery 재시도에 해당 — 키가 해제돼 있어야 통과한다
-            create_notification(
-                receiver_id=self.user_2.id,
-                sender=self.user_1,
-                noti_type="post_like",
-                target_id=self.post.id,
+            result = create_notification_task.apply(
+                kwargs={
+                    "receiver_id": self.user_2.id,
+                    "sender_id": self.user_1.id,
+                    "noti_type": "post_like",
+                    "target_id": self.post.id,
+                }
             )
 
+        # 1회차 실패 → celery가 재시도 → 2회차 성공
+        self.assertTrue(result.successful())
         self.assertEqual(calls["count"], 2)
         self.assertEqual(Notification.objects.count(), 1)

@@ -6,7 +6,6 @@ from apps.core.exceptions.exception import (
     ValidationException,
 )
 from apps.follows.models.models import Follows
-from apps.notifications.utils import create_notification
 from apps.users.models import User
 
 

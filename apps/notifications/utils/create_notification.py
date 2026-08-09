@@ -15,6 +15,9 @@ logger = logging.getLogger(__name__)
 
 CACHE_UNREAD_TIMEOUT = 60 * 60 * 24  # 24시간
 
+# 반드시 kombu visibility_timeout(기본 3600초)보다 작아야 한다. 선점 후 생성 전에 워커가
+# 죽으면(mem_limit OOM-kill을 상정한 구성) 보상(cache.delete)이 돌지 못하고 태스크 재배달로만
+# 복구되는데, TTL이 그보다 길면 재배달된 태스크가 살아있는 키에 막혀 알림이 유실된다.
 NOTI_DEDUP_TTL = 30
 
 # dedup 키는 target_id로 행위 대상을 식별하는데, target_id는 "알림 클릭 시 이동할 위치"
@@ -110,6 +113,13 @@ def create_noti(
     target_type: str,
     msg: str,
 ) -> None:
+    """알림 행을 만들고 미읽음 카운트·캐시·웹소켓 푸시를 갱신한다.
+
+    계약: **커밋 이후 구간(캐시 증감, 웹소켓 푸시)의 예외를 밖으로 내보내지 않는다.**
+        create_notification의 보상 로직이 "예외가 나왔다 = 커밋된 것이 없다"를 전제로
+        dedup 키를 해제하기 때문이다. 아래 try/except를 걷어내 푸시 실패를 드러내면,
+        이미 생성된 알림에 대해 키가 풀려 재시도가 중복 알림을 만든다.
+    """
     try:
         with transaction.atomic():
             Notification.objects.create(
