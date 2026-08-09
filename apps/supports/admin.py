@@ -15,7 +15,9 @@ from apps.supports.models import (
     InquiryStatus,
 )
 
-_STATUS_COLORS = {
+# 키를 str로 고정한다 — Inquiry.status는 CharField라 런타임 값이 평범한 str이고,
+# dict를 InquiryStatus로 좁히면 .get(obj.status, ...) 조회가 타입에서 어긋난다.
+_STATUS_COLORS: dict[str, str] = {
     InquiryStatus.PENDING: "#d93025",
     InquiryStatus.ANSWERED: "#188038",
     InquiryStatus.CLOSED: "#5f6368",

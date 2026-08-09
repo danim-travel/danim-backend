@@ -56,7 +56,8 @@ class InquiryCreateSerializer(serializers.ModelSerializer):
         fields = ["category", "title", "content", "image_key"]
 
     def validate_image_key(self, value: str | None) -> str | None:
-        if value in (None, ""):
+        # `value in (None, "")`로 쓰면 mypy가 str로 좁히지 못해 아래 호출이 걸린다.
+        if not value:
             return None
         return validate_attach_key(value, CategoryEnum.INQUIRY)
 

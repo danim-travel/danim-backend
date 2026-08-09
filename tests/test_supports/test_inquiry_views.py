@@ -99,7 +99,7 @@ class TestInquiryCreate:
             action=ActionEnum.UPLOAD,
             category=CategoryEnum.INQUIRY,
             suffix=SuffixEnum.NONE,
-            extension="jpg",
+            extension=".jpg",
         )
 
         response = api_client.post(
@@ -128,7 +128,7 @@ class TestInquiryCreate:
             action=ActionEnum.UPLOAD,
             category=CategoryEnum.DM,
             suffix=SuffixEnum.NONE,
-            extension="jpg",
+            extension=".jpg",
         )
         # 그 key가 DM 카테고리로는 유효하다는 것을 먼저 고정한다 — 아래 400이
         # 형식 문제가 아니라 카테고리 문제임을 보장한다.
