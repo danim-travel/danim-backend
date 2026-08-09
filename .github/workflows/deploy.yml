@@ -77,7 +77,7 @@ jobs:
             docker compose -f docker-compose.prod.yml down
             docker compose -f docker-compose.prod.yml up -d
             sleep 10
-            docker compose -f docker-compose.prod.yml exec -T django uv run python manage.py migrate
+            docker compose -f docker-compose.prod.yml exec -T django uv run --no-sync python manage.py migrate
             docker image prune -f
 
       - name: Close SSH port

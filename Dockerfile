@@ -24,4 +24,7 @@ RUN SECRET_KEY=build-only \
 
 EXPOSE 8000
 
-CMD ["uv", "run", "daphne", "-b", "0.0.0.0", "-p", "8000", "config.asgi:application"]
+# --no-sync 필수 — 없으면 uv run이 부팅 때마다 dev 그룹(torch ~1.5GB 포함)까지
+# 컨테이너 레이어에 재설치한다. 파이썬 컨테이너가 3개(django/worker/beat)가 되면서
+# 이 재설치가 동시에 3번 일어나 dev 서버 디스크가 고갈됐던 장애(2026-08-09)의 원인.
+CMD ["uv", "run", "--no-sync", "daphne", "-b", "0.0.0.0", "-p", "8000", "config.asgi:application"]
