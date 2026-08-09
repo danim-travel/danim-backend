@@ -3,6 +3,10 @@ from apps.supports.serializers.serializers import (
     FAQDetailSerializer,
     FAQFeedbackSerializer,
     FAQListSerializer,
+    InquiryAnswerSerializer,
+    InquiryCreateSerializer,
+    InquiryDetailSerializer,
+    InquiryListSerializer,
 )
 
 __all__ = [
@@ -10,4 +14,8 @@ __all__ = [
     "FAQDetailSerializer",
     "FAQFeedbackSerializer",
     "FAQListSerializer",
+    "InquiryAnswerSerializer",
+    "InquiryCreateSerializer",
+    "InquiryDetailSerializer",
+    "InquiryListSerializer",
 ]

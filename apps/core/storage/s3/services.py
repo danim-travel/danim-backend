@@ -16,6 +16,7 @@ class CategoryEnum(StrEnum):
     USER = "user"
     COMMENT = "comment"
     DM = "dm"
+    INQUIRY = "inquiry"
 
 
 class SuffixEnum(StrEnum):

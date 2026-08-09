@@ -9,13 +9,15 @@
 from typing import Any, cast
 
 from django.core.cache import cache
+from django.db.models import QuerySet
 
 from apps.core.exceptions.exception import NotFoundException
-from apps.supports.models import FAQ, FAQCategory, FAQFeedback
+from apps.supports.models import FAQ, FAQCategory, FAQFeedback, Inquiry
 from apps.supports.serializers import (
     FAQCategorySerializer,
     FAQDetailSerializer,
     FAQListSerializer,
+    InquiryDetailSerializer,
 )
 from apps.users.models import User
 
@@ -91,6 +93,32 @@ def create_faq_feedback(faq_id: str, is_helpful: bool, user: User | None) -> Non
         )
     else:
         FAQFeedback.objects.create(faq_id=faq_id, is_helpful=is_helpful, user=None)
+
+
+def create_inquiry(user: User, validated_data: dict[str, Any]) -> Inquiry:
+    """1:1 문의 등록. 상태는 모델 기본값(PENDING)에서 시작한다."""
+    return Inquiry.objects.create(user=user, **validated_data)
+
+
+def get_my_inquiries(user: User) -> QuerySet[Inquiry]:
+    """내 문의 목록. 캐시하지 않는다 — 사용자별 데이터라 적중률이 낮고,
+    답변 직후 목록에 옛 상태가 보이면 알림과 화면이 어긋난다.
+    """
+    return Inquiry.objects.filter(user=user)
+
+
+def get_my_inquiry_detail(inquiry_id: str, user: User) -> dict[str, Any]:
+    """내 문의 상세 + 답변.
+
+    조건: 본인 문의만 조회할 수 있다. 남의 문의는 403이 아니라 404로 응답한다 —
+        403은 "그 ID의 문의가 존재한다"를 알려줘 ID 대입으로 존재 여부를 캐낼 수 있다.
+    """
+    inquiry = (
+        Inquiry.objects.filter(id=inquiry_id, user=user).select_related("answer").first()
+    )
+    if inquiry is None:
+        raise NotFoundException("존재하지 않는 문의입니다.")
+    return dict(InquiryDetailSerializer(inquiry).data)
 
 
 def invalidate_faq_cache() -> None:

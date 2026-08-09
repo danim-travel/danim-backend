@@ -10,6 +10,7 @@ class TargetChoices(models.TextChoices):
     USER = "user"
     POST = "post"
     DM = "dm"
+    INQUIRY = "inquiry"
 
 
 class NotificationType(models.TextChoices):
@@ -20,6 +21,9 @@ class NotificationType(models.TextChoices):
     COMMENT_LIKE = "comment_like"
     POST_LIKE = "post_like"
     DM = "dm"
+    # 운영진 답변 알림. 다른 종류와 달리 sender가 없다(시스템 발신) — 자세한 이유는
+    # apps/supports/tasks.py 참고.
+    INQUIRY_ANSWERED = "inquiry_answered"
 
 
 class Notification(BaseModel):

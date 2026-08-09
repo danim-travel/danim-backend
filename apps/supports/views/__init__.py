@@ -3,6 +3,9 @@ from apps.supports.views.views import (
     FAQDetailView,
     FAQFeedbackView,
     FAQListView,
+    InquiryDetailView,
+    InquiryListCreateView,
+    InquiryPresignedUrlView,
 )
 
 __all__ = [
@@ -10,4 +13,7 @@ __all__ = [
     "FAQDetailView",
     "FAQFeedbackView",
     "FAQListView",
+    "InquiryDetailView",
+    "InquiryListCreateView",
+    "InquiryPresignedUrlView",
 ]

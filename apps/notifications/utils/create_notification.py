@@ -106,7 +106,7 @@ def _reserve_dedup_key(dedup_key: str) -> bool:
 
 
 def create_noti(
-    sender: User,
+    sender: User | None,
     receiver_id: str,
     noti_type: str,
     target_id: str,
@@ -119,6 +119,11 @@ def create_noti(
         create_notification의 보상 로직이 "예외가 나왔다 = 커밋된 것이 없다"를 전제로
         dedup 키를 해제하기 때문이다. 아래 try/except를 걷어내 푸시 실패를 드러내면,
         이미 생성된 알림에 대해 키가 풀려 재시도가 중복 알림을 만든다.
+
+    sender가 None이면 시스템 발신 알림이다(문의 답변 등). Notification.sender는
+    이미 null 허용이라 저장 자체는 원래 가능했고, 여기서는 타입만 실제와 맞춘다.
+    사용자 간 알림은 create_notification을 거치고, 이 함수를 직접 부르는 쪽은
+    차단 게이트·dedup·닉네임 포맷이 필요 없는 시스템 알림 경로다.
     """
     try:
         with transaction.atomic():
