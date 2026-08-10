@@ -160,7 +160,11 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-.env
+# 루트에도 같은 이유로 패턴을 쓴다 — `.env`만으로는 .env.prod / .env.local 같은
+# 파생 파일이 그대로 커밋 가능하다. 시스템이 만드는 env는 전부 envs/ 아래지만
+# 수동 생성분까지 덮는다. (부정 패턴은 반드시 뒤에 와야 효과가 있다)
+.env*
+!.env.example
 
 # Spyder project settings
 .spyderproject

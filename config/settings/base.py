@@ -129,6 +129,13 @@ SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 
+# HSTS는 Django가 아니라 nginx에서 내려준다(nginx/nginx.conf·nginx.dev.conf).
+# 여기서 SECURE_HSTS_SECONDS를 켜면 Django와 nginx가 각각 헤더를 붙여 중복이 되고,
+# 브라우저는 먼저 오는 값(upstream인 Django 쪽)을 채택해 nginx에 적어둔 정책이
+# 조용히 무력화된다(RFC 6797 §8.1). 값을 바꾸려면 nginx 설정을 고칠 것.
+# check --deploy의 security.W004는 이 결정에 따른 것이라 침묵시킨다.
+SILENCED_SYSTEM_CHECKS = ["security.W004"]
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "apps.core.authentication.JWTAuthenticationNoWWW",
