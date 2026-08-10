@@ -20,6 +20,12 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-groups
 
+      # pre-commit 훅은 uv.lock 을 읽지 못해 설정 파일에 적힌 값으로 설치한다.
+      # 두 파일이 따로 관리되므로 uv lock 이 돌 때마다 어긋날 수 있어 자동으로 대조한다.
+      # Django settings 를 임포트하지 않으므로 env 블록이 필요 없다(실행 1초 미만).
+      - name: 훅 설정 ↔ uv.lock 정합 검사
+        run: uv run python scripts/check_hook_pins.py
+
       - name: black
         run: uv run black --check .
 

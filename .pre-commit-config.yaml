@@ -25,6 +25,12 @@ repos:
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     # mypy 공식 레포
+    #
+    # 주의: 이 훅은 CI 의 `uv run mypy .` 와 같은 검사가 아니라 축소판이다.
+    #   - mirrors-mypy 기본 args 가 `--ignore-missing-imports` 라 스텁 없는 임포트를 넘긴다
+    #   - 변경된 파일만 검사한다(CI 는 트리 전체)
+    #   - 이 환경에 pytest·torch 계열이 없어 tests/ 가 사실상 Any 로 통과한다
+    # 따라서 "훅 통과 = CI 통과" 가 아니다. 최종 게이트는 CI 다.
     rev: v1.13.0
     hooks:
       - id: mypy
@@ -62,7 +68,10 @@ repos:
           - boto3-stubs[s3]==1.43.16
           - mypy-boto3-s3==1.43.14
           - Pillow
-          - pgvector
+          # 0.x 라 마이너 변경이 파괴적일 수 있고, 모델이 직접 임포트한다
+          # (apps/posts/models/rec_models.py 의 VectorField) — 메이저 갈림은 아니지만
+          # 같은 이유로 고정한다.
+          - pgvector==0.4.2
           - httpx
           - sentry-sdk
           - celery
