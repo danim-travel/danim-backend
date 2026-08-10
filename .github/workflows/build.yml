@@ -5,6 +5,12 @@ on:
     branches: [main]
 
 jobs:
+  # conf 문법 오류는 배포 후 nginx가 뜨지 못해 전면 장애가 되고 자동 롤백이 없다.
+  # main에 브랜치 보호가 없어 PR을 거치지 않은 push가 그대로 배포되므로,
+  # PR CI뿐 아니라 이 경로에도 같은 게이트를 둔다.
+  nginx:
+    uses: ./.github/workflows/nginx-check.yml
+
   lint:
     runs-on: ubuntu-latest
 
@@ -87,7 +93,7 @@ jobs:
           if [ $exit_code -eq 5 ]; then exit 0; else exit $exit_code; fi
 
   build:
-    needs: [lint, test]
+    needs: [nginx, lint, test]
     runs-on: ubuntu-latest
 
     steps:

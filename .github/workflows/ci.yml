@@ -100,3 +100,8 @@ jobs:
           exit_code=$?
           set -e
           if [ $exit_code -eq 5 ]; then exit 0; else exit $exit_code; fi
+
+  # 배포 경로(build.yml·build-dev.yml)에서도 같은 검사를 호출한다 — 상세 근거는
+  # nginx-check.yml 헤더 참고.
+  nginx:
+    uses: ./.github/workflows/nginx-check.yml
