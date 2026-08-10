@@ -2,6 +2,7 @@ from typing import Any, cast
 
 from django.contrib import admin
 from django.core.exceptions import ValidationError
+from django.db import connection, transaction
 from django.db.models import Count, Field, QuerySet
 from django.http import HttpRequest
 from django.utils import timezone
@@ -171,6 +172,42 @@ class InquiryAdmin(admin.ModelAdmin):
     def get_queryset(self, request: HttpRequest) -> QuerySet[Inquiry]:
         return super().get_queryset(request).select_related("answer")
 
+    def save_model(
+        self, request: HttpRequest, obj: Inquiry, form: Any, change: bool
+    ) -> None:
+        """기존 문의 행은 admin에서 저장하지 않는다 — 2차 방어.
+
+        아래 get_object의 잠금이 부활 경로를 막지만, 그 방어는 **get_object를 지나는
+        요청에만** 걸린다. `list_editable`이 추가되면 changelist POST가 get_object를
+        거치지 않고 바로 save_model로 오므로 방어가 통째로 사라진다. 같은 파일의
+        FAQCategoryAdmin·FAQAdmin이 이미 list_editable을 쓰고 있어 충분히 일어날 수
+        있는 변경이다. 여기서 한 번 더 막으면 그 변경에 면역이 된다.
+
+        건너뛰어도 잃는 것이 없다: 이 화면의 Inquiry 필드는 전부 readonly라 change
+        저장은 실질적으로 no-op이고, 상태 전이는 답변 저장(signal)과 종결 액션의
+        `queryset.update()`가 담당한다. 둘 다 이 경로를 지나지 않는다.
+
+        ⚠ 나중에 편집 가능한 Inquiry 필드가 생기면 그 수정이 조용히 사라진다.
+          `test_all_inquiry_fields_are_readonly`가 그때 깨져 이 주석으로 데려온다.
+        """
+        if not change:
+            super().save_model(request, obj, form, change)
+
+    def delete_queryset(self, request: HttpRequest, queryset: QuerySet) -> None:
+        """일괄 삭제도 대상 행을 먼저 잠근다.
+
+        `delete_selected`는 changelist에서 실행되는데 `changelist_view`는 atomic이
+        아니라(원본 확인) 여기서 트랜잭션을 직접 연다. 잠그지 않으면 운영자 둘이 같은
+        문의를 동시에 건드릴 때 COMMIT 시 IntegrityError가 난다 — Collector.delete()가
+        atomic이라 부분 삭제 없이 전체 롤백되므로 조용한 소실은 아니지만, 사용자
+        삭제와 순서를 맞추면 애초에 나지 않는다.
+        """
+        with transaction.atomic():
+            locked = Inquiry.objects.select_for_update(of=("self",)).filter(
+                pk__in=list(queryset.values_list("pk", flat=True))
+            )
+            super().delete_queryset(request, locked)
+
     def get_object(
         self, request: HttpRequest, object_id: str, from_field: str | None = None
     ) -> Inquiry | None:
@@ -191,11 +228,15 @@ class InquiryAdmin(admin.ModelAdmin):
         GET/HEAD/OPTIONS/TRACE를 **transaction.atomic 밖에서** 처리하므로, 조회에도
         잠그면 `TransactionManagementError`가 난다.
 
+        `in_atomic_block` 가드도 함께 둔다 — `get_object` 호출부 셋 중 `history_view`만
+        atomic 밖이라, 그 URL로 POST가 들어오면 method 가드를 통과해 500이 난다.
+        도달 확률은 낮지만(UI에 그 경로가 없다) 조건 하나로 닫힌다.
+
         `of=("self",)`도 필수다 — 위 get_queryset의 `select_related("answer")`가
         역방향 OneToOne이라 LEFT OUTER JOIN을 만드는데, PostgreSQL은 outer join의
         nullable 쪽에 FOR UPDATE를 걸 수 없다. 잠글 대상을 문의 행으로 한정한다.
         """
-        if request.method != "POST":
+        if request.method != "POST" or not connection.in_atomic_block:
             return super().get_object(request, object_id, from_field)
 
         queryset = self.get_queryset(request).select_for_update(of=("self",))
@@ -251,9 +292,12 @@ class InquiryAdmin(admin.ModelAdmin):
         사실이 목록에서 사라져 처리 이력이 흐려진다. queryset.update는 auto_now를
         건너뛰므로 updated_at을 명시한다.
         """
+        # 선택 건수를 update **이전에** 센다. update 이후에 세면 queryset이 다시
+        # 평가되면서 방금 CLOSED로 바뀐 행이 필터에서 빠져 skipped가 음수가 된다.
+        selected = queryset.count()
         target = queryset.filter(answer__isnull=True).exclude(status=InquiryStatus.CLOSED)
         updated = target.update(status=InquiryStatus.CLOSED, updated_at=timezone.now())
-        skipped = queryset.count() - updated
+        skipped = selected - updated
         message = f"{updated}건을 종결 처리했습니다."
         if skipped:
             message += f" ({skipped}건은 이미 답변·종결된 문의라 제외)"

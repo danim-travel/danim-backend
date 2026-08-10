@@ -324,6 +324,65 @@ class TestAdminCloseAction:
         assert inquiry.status == InquiryStatus.CLOSED
         assert answered.status == InquiryStatus.ANSWERED
 
+    def test_action_requires_change_permission(self, user):
+        """액션에 permissions가 없으면 Django가 무조건 통과시킨다.
+
+        changelist는 view 권한만으로 열리므로, 게이트가 없으면 조회 권한만 가진
+        스태프가 문의 상태를 바꿀 수 있다(1차 리뷰 MEDIUM). 액션 함수를 직접 부르는
+        테스트는 이 계층을 통째로 건너뛰므로, Django의 필터(get_actions)로 검증한다.
+        """
+        from django.contrib.admin.sites import AdminSite
+        from django.contrib.auth.models import Permission
+        from django.test import RequestFactory
+
+        from apps.supports.admin import InquiryAdmin
+
+        admin_obj = InquiryAdmin(Inquiry, AdminSite())
+        request = RequestFactory().get("/")
+
+        user.is_staff = True
+        user.save(update_fields=["is_staff"])
+        user.user_permissions.add(
+            Permission.objects.get(
+                codename="view_inquiry", content_type__app_label="supports"
+            )
+        )
+        request.user = User.objects.get(pk=user.pk)  # 권한 캐시 초기화
+        assert "close_inquiries" not in admin_obj.get_actions(request)
+
+        user.user_permissions.add(
+            Permission.objects.get(
+                codename="change_inquiry", content_type__app_label="supports"
+            )
+        )
+        request.user = User.objects.get(pk=user.pk)
+        assert "close_inquiries" in admin_obj.get_actions(request)
+
+
+class TestAdminRowLocking:
+    """삭제·답변 경합을 막는 행 잠금. 종결 액션과는 관심사가 달라 분리한다."""
+
+    def test_all_inquiry_fields_are_readonly(self):
+        """Inquiry 필드가 전부 readonly라는 전제를 고정한다.
+
+        `save_model`이 change 저장을 건너뛰는 2차 방어는 "저장할 내용이 없다"에
+        기대고 있다. 편집 가능한 필드가 생기면 그 수정이 조용히 사라지므로, 그때
+        이 테스트가 깨져 save_model 주석으로 데려온다.
+        """
+        from django.contrib.admin.sites import AdminSite
+
+        from apps.supports.admin import InquiryAdmin
+
+        admin_obj = InquiryAdmin(Inquiry, AdminSite())
+        editable = {f.name for f in Inquiry._meta.fields if f.editable}
+        covered = set(admin_obj.readonly_fields) | set(admin_obj.exclude or ())
+
+        assert not (editable - covered), (
+            f"편집 가능한 Inquiry 필드가 생겼습니다: {editable - covered}. "
+            "InquiryAdmin.save_model이 change 저장을 건너뛰므로 그 수정은 저장되지 "
+            "않습니다 — save_model 주석을 읽고 방어를 재설계하세요."
+        )
+
     def test_stale_save_resurrects_row(self, user, inquiry):
         """왜 admin에도 잠금이 필요한지를 고정하는 특성 테스트.
 
@@ -379,9 +438,12 @@ class TestAdminCloseAction:
         """조회(GET)는 잠그지 않는다.
 
         admin의 changeform_view는 GET/HEAD/OPTIONS/TRACE를 transaction.atomic
-        **밖에서** 처리하므로, 조회에도 select_for_update를 걸면
-        TransactionManagementError로 화면 자체가 열리지 않는다. POST 가드를
-        제거하면 이 테스트가 그 예외로 깨진다.
+        **밖에서** 처리하므로, 실제 서비스에서 조회에도 select_for_update를 걸면
+        TransactionManagementError로 화면 자체가 열리지 않는다.
+
+        다만 이 테스트가 깨지는 방식은 그 예외가 아니다 — pytest의 django_db가
+        테스트 전체를 atomic으로 감싸므로 여기서는 예외가 나지 않고, 가드를 제거하면
+        아래 "FOR UPDATE가 없어야 한다" 단언이 깨진다.
         """
         from django.contrib.admin.sites import AdminSite
         from django.db import connection
@@ -400,40 +462,6 @@ class TestAdminCloseAction:
         assert found is not None
         sqls = [q["sql"] for q in ctx.captured_queries if "inquiries" in q["sql"]]
         assert not any("FOR UPDATE" in sql for sql in sqls)
-
-    def test_action_requires_change_permission(self, user):
-        """액션에 permissions가 없으면 Django가 무조건 통과시킨다.
-
-        changelist는 view 권한만으로 열리므로, 게이트가 없으면 조회 권한만 가진
-        스태프가 문의 상태를 바꿀 수 있다(1차 리뷰 MEDIUM). 액션 함수를 직접 부르는
-        테스트는 이 계층을 통째로 건너뛰므로, Django의 필터(get_actions)로 검증한다.
-        """
-        from django.contrib.admin.sites import AdminSite
-        from django.contrib.auth.models import Permission
-        from django.test import RequestFactory
-
-        from apps.supports.admin import InquiryAdmin
-
-        admin_obj = InquiryAdmin(Inquiry, AdminSite())
-        request = RequestFactory().get("/")
-
-        user.is_staff = True
-        user.save(update_fields=["is_staff"])
-        user.user_permissions.add(
-            Permission.objects.get(
-                codename="view_inquiry", content_type__app_label="supports"
-            )
-        )
-        request.user = User.objects.get(pk=user.pk)  # 권한 캐시 초기화
-        assert "close_inquiries" not in admin_obj.get_actions(request)
-
-        user.user_permissions.add(
-            Permission.objects.get(
-                codename="change_inquiry", content_type__app_label="supports"
-            )
-        )
-        request.user = User.objects.get(pk=user.pk)
-        assert "close_inquiries" in admin_obj.get_actions(request)
 
 
 class TestAnswerSideEffects:
@@ -492,6 +520,28 @@ class TestNotifyInquiryAnsweredTask:
         notify_inquiry_answered_task(inquiry_id)
 
         assert not Notification.objects.filter(target_id=inquiry_id).exists()
+
+    def test_unregistered_system_type_raises_without_retry(self, inquiry):
+        """SYSTEM_NOTI_TYPES 미등록은 프로그래밍 오류라 재시도하지 않고 그대로 올린다.
+
+        catch-all이 3회 재시도하면 게이트를 둔 취지가 무색해지고 같은 실패만 세 번
+        쌓인다. `except ValueError: raise`를 지우면 retry가 호출돼 이 테스트가 깨진다.
+        """
+        from apps.notifications.utils.create_notification import (
+            create_system_notification,
+        )
+        from apps.supports.tasks import notify_inquiry_answered_task
+
+        with patch(
+            "apps.supports.tasks.create_system_notification",
+            side_effect=create_system_notification,
+        ) as spy:
+            spy.side_effect = ValueError("미등록 종류")
+            with patch.object(notify_inquiry_answered_task, "retry") as retry:
+                with pytest.raises(ValueError):
+                    notify_inquiry_answered_task(inquiry.id)
+
+        retry.assert_not_called()
 
     def test_notification_survives_blocked_relationship(self, inquiry, user):
         """차단 게이트를 타지 않는다 — 사용자가 요청한 답변은 사회적 관계로 막지 않는다."""
