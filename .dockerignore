@@ -6,9 +6,12 @@ __pycache__
 # 정확 매치가 아니라 패턴으로 막는다 — Dockerfile은 `COPY . .`이고 배포 워크플로는
 # 서버의 envs/.env.prod·.env.dev에 실 시크릿 전체를 쓴다. `envs/.env` 한 줄로는
 # 그 파생 파일들이 걸리지 않아, 시크릿이 있는 서버에서 누가 `docker compose build`를
-# 한 번 치면 이미지 레이어에 구워진다. (.gitignore와 같은 논리)
-envs/.env*
-!envs/.env.example
-.env*
-!.env.example
+# 한 번 치면 이미지 레이어에 구워진다.
+#
+# ⚠ .gitignore와 문법이 다르다. gitignore는 슬래시 없는 패턴이 모든 깊이에
+#   적용되지만, dockerignore는 컨텍스트 루트에 **고정**된다(`*`도 `/`를 넘지 않는다).
+#   그래서 `.env*`만 두면 루트만 덮이고 `envs/`·`config/` 아래는 그대로 들어간다.
+#   모든 깊이를 덮으려면 `**/` 접두가 필요하다.
+**/.env*
+!**/.env.example
 .git

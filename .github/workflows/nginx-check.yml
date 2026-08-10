@@ -1,0 +1,50 @@
+name: Nginx Config Check
+
+# 배포는 down → up -d라 conf 문법 오류가 곧 자동 롤백 없는 전면 장애다
+# (nginx가 뜨지 못해 502). 그래서 이 검사는 PR뿐 아니라 **실제 배포를 일으키는
+# 경로**에도 걸려 있어야 한다 — ci.yml(PR)·build.yml(main)·build-dev.yml(develop)
+# 세 곳에서 이 워크플로를 호출한다. develop·main에 브랜치 보호가 없어 직접 push가
+# 가능하므로, PR 경로에만 두면 게이트가 우회된다.
+on:
+  workflow_call:
+
+jobs:
+  nginx-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # nginx -t는 실제로 ssl_certificate 파일 존재를 확인하고 upstream 호스트명을
+      # 해석하므로, 자체 서명 인증서를 실경로에 만들고 django를 로컬로 매핑해 준다.
+      #
+      # 검사 대상과 인증서 경로는 conf에서 직접 뽑는다 — 목록을 워크플로에 적어두면
+      # conf가 늘거나 호스트가 바뀌었을 때 조용히 검사에서 빠진다.
+      - name: nginx 설정 문법 검사
+        run: |
+          set -e
+          confs=$(ls nginx/*.conf)
+          echo "검사 대상: $confs"
+
+          # conf가 참조하는 인증서 경로를 그대로 만들어 준다
+          # (grep -h: 파일명 접두 회피 / ssl_certificate\s+: ssl_certificate_key 미매치)
+          for cert in $(grep -hoE '^\s*ssl_certificate\s+\S+' $confs | awk '{print $2}' | tr -d ';'); do
+            dir=$(dirname "$cert")
+            host=$(basename "$dir")
+            sudo mkdir -p "$dir"
+            sudo openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+              -keyout "$dir/privkey.pem" -out "$dir/fullchain.pem" \
+              -subj "/CN=$host" 2>/dev/null
+          done
+          sudo chmod -R a+rX /etc/letsencrypt
+
+          # compose와 같은 이미지 태그를 쓴다(런타임과 파서가 갈리지 않도록)
+          for conf in $confs; do
+            echo "--- $conf ---"
+            docker run --rm \
+              --add-host django:127.0.0.1 \
+              -v "$PWD/$conf:/etc/nginx/conf.d/default.conf:ro" \
+              -v /etc/letsencrypt:/etc/letsencrypt:ro \
+              nginx:alpine nginx -t
+          done
