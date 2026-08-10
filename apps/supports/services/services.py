@@ -9,13 +9,16 @@
 from typing import Any, cast
 
 from django.core.cache import cache
+from django.db import transaction
+from django.db.models import QuerySet
 
-from apps.core.exceptions.exception import NotFoundException
-from apps.supports.models import FAQ, FAQCategory, FAQFeedback
+from apps.core.exceptions.exception import ConflictException, NotFoundException
+from apps.supports.models import FAQ, FAQCategory, FAQFeedback, Inquiry, InquiryStatus
 from apps.supports.serializers import (
     FAQCategorySerializer,
     FAQDetailSerializer,
     FAQListSerializer,
+    InquiryDetailSerializer,
 )
 from apps.users.models import User
 
@@ -91,6 +94,81 @@ def create_faq_feedback(faq_id: str, is_helpful: bool, user: User | None) -> Non
         )
     else:
         FAQFeedback.objects.create(faq_id=faq_id, is_helpful=is_helpful, user=None)
+
+
+def create_inquiry(user: User, validated_data: dict[str, Any]) -> Inquiry:
+    """1:1 문의 등록. 상태는 모델 기본값(PENDING)에서 시작한다."""
+    return Inquiry.objects.create(user=user, **validated_data)
+
+
+def get_my_inquiries(user: User) -> QuerySet[Inquiry]:
+    """내 문의 목록. 캐시하지 않는다 — 사용자별 데이터라 적중률이 낮고,
+    답변 직후 목록에 옛 상태가 보이면 알림과 화면이 어긋난다.
+    """
+    return Inquiry.objects.filter(user=user)
+
+
+def get_my_inquiry_detail(inquiry_id: str, user: User) -> dict[str, Any]:
+    """내 문의 상세 + 답변.
+
+    조건: 본인 문의만 조회할 수 있다. 남의 문의는 403이 아니라 404로 응답한다 —
+        403은 "그 ID의 문의가 존재한다"를 알려줘 ID 대입으로 존재 여부를 캐낼 수 있다.
+    """
+    inquiry = (
+        Inquiry.objects.filter(id=inquiry_id, user=user).select_related("answer").first()
+    )
+    if inquiry is None:
+        raise NotFoundException("존재하지 않는 문의입니다.")
+    return dict(InquiryDetailSerializer(inquiry).data)
+
+
+def delete_my_inquiry(inquiry_id: str, user: User) -> None:
+    """내 문의 삭제.
+
+    기능: 잘못 올렸거나 개인정보를 적어 지우고 싶은 경우를 위한 경로다. 수정은
+        제공하지 않는다 — 운영진이 이미 읽고 처리 중인 문의의 본문이 바뀌면
+        답변과 질문이 어긋난다. 지우고 다시 쓰는 편이 명확하다.
+    조건: 본인 문의이면서 아직 PENDING일 때만 지울 수 있다. 상태로 판정하는 이유는
+        운영진이 스팸을 답변 없이 CLOSED로 정리한 건도 이미 분류가 끝난 것이라
+        사용자가 되돌릴 대상이 아니기 때문이다.
+    예외: 남의 문의는 404(get_my_inquiry_detail과 같은 이유), 이미 처리된 문의는 409.
+
+    첨부 이미지(S3 객체)는 함께 지우지 않는다 — 이 프로젝트의 어느 도메인도
+    레코드 삭제 시 S3 객체를 지우지 않으며(수명주기 정책 영역), 문의만 예외로
+    두면 동작이 불규칙해진다.
+
+    **행 잠금으로 답변 저장과의 경합을 막는다.** 상태 판정과 삭제 사이가 벌어지면
+    그 틈에 커밋된 답변이 함께 지워진다. 판정을 `filter(status=PENDING).delete()`로
+    옮기는 것으로는 닫히지 않는다 — `InquiryAnswer`가 CASCADE로 붙어 있어 Django가
+    fast-delete를 못 쓰고 collector 경로로 내려가는데, 거기서 자식은
+    `_raw_delete()`가 `WHERE inquiry_id IN (…)`를 **삭제 시점에 새로 평가**하고
+    부모는 `delete_batch(pk_list)`로 지운다. 둘 다 status 조건이 없어서, SELECT
+    이후에 들어온 답변이 FK 위반도 없이 쓸려나간다(2차 리뷰 — 1차 처방의 오류).
+
+    `select_for_update()`가 이 창을 닫는다. 다만 **잠금은 양쪽에 있어야 한다** —
+    admin도 같은 행을 잠그도록 `InquiryAdmin.get_object`를 오버라이드했다.
+    한쪽만 잠그면 이렇게 된다: 운영자가 답변 화면에서 문의를 읽은 뒤 사용자가
+    삭제를 커밋하고, 운영자가 저장을 누르면 `save_model`의 `obj.save()`가 UPDATE
+    0행을 만나 **예외 없이 INSERT로 폴백해** 삭제된 문의를 되살린다
+    (`Model._save_table` — pk가 있고 force_update·update_fields가 없으면 폴백).
+    부모가 부활하므로 FK 위반도 나지 않아, 사용자는 204를 받았는데 문의가 답변까지
+    붙어 목록에 돌아온다(3차 리뷰 — 2차의 "FK 위반으로 드러난다"는 분석은 틀렸다).
+
+    양쪽이 잠그면 뒤에 온 쪽이 대기했다가 재평가한다:
+      - 삭제가 먼저면 → admin의 get_object가 행을 못 찾아 "존재하지 않음"으로 끝난다.
+      - 답변이 먼저면 → 우리가 대기 후 ANSWERED를 보고 409.
+    ATOMIC_REQUESTS가 꺼져 있어 뷰 전체를 감싸는 트랜잭션이 없으므로 여기서
+    atomic을 직접 연다.
+    """
+    with transaction.atomic():
+        inquiry = (
+            Inquiry.objects.select_for_update().filter(id=inquiry_id, user=user).first()
+        )
+        if inquiry is None:
+            raise NotFoundException("존재하지 않는 문의입니다.")
+        if inquiry.status != InquiryStatus.PENDING:
+            raise ConflictException("이미 처리된 문의는 삭제할 수 없습니다.")
+        inquiry.delete()
 
 
 def invalidate_faq_cache() -> None:

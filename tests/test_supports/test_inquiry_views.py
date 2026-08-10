@@ -1,0 +1,553 @@
+"""1:1 문의 등록/조회 API와 답변 후처리(상태 전이·알림) 테스트."""
+
+from unittest.mock import patch
+
+import pytest
+from django.urls import reverse
+from rest_framework.test import APIClient
+
+from apps.core.storage.s3.services import ActionEnum, CategoryEnum, SuffixEnum, s3_svc
+from apps.core.storage.s3.validators import is_valid_attach_key
+from apps.notifications.models import Notification, NotificationType, TargetChoices
+from apps.supports.models import Inquiry, InquiryAnswer, InquiryStatus
+from apps.users.models import User
+
+pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture
+def api_client() -> APIClient:
+    return APIClient()
+
+
+@pytest.fixture
+def user() -> User:
+    return User.objects.create_user(
+        email="asker@danim.kr",
+        password="Password!234",
+        nickname="asker",
+        name="문의자",
+        birth_day="2000-01-01",
+        is_active=True,
+    )
+
+
+@pytest.fixture
+def other_user() -> User:
+    return User.objects.create_user(
+        email="other@danim.kr",
+        password="Password!234",
+        nickname="other",
+        name="타인",
+        birth_day="2000-01-01",
+        is_active=True,
+    )
+
+
+@pytest.fixture
+def inquiry(user: User) -> Inquiry:
+    return Inquiry.objects.create(
+        user=user,
+        category="ACCOUNT",
+        title="로그인이 안 돼요",
+        content="비밀번호를 바꿨는데도 안 됩니다.",
+    )
+
+
+class TestInquiryCreate:
+    def test_create_success(self, api_client, user):
+        api_client.force_authenticate(user=user)
+
+        response = api_client.post(
+            reverse("supports:inquiry_list_create"),
+            {
+                "category": "POST",
+                "title": "게시글 삭제 문의",
+                "content": "삭제한 글이 남아 있어요.",
+            },
+            format="json",
+        )
+
+        assert response.status_code == 201
+        assert response.data["status"] == InquiryStatus.PENDING
+        assert response.data["answer"] is None
+        assert Inquiry.objects.filter(user=user, title="게시글 삭제 문의").exists()
+
+    def test_requires_authentication(self, api_client):
+        response = api_client.post(
+            reverse("supports:inquiry_list_create"),
+            {"category": "ETC", "title": "제목", "content": "내용"},
+            format="json",
+        )
+
+        assert response.status_code == 401
+
+    def test_invalid_category_rejected(self, api_client, user):
+        api_client.force_authenticate(user=user)
+
+        response = api_client.post(
+            reverse("supports:inquiry_list_create"),
+            {"category": "UNKNOWN", "title": "제목", "content": "내용"},
+            format="json",
+        )
+
+        assert response.status_code == 400
+
+    def test_valid_inquiry_img_key_accepted(self, api_client, user):
+        api_client.force_authenticate(user=user)
+        key = s3_svc.create_key(
+            action=ActionEnum.UPLOAD,
+            category=CategoryEnum.INQUIRY,
+            suffix=SuffixEnum.NONE,
+            extension=".jpg",
+        )
+
+        response = api_client.post(
+            reverse("supports:inquiry_list_create"),
+            {
+                "category": "ETC",
+                "title": "첨부 있음",
+                "content": "내용",
+                "img_key": key,
+            },
+            format="json",
+        )
+
+        assert response.status_code == 201
+        assert Inquiry.objects.get(title="첨부 있음").img_key == key
+        # 버킷이 비공개라 key만 내려주면 클라이언트가 자기 첨부를 다시 못 본다.
+        assert response.data["image"]["key"] == key
+        assert response.data["image"]["img_url"]
+
+    def test_image_is_null_pair_when_no_attachment(self, api_client, user):
+        """첨부가 없어도 키 자체는 존재해야 프론트 분기가 undefined를 만나지 않는다."""
+        api_client.force_authenticate(user=user)
+
+        response = api_client.post(
+            reverse("supports:inquiry_list_create"),
+            {"category": "ETC", "title": "첨부 없음", "content": "내용"},
+            format="json",
+        )
+
+        assert response.status_code == 201
+        assert response.data["image"] == {"key": None, "img_url": None}
+
+    def test_img_key_from_other_category_rejected(self, api_client, user):
+        """DM용으로 발급된 key를 문의에 붙이면 거부된다(교차 카테고리 세탁 차단).
+
+        key를 문자열로 박아두면 S3_PREFIX/S3_PATH 설정이 바뀌었을 때 형식 오류로
+        400이 나서, 정작 검증하려던 "카테고리 불일치 차단"을 증명하지 못한다.
+        실제 발급기로 만든 유효한 DM key를 쓴다.
+        """
+        api_client.force_authenticate(user=user)
+        dm_key = s3_svc.create_key(
+            action=ActionEnum.UPLOAD,
+            category=CategoryEnum.DM,
+            suffix=SuffixEnum.NONE,
+            extension=".jpg",
+        )
+        # 그 key가 DM 카테고리로는 유효하다는 것을 먼저 고정한다 — 아래 400이
+        # 형식 문제가 아니라 카테고리 문제임을 보장한다.
+        assert is_valid_attach_key(dm_key, CategoryEnum.DM)
+
+        response = api_client.post(
+            reverse("supports:inquiry_list_create"),
+            {"category": "ETC", "title": "제목", "content": "내용", "img_key": dm_key},
+            format="json",
+        )
+
+        assert response.status_code == 400
+        assert not Inquiry.objects.filter(title="제목").exists()
+
+
+class TestInquiryList:
+    def test_only_own_inquiries(self, api_client, user, other_user, inquiry):
+        Inquiry.objects.create(
+            user=other_user, category="ETC", title="남의 문의", content="보이면 안 됨"
+        )
+        api_client.force_authenticate(user=user)
+
+        response = api_client.get(reverse("supports:inquiry_list_create"))
+
+        assert response.status_code == 200
+        titles = [row["title"] for row in response.data["results"]]
+        assert titles == [inquiry.title]
+
+    def test_requires_authentication(self, api_client):
+        response = api_client.get(reverse("supports:inquiry_list_create"))
+
+        assert response.status_code == 401
+
+
+class TestInquiryDetail:
+    def test_detail_includes_answer(self, api_client, user, inquiry):
+        InquiryAnswer.objects.create(inquiry=inquiry, content="확인 후 조치했습니다.")
+        api_client.force_authenticate(user=user)
+
+        response = api_client.get(reverse("supports:inquiry_detail", args=[inquiry.id]))
+
+        assert response.status_code == 200
+        assert response.data["answer"]["content"] == "확인 후 조치했습니다."
+        assert response.data["status"] == InquiryStatus.ANSWERED
+
+    def test_others_inquiry_is_404_not_403(self, api_client, other_user, inquiry):
+        """403이면 그 ID의 문의가 존재한다는 사실이 새어 나간다."""
+        api_client.force_authenticate(user=other_user)
+
+        response = api_client.get(reverse("supports:inquiry_detail", args=[inquiry.id]))
+
+        assert response.status_code == 404
+
+
+class TestInquiryDelete:
+    def test_pending_inquiry_deleted(self, api_client, user, inquiry):
+        api_client.force_authenticate(user=user)
+
+        response = api_client.delete(
+            reverse("supports:inquiry_detail", args=[inquiry.id])
+        )
+
+        assert response.status_code == 204
+        assert not Inquiry.objects.filter(id=inquiry.id).exists()
+
+    def test_answered_inquiry_cannot_be_deleted(
+        self, api_client, user, inquiry, django_capture_on_commit_callbacks
+    ):
+        """답변 후 삭제를 허용하면 운영 처리 이력이 사라진다."""
+        with patch("apps.supports.signals.signal.notify_inquiry_answered_task.delay"):
+            with django_capture_on_commit_callbacks(execute=True):
+                InquiryAnswer.objects.create(inquiry=inquiry, content="답변")
+        api_client.force_authenticate(user=user)
+
+        response = api_client.delete(
+            reverse("supports:inquiry_detail", args=[inquiry.id])
+        )
+
+        assert response.status_code == 409
+        assert Inquiry.objects.filter(id=inquiry.id).exists()
+
+    def test_closed_inquiry_cannot_be_deleted(self, api_client, user, inquiry):
+        """운영진이 스팸으로 종결한 건도 사용자가 되돌릴 대상이 아니다."""
+        Inquiry.objects.filter(id=inquiry.id).update(status=InquiryStatus.CLOSED)
+        api_client.force_authenticate(user=user)
+
+        response = api_client.delete(
+            reverse("supports:inquiry_detail", args=[inquiry.id])
+        )
+
+        assert response.status_code == 409
+
+    def test_delete_locks_row_for_update(self, user, inquiry):
+        """상태 판정과 삭제 사이를 행 잠금으로 닫았는지 SQL로 확인한다.
+
+        `filter(status=PENDING).delete()`로는 닫히지 않는다 — InquiryAnswer가
+        CASCADE라 collector 경로를 타고, 자식은 `_raw_delete`가
+        `WHERE inquiry_id IN (…)`를 삭제 시점에 새로 평가해 그 사이 들어온 답변까지
+        쓸어간다(2차 리뷰). 경합 자체는 재현이 불안정하므로 FOR UPDATE 발행을 고정한다.
+        """
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        from apps.supports.services import delete_my_inquiry
+
+        with CaptureQueriesContext(connection) as ctx:
+            delete_my_inquiry(inquiry.id, user)
+
+        selects = [q["sql"] for q in ctx.captured_queries if "inquiries" in q["sql"]]
+        assert any(
+            "FOR UPDATE" in sql for sql in selects
+        ), (
+            "문의 행을 FOR UPDATE로 잠그지 않았습니다 — 답변 저장과 경합합니다.\n"
+            + "\n".join(selects)
+        )
+        assert not Inquiry.objects.filter(id=inquiry.id).exists()
+
+    def test_rejected_delete_keeps_answer(
+        self, api_client, user, inquiry, django_capture_on_commit_callbacks
+    ):
+        """삭제 거부 시 답변 행이 CASCADE로 사라지면 안 된다.
+
+        상태 판정과 삭제 사이가 벌어지면 그 틈에 커밋된 답변까지 지워진다.
+        판정을 `filter(status=PENDING).delete()`로 옮기는 것으로는 닫히지 않고
+        (collector 경로에서 자식 삭제가 status를 무시한다 — services.py 참고)
+        **행 잠금이 닫는다.**
+        """
+        with patch("apps.supports.signals.signal.notify_inquiry_answered_task.delay"):
+            with django_capture_on_commit_callbacks(execute=True):
+                InquiryAnswer.objects.create(inquiry=inquiry, content="답변")
+        api_client.force_authenticate(user=user)
+
+        response = api_client.delete(
+            reverse("supports:inquiry_detail", args=[inquiry.id])
+        )
+
+        assert response.status_code == 409
+        assert Inquiry.objects.filter(id=inquiry.id).exists()
+        assert InquiryAnswer.objects.filter(inquiry_id=inquiry.id).exists()
+
+    def test_others_inquiry_delete_is_404(self, api_client, other_user, inquiry):
+        api_client.force_authenticate(user=other_user)
+
+        response = api_client.delete(
+            reverse("supports:inquiry_detail", args=[inquiry.id])
+        )
+
+        assert response.status_code == 404
+        assert Inquiry.objects.filter(id=inquiry.id).exists()
+
+
+class TestAdminCloseAction:
+    def test_closes_only_unanswered(
+        self, inquiry, user, django_capture_on_commit_callbacks
+    ):
+        """답변이 달린 문의를 CLOSED로 덮으면 처리 이력이 흐려진다."""
+        from django.contrib.admin.sites import AdminSite
+        from django.test import RequestFactory
+
+        from apps.supports.admin import InquiryAdmin
+
+        answered = Inquiry.objects.create(
+            user=user, category="ETC", title="답변된 문의", content="내용"
+        )
+        with patch("apps.supports.signals.signal.notify_inquiry_answered_task.delay"):
+            with django_capture_on_commit_callbacks(execute=True):
+                InquiryAnswer.objects.create(inquiry=answered, content="답변")
+
+        admin_obj = InquiryAdmin(Inquiry, AdminSite())
+        request = RequestFactory().post("/")
+        request.user = user
+        with patch.object(admin_obj, "message_user"):
+            admin_obj.close_inquiries(request, Inquiry.objects.all())
+
+        inquiry.refresh_from_db()
+        answered.refresh_from_db()
+        assert inquiry.status == InquiryStatus.CLOSED
+        assert answered.status == InquiryStatus.ANSWERED
+
+    def test_action_requires_change_permission(self, user):
+        """액션에 permissions가 없으면 Django가 무조건 통과시킨다.
+
+        changelist는 view 권한만으로 열리므로, 게이트가 없으면 조회 권한만 가진
+        스태프가 문의 상태를 바꿀 수 있다(1차 리뷰 MEDIUM). 액션 함수를 직접 부르는
+        테스트는 이 계층을 통째로 건너뛰므로, Django의 필터(get_actions)로 검증한다.
+        """
+        from django.contrib.admin.sites import AdminSite
+        from django.contrib.auth.models import Permission
+        from django.test import RequestFactory
+
+        from apps.supports.admin import InquiryAdmin
+
+        admin_obj = InquiryAdmin(Inquiry, AdminSite())
+        request = RequestFactory().get("/")
+
+        user.is_staff = True
+        user.save(update_fields=["is_staff"])
+        user.user_permissions.add(
+            Permission.objects.get(
+                codename="view_inquiry", content_type__app_label="supports"
+            )
+        )
+        request.user = User.objects.get(pk=user.pk)  # 권한 캐시 초기화
+        assert "close_inquiries" not in admin_obj.get_actions(request)
+
+        user.user_permissions.add(
+            Permission.objects.get(
+                codename="change_inquiry", content_type__app_label="supports"
+            )
+        )
+        request.user = User.objects.get(pk=user.pk)
+        assert "close_inquiries" in admin_obj.get_actions(request)
+
+
+class TestAdminRowLocking:
+    """삭제·답변 경합을 막는 행 잠금. 종결 액션과는 관심사가 달라 분리한다."""
+
+    def test_all_inquiry_fields_are_readonly(self):
+        """Inquiry 필드가 전부 readonly라는 전제를 고정한다.
+
+        `save_model`이 change 저장을 건너뛰는 2차 방어는 "저장할 내용이 없다"에
+        기대고 있다. 편집 가능한 필드가 생기면 그 수정이 조용히 사라지므로, 그때
+        이 테스트가 깨져 save_model 주석으로 데려온다.
+        """
+        from django.contrib.admin.sites import AdminSite
+
+        from apps.supports.admin import InquiryAdmin
+
+        admin_obj = InquiryAdmin(Inquiry, AdminSite())
+        editable = {f.name for f in Inquiry._meta.fields if f.editable}
+        covered = set(admin_obj.readonly_fields) | set(admin_obj.exclude or ())
+
+        assert not (editable - covered), (
+            f"편집 가능한 Inquiry 필드가 생겼습니다: {editable - covered}. "
+            "InquiryAdmin.save_model이 change 저장을 건너뛰므로 그 수정은 저장되지 "
+            "않습니다 — save_model 주석을 읽고 방어를 재설계하세요."
+        )
+
+    def test_stale_save_resurrects_row(self, user, inquiry):
+        """왜 admin에도 잠금이 필요한지를 고정하는 특성 테스트.
+
+        `obj.save()`는 UPDATE가 0행이어도 예외를 내지 않고 INSERT로 폴백한다
+        (`Model._save_table` — pk가 있고 force_update·update_fields가 없을 때).
+        즉 운영자가 읽어둔 인스턴스로 저장하면 그사이 삭제된 문의가 **조용히
+        되살아난다.** 부모가 부활하니 FK 위반도 없어 아무도 눈치채지 못한다.
+
+        이 동작이 Django에서 바뀌면 아래 잠금 테스트들의 전제가 사라지므로,
+        전제 자체를 여기서 고정한다.
+        """
+        stale = Inquiry.objects.get(id=inquiry.id)
+        Inquiry.objects.filter(id=inquiry.id).delete()
+        assert not Inquiry.objects.filter(id=inquiry.id).exists()
+
+        stale.save()
+
+        assert Inquiry.objects.filter(id=inquiry.id).exists(), (
+            "Django의 UPDATE→INSERT 폴백 동작이 바뀌었습니다. "
+            "admin get_object 잠금의 근거를 재검토해야 합니다."
+        )
+
+    def test_admin_get_object_locks_row_on_post(self, user, inquiry):
+        """저장(POST) 경로에서는 문의 행을 FOR UPDATE로 잠근 뒤 읽어야 한다.
+
+        이 잠금이 사용자 삭제(delete_my_inquiry)의 잠금과 만나 뒤에 온 쪽을
+        대기시킨다. 삭제가 먼저 커밋되면 admin은 행을 못 찾아 저장이 성립하지
+        않으므로, 위 특성 테스트가 보여준 부활 경로에 도달하지 못한다.
+        """
+        from django.contrib.admin.sites import AdminSite
+        from django.db import connection, transaction
+        from django.test import RequestFactory
+        from django.test.utils import CaptureQueriesContext
+
+        from apps.supports.admin import InquiryAdmin
+
+        admin_obj = InquiryAdmin(Inquiry, AdminSite())
+        request = RequestFactory().post("/")
+        request.user = user
+
+        with transaction.atomic():
+            with CaptureQueriesContext(connection) as ctx:
+                found = admin_obj.get_object(request, inquiry.id)
+
+        assert found is not None
+        sqls = [q["sql"] for q in ctx.captured_queries if "inquiries" in q["sql"]]
+        assert any("FOR UPDATE" in sql for sql in sqls), (
+            "admin이 저장 시 문의 행을 잠그지 않습니다 — 사용자 삭제와 경합해 "
+            "삭제된 문의가 부활할 수 있습니다.\n" + "\n".join(sqls)
+        )
+
+    def test_admin_get_object_does_not_lock_on_get(self, user, inquiry):
+        """조회(GET)는 잠그지 않는다.
+
+        admin의 changeform_view는 GET/HEAD/OPTIONS/TRACE를 transaction.atomic
+        **밖에서** 처리하므로, 실제 서비스에서 조회에도 select_for_update를 걸면
+        TransactionManagementError로 화면 자체가 열리지 않는다.
+
+        다만 이 테스트가 깨지는 방식은 그 예외가 아니다 — pytest의 django_db가
+        테스트 전체를 atomic으로 감싸므로 여기서는 예외가 나지 않고, 가드를 제거하면
+        아래 "FOR UPDATE가 없어야 한다" 단언이 깨진다.
+        """
+        from django.contrib.admin.sites import AdminSite
+        from django.db import connection
+        from django.test import RequestFactory
+        from django.test.utils import CaptureQueriesContext
+
+        from apps.supports.admin import InquiryAdmin
+
+        admin_obj = InquiryAdmin(Inquiry, AdminSite())
+        request = RequestFactory().get("/")
+        request.user = user
+
+        with CaptureQueriesContext(connection) as ctx:
+            found = admin_obj.get_object(request, inquiry.id)
+
+        assert found is not None
+        sqls = [q["sql"] for q in ctx.captured_queries if "inquiries" in q["sql"]]
+        assert not any("FOR UPDATE" in sql for sql in sqls)
+
+
+class TestAnswerSideEffects:
+    def test_answer_marks_answered_and_schedules_notification(
+        self, inquiry, django_capture_on_commit_callbacks
+    ):
+        with patch(
+            "apps.supports.signals.signal.notify_inquiry_answered_task.delay"
+        ) as delay:
+            with django_capture_on_commit_callbacks(execute=True):
+                InquiryAnswer.objects.create(inquiry=inquiry, content="답변입니다.")
+
+        inquiry.refresh_from_db()
+        assert inquiry.status == InquiryStatus.ANSWERED
+        delay.assert_called_once_with(inquiry.id)
+
+    def test_answer_update_does_not_renotify(
+        self, inquiry, django_capture_on_commit_callbacks
+    ):
+        """오탈자 수정마다 알림이 다시 가면 사용자에게 소음이 된다."""
+        # 첫 저장도 patch로 감싼다 — 감싸지 않으면 on_commit 콜백이 실제 브로커로
+        # enqueue된다(ALWAYS_EAGER 미설정). CI는 redis 서비스가 있어 통과하지만
+        # redis 없는 로컬에서는 이 테스트가 연결 오류로 죽는다.
+        with patch("apps.supports.signals.signal.notify_inquiry_answered_task.delay"):
+            with django_capture_on_commit_callbacks(execute=True):
+                answer = InquiryAnswer.objects.create(inquiry=inquiry, content="초안")
+
+        with patch(
+            "apps.supports.signals.signal.notify_inquiry_answered_task.delay"
+        ) as delay:
+            with django_capture_on_commit_callbacks(execute=True):
+                answer.content = "오탈자 수정본"
+                answer.save()
+
+        delay.assert_not_called()
+
+
+class TestNotifyInquiryAnsweredTask:
+    def test_creates_system_notification(self, inquiry, user):
+        from apps.supports.tasks import notify_inquiry_answered_task
+
+        notify_inquiry_answered_task(inquiry.id)
+
+        noti = Notification.objects.get(receiver=user)
+        assert noti.sender is None
+        assert noti.notification_type == NotificationType.INQUIRY_ANSWERED
+        assert noti.target_type == TargetChoices.INQUIRY
+        assert noti.target_id == inquiry.id
+
+    def test_deleted_inquiry_is_skipped(self, inquiry):
+        from apps.supports.tasks import notify_inquiry_answered_task
+
+        inquiry_id = inquiry.id
+        inquiry.delete()
+
+        notify_inquiry_answered_task(inquiry_id)
+
+        assert not Notification.objects.filter(target_id=inquiry_id).exists()
+
+    def test_unregistered_system_type_raises_without_retry(self, inquiry):
+        """SYSTEM_NOTI_TYPES 미등록은 프로그래밍 오류라 재시도하지 않고 그대로 올린다.
+
+        catch-all이 3회 재시도하면 게이트를 둔 취지가 무색해지고 같은 실패만 세 번
+        쌓인다. `except ValueError: raise`를 지우면 retry가 호출돼 이 테스트가 깨진다.
+        """
+        from apps.notifications.utils.create_notification import (
+            create_system_notification,
+        )
+        from apps.supports.tasks import notify_inquiry_answered_task
+
+        with patch(
+            "apps.supports.tasks.create_system_notification",
+            side_effect=create_system_notification,
+        ) as spy:
+            spy.side_effect = ValueError("미등록 종류")
+            with patch.object(notify_inquiry_answered_task, "retry") as retry:
+                with pytest.raises(ValueError):
+                    notify_inquiry_answered_task(inquiry.id)
+
+        retry.assert_not_called()
+
+    def test_notification_survives_blocked_relationship(self, inquiry, user):
+        """차단 게이트를 타지 않는다 — 사용자가 요청한 답변은 사회적 관계로 막지 않는다."""
+        from apps.supports.tasks import notify_inquiry_answered_task
+
+        with patch("apps.blocks.services.is_blocked_between", return_value=True):
+            notify_inquiry_answered_task(inquiry.id)
+
+        assert Notification.objects.filter(receiver=user, target_id=inquiry.id).exists()

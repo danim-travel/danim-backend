@@ -152,6 +152,11 @@ REST_FRAMEWORK = {
     # 필요한 뷰에서만 ScopedRateThrottle + throttle_scope로 선택 적용한다
     "DEFAULT_THROTTLE_RATES": {
         "faq_feedback": "10/min",
+        # 문의 등록은 사람이 글을 써서 보내는 행위라 분당 몇 건이면 충분하다.
+        "inquiry_create": "5/min",
+        # presigned 발급은 S3 객체를 무한히 만들 수 있는 축이라 별도로 조인다
+        # (발급 자체는 저렴해도 업로드까지 이어지면 용량·비용이 늘어난다).
+        "inquiry_presigned": "20/min",
     },
 }
 

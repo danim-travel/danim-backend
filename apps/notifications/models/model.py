@@ -10,6 +10,7 @@ class TargetChoices(models.TextChoices):
     USER = "user"
     POST = "post"
     DM = "dm"
+    INQUIRY = "inquiry"
 
 
 class NotificationType(models.TextChoices):
@@ -20,6 +21,21 @@ class NotificationType(models.TextChoices):
     COMMENT_LIKE = "comment_like"
     POST_LIKE = "post_like"
     DM = "dm"
+    # 운영진 답변 알림. 다른 종류와 달리 sender가 없다(시스템 발신) — 자세한 이유는
+    # apps/supports/tasks.py 참고.
+    INQUIRY_ANSWERED = "inquiry_answered"
+
+
+SYSTEM_SENDER_NAME = "다님 고객센터"
+
+# 발신 주체가 사람이 아니라 서비스인 알림. 목록 serializer는 sender=None을 "탈퇴한
+# 유저"로 표시하므로(원래 SET_NULL 전용 분기), 이 집합에 속한 종류는 그 분기 대신
+# SYSTEM_SENDER_NAME을 쓴다. 새 시스템 알림을 추가하면 여기에도 넣어야 하며,
+# create_system_notification이 입구에서 멤버십을 강제한다.
+#
+# 상수를 생성 유틸이 아니라 모델 옆에 두는 이유: 표기(serializer)와 발송(utils)이
+# 모두 이 값을 쓰는데, serializer가 생성 유틸을 임포트하면 의존 방향이 뒤집힌다.
+SYSTEM_NOTI_TYPES = frozenset({NotificationType.INQUIRY_ANSWERED})
 
 
 class Notification(BaseModel):

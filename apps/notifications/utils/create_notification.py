@@ -8,7 +8,12 @@ from django.db import transaction
 from django.db.models import F, Value
 from django.db.models.functions import Greatest
 
-from apps.notifications.models.model import Notification, NotificationType, TargetChoices
+from apps.notifications.models import (
+    SYSTEM_NOTI_TYPES,
+    Notification,
+    NotificationType,
+    TargetChoices,
+)
 from apps.users.models import User
 
 logger = logging.getLogger(__name__)
@@ -76,6 +81,30 @@ def create_notification(
         raise
 
 
+def create_system_notification(
+    receiver_id: str, noti_type: str, target_id: str, target_type: str, msg: str
+) -> None:
+    """발신 주체가 서비스인 알림(문의 답변 등)을 만든다.
+
+    사용자 간 경로(create_notification)를 쓰지 않는 이유:
+      - 차단 게이트: 사용자가 운영자 계정을 차단해 두면 본인이 먼저 요청한 답변
+        알림이 조용히 사라진다. 사회적 관계로 막을 대상이 아니다.
+      - NOTIFICATION_MAP: 모든 문구가 sender 닉네임을 포맷에 넣는데, 발신 주체가
+        특정 운영자가 아니고 담당자 신원이 사용자에게 노출돼서도 안 된다.
+      - 자기 알림 차단(receiver == sender): sender가 없어 성립하지 않는다.
+    dedup도 걸지 않는다 — 시스템 알림은 사용자 행위 반복으로 폭증하는 축이 아니다.
+
+    예외: noti_type이 SYSTEM_NOTI_TYPES에 없으면 ValueError. 등록을 잊으면 목록
+        serializer가 sender=None을 탈퇴로 읽어 "탈퇴한 유저"가 다시 표시되는데,
+        조용히 잘못 나가는 대신 발송 시점에 깨뜨린다(2차 리뷰 LOW).
+    """
+    if noti_type not in SYSTEM_NOTI_TYPES:
+        raise ValueError(
+            f"시스템 알림으로 보내려면 SYSTEM_NOTI_TYPES에 등록해야 합니다: {noti_type}"
+        )
+    create_noti(None, receiver_id, noti_type, target_id, target_type, msg)
+
+
 def _build_dedup_key(
     receiver_id: str, sender_id: str, noti_type: str, target_id: str
 ) -> str | None:
@@ -106,7 +135,7 @@ def _reserve_dedup_key(dedup_key: str) -> bool:
 
 
 def create_noti(
-    sender: User,
+    sender: User | None,
     receiver_id: str,
     noti_type: str,
     target_id: str,
@@ -119,6 +148,11 @@ def create_noti(
         create_notification의 보상 로직이 "예외가 나왔다 = 커밋된 것이 없다"를 전제로
         dedup 키를 해제하기 때문이다. 아래 try/except를 걷어내 푸시 실패를 드러내면,
         이미 생성된 알림에 대해 키가 풀려 재시도가 중복 알림을 만든다.
+
+    sender가 None이면 시스템 발신 알림이다(문의 답변 등). Notification.sender는
+    이미 null 허용이라 저장 자체는 원래 가능했고, 여기서는 타입만 실제와 맞춘다.
+    사용자 간 알림은 create_notification을 거치고, 이 함수를 직접 부르는 쪽은
+    차단 게이트·dedup·닉네임 포맷이 필요 없는 시스템 알림 경로다.
     """
     try:
         with transaction.atomic():

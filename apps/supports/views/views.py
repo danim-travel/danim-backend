@@ -1,20 +1,31 @@
-from typing import cast
+from typing import Any, cast
 
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.throttling import BaseThrottle, ScopedRateThrottle
 from rest_framework.views import APIView
 
 from apps.core.exceptions.exception import ValidationException
-from apps.supports.serializers import FAQFeedbackSerializer
+from apps.core.storage.s3 import ActionEnum, CategoryEnum, PresignedUrlView, SuffixEnum
+from apps.core.utils.pagination import paginate
+from apps.supports.serializers import (
+    FAQFeedbackSerializer,
+    InquiryCreateSerializer,
+    InquiryDetailSerializer,
+    InquiryListSerializer,
+)
 from apps.supports.services import (
     create_faq_feedback,
+    create_inquiry,
+    delete_my_inquiry,
     get_faq_categories,
     get_faq_detail,
     get_faqs_by_category,
+    get_my_inquiries,
+    get_my_inquiry_detail,
 )
 from apps.users.models import User
 
@@ -84,3 +95,89 @@ class FAQFeedbackView(APIView):
         return Response(
             {"detail": "피드백이 등록되었습니다."}, status=status.HTTP_201_CREATED
         )
+
+
+class InquiryListCreateView(APIView):
+    """POST/GET /api/v1/supports/inquiries — 1:1 문의 등록 / 내 문의 목록"""
+
+    permission_classes = [IsAuthenticated]
+    throttle_scope = "inquiry_create"
+
+    def get_throttles(self) -> list[BaseThrottle]:
+        """등록에만 스로틀을 건다.
+
+        클래스에 throttle_classes를 두면 GET 목록까지 같은 한도에 묶여 무한스크롤이
+        몇 페이지 만에 429가 된다. 조이려는 대상은 쓰기뿐이다.
+
+        GET은 빈 리스트가 아니라 super()를 돌려준다 — 빈 리스트로 두면 나중에 전역
+        기본 스로틀이 생겨도 이 경로만 영구히 제외된다(2차 리뷰 LOW).
+        """
+        if self.request.method == "POST":
+            return [ScopedRateThrottle()]
+        return super().get_throttles()
+
+    @extend_schema(
+        tags=["고객센터"],
+        summary="1:1 문의 등록",
+        request=InquiryCreateSerializer,
+        responses={201: InquiryDetailSerializer},
+    )
+    def post(self, request: Request) -> Response:
+        serializer = InquiryCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        inquiry = create_inquiry(cast(User, request.user), serializer.validated_data)
+        return Response(
+            InquiryDetailSerializer(inquiry).data, status=status.HTTP_201_CREATED
+        )
+
+    @extend_schema(
+        tags=["고객센터"],
+        summary="내 문의 목록 조회",
+        responses={200: InquiryListSerializer(many=True)},
+    )
+    def get(self, request: Request) -> Response:
+        queryset = get_my_inquiries(cast(User, request.user))
+        return paginate(queryset, request, InquiryListSerializer)
+
+
+class InquiryDetailView(APIView):
+    """GET/DELETE /api/v1/supports/inquiries/{inquiry_id} — 내 문의 상세 + 답변 / 삭제"""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["고객센터"],
+        summary="내 문의 상세 조회",
+        responses={200: InquiryDetailSerializer},
+    )
+    def get(self, request: Request, inquiry_id: str) -> Response:
+        return Response(get_my_inquiry_detail(inquiry_id, cast(User, request.user)))
+
+    @extend_schema(
+        tags=["고객센터"],
+        summary="내 문의 삭제 (미답변 상태에서만)",
+        responses={204: None},
+    )
+    def delete(self, request: Request, inquiry_id: str) -> Response:
+        delete_my_inquiry(inquiry_id, cast(User, request.user))
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class InquiryPresignedUrlView(PresignedUrlView):
+    """POST /api/v1/supports/inquiries/presigned-url — 문의 첨부 이미지 업로드 URL
+
+    category=inquiry로 고정 발급한다. 문의 저장 시 같은 카테고리인지 재검증하므로
+    (InquiryCreateSerializer.validate_img_key) 다른 카테고리 key는 붙지 않는다.
+    """
+
+    permission_classes: list[type[Any]] = [IsAuthenticated]
+    action = ActionEnum.UPLOAD
+    category = CategoryEnum.INQUIRY
+    suffix = SuffixEnum.NONE
+    # 발급 자체는 저렴하지만 S3 객체를 무한히 만들 수 있는 축이라 조인다.
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "inquiry_presigned"
+
+    @extend_schema(tags=["고객센터"], summary="문의 이미지 업로드 URL 발급")
+    def post(self, request: Request) -> Response:
+        return super().post(request)
