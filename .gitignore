@@ -148,11 +148,6 @@ activemq-data/
 *.sage.py
 
 # Environments
-# 개별 파일명이 아니라 패턴으로 막는다 — deploy.yml은 envs/.env.prod, deploy-dev.yml은
-# envs/.env.dev에 실제 시크릿을 쓰는데 `envs/.env`는 그 이름만 정확히 매치해서
-# .env.prod / .env.local 같은 파생 파일이 추적 대상으로 남아 있었다.
-envs/.env*
-!envs/.env.example
 .envrc
 .venv
 env/
@@ -160,9 +155,13 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-# 루트에도 같은 이유로 패턴을 쓴다 — `.env`만으로는 .env.prod / .env.local 같은
-# 파생 파일이 그대로 커밋 가능하다. 시스템이 만드는 env는 전부 envs/ 아래지만
-# 수동 생성분까지 덮는다. (부정 패턴은 반드시 뒤에 와야 효과가 있다)
+# 개별 파일명이 아니라 패턴으로 막는다 — deploy.yml은 envs/.env.prod,
+# deploy-dev.yml은 envs/.env.dev에 실제 시크릿을 쓰는데, 예전 `envs/.env`는 그 이름만
+# 정확히 매치해서 .env.prod / .env.local 같은 파생 파일이 추적 대상으로 남아 있었다.
+#
+# 슬래시 없는 패턴은 모든 깊이에 적용되므로 이 두 줄이 루트와 envs/를 함께 덮는다
+# (envs/ 전용 규칙을 따로 두면 완전 중복이다). 부정 패턴은 반드시 뒤에 와야 한다 —
+# gitignore는 마지막에 매치된 규칙이 이긴다.
 .env*
 !.env.example
 

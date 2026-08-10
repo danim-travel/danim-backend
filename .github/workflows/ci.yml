@@ -59,18 +59,32 @@ jobs:
       #
       # nginx -t는 실제로 ssl_certificate 파일 존재를 확인하고 upstream 호스트명을
       # 해석하므로, 자체 서명 인증서를 실경로에 만들고 django를 로컬로 매핑해 준다.
+      #
+      # 검사 대상과 인증서 경로는 conf에서 직접 뽑는다 — 목록을 여기 적어두면 conf가
+      # 늘거나 호스트가 바뀌었을 때 조용히 검사에서 빠진다.
+      #
+      # lint 잡의 앞 스텝(black/isort/mypy)이 실패해도 이 검사는 돌아야 한다.
+      # 배포를 막는 종류의 결함이라 포맷 오류에 가려지면 안 된다.
       - name: nginx 설정 문법 검사
+        if: always()
         run: |
           set -e
-          for host in api.danim.kr dev-api.danim.kr; do
-            sudo mkdir -p "/etc/letsencrypt/live/$host"
+          confs=$(ls nginx/*.conf)
+          echo "검사 대상: $confs"
+
+          # conf가 참조하는 인증서 경로를 그대로 만들어 준다
+          for cert in $(grep -hoE '^\s*ssl_certificate\s+\S+' $confs | awk '{print $2}' | tr -d ';'); do
+            dir=$(dirname "$cert")
+            host=$(basename "$dir")
+            sudo mkdir -p "$dir"
             sudo openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
-              -keyout "/etc/letsencrypt/live/$host/privkey.pem" \
-              -out "/etc/letsencrypt/live/$host/fullchain.pem" \
+              -keyout "$dir/privkey.pem" -out "$dir/fullchain.pem" \
               -subj "/CN=$host" 2>/dev/null
           done
           sudo chmod -R a+rX /etc/letsencrypt
-          for conf in nginx/nginx.conf nginx/nginx.dev.conf; do
+
+          # compose와 같은 이미지 태그를 쓴다(런타임과 파서가 갈리지 않도록)
+          for conf in $confs; do
             echo "--- $conf ---"
             docker run --rm \
               --add-host django:127.0.0.1 \
