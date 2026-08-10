@@ -1,10 +1,16 @@
-.PHONY: format type test coverage check
+.PHONY: hooks format type test coverage check
 .PHONY: user posts comments follows notifications directmessages explores
 .PHONY: _app-check man
 
 DOCKER = docker compose exec django uv run
 
 # ─── 전체 ────────────────────────────────────────────────────────────────────
+
+# .git/hooks 는 Git 이 추적하지 않아 클론·pull 로 전파되지 않는다. 각자 1회 실행 필요.
+# 다른 타깃과 달리 호스트에서 실행한다 — .git/hooks 에 파일을 쓰는 작업이고
+# 컨테이너에는 git 이 없다.
+hooks:
+	uv run pre-commit install
 
 format:
 	$(DOCKER) black .

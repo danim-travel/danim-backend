@@ -12,7 +12,7 @@ repos:
       - id: isort
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
         # 불필요한 공백 자동 제거
@@ -29,7 +29,14 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies:
-          - python-ulid
+          # 훅은 uv.lock 을 읽지 못하고 pip 으로 설치하므로, 버전을 적지 않으면 설치
+          # 시점의 최신이 깔려 CI 와 어긋난다. 아래 == 고정값은 uv.lock 해석 결과다.
+          #
+          # 전부 고정하지 않는 이유: 수동 관리 대상이 늘수록 갱신을 빠뜨릴 확률도
+          # 커진다(이 파일의 커밋 이력이 대부분 사후 드리프트 수리다). 메이저가 갈려
+          # 타입체크 결과가 실제로 달라질 수 있는 것만 고정한다 — django-stubs
+          # 플러그인이 django.setup() 으로 런타임 패키지를 임포트하기 때문이다.
+          - python-ulid==3.1.0
           - django==6.0.5
           # [compatible-mypy] extra 는 스텁이 요구하는 mypy 버전 제약을 활성화한다.
           # 없으면 rev 와 스텁 버전이 어긋나도 pip 이 조용히 설치하고, 실제 실행 때
@@ -42,14 +49,14 @@ repos:
           - daphne
           - channels
           - channels-redis
-          - djangorestframework
+          - djangorestframework==3.17.1
           - djangorestframework-simplejwt
           - django-allauth
           - dj-rest-auth
           - django-cors-headers
-          - django-storages
-          - django-redis
-          - drf-spectacular
+          - django-storages[s3]
+          - django-redis==6.0.0
+          - drf-spectacular==0.29.0
           - psycopg2-binary
           - boto3==1.43.13
           - boto3-stubs[s3]==1.43.16
