@@ -108,10 +108,13 @@ class InquiryListCreateView(APIView):
 
         클래스에 throttle_classes를 두면 GET 목록까지 같은 한도에 묶여 무한스크롤이
         몇 페이지 만에 429가 된다. 조이려는 대상은 쓰기뿐이다.
+
+        GET은 빈 리스트가 아니라 super()를 돌려준다 — 빈 리스트로 두면 나중에 전역
+        기본 스로틀이 생겨도 이 경로만 영구히 제외된다(2차 리뷰 LOW).
         """
         if self.request.method == "POST":
             return [ScopedRateThrottle()]
-        return []
+        return super().get_throttles()
 
     @extend_schema(
         tags=["고객센터"],

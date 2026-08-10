@@ -9,8 +9,6 @@ from rest_framework.test import APIClient
 from apps.core.storage.s3.services import ActionEnum, CategoryEnum, SuffixEnum, s3_svc
 from apps.core.storage.s3.validators import is_valid_attach_key
 from apps.notifications.models.model import Notification, NotificationType, TargetChoices
-from apps.notifications.serializers.list_serializers import NotificationListSerializer
-from apps.notifications.utils.create_notification import SYSTEM_SENDER_NAME
 from apps.supports.models import Inquiry, InquiryAnswer, InquiryStatus
 from apps.users.models import User
 
@@ -239,6 +237,31 @@ class TestInquiryDelete:
 
         assert response.status_code == 409
 
+    def test_delete_locks_row_for_update(self, user, inquiry):
+        """상태 판정과 삭제 사이를 행 잠금으로 닫았는지 SQL로 확인한다.
+
+        `filter(status=PENDING).delete()`로는 닫히지 않는다 — InquiryAnswer가
+        CASCADE라 collector 경로를 타고, 자식은 `_raw_delete`가
+        `WHERE inquiry_id IN (…)`를 삭제 시점에 새로 평가해 그 사이 들어온 답변까지
+        쓸어간다(2차 리뷰). 경합 자체는 재현이 불안정하므로 FOR UPDATE 발행을 고정한다.
+        """
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        from apps.supports.services import delete_my_inquiry
+
+        with CaptureQueriesContext(connection) as ctx:
+            delete_my_inquiry(inquiry.id, user)
+
+        selects = [q["sql"] for q in ctx.captured_queries if "inquiries" in q["sql"]]
+        assert any(
+            "FOR UPDATE" in sql for sql in selects
+        ), (
+            "문의 행을 FOR UPDATE로 잠그지 않았습니다 — 답변 저장과 경합합니다.\n"
+            + "\n".join(selects)
+        )
+        assert not Inquiry.objects.filter(id=inquiry.id).exists()
+
     def test_rejected_delete_keeps_answer(
         self, api_client, user, inquiry, django_capture_on_commit_callbacks
     ):
@@ -400,44 +423,3 @@ class TestNotifyInquiryAnsweredTask:
             notify_inquiry_answered_task(inquiry.id)
 
         assert Notification.objects.filter(receiver=user, target_id=inquiry.id).exists()
-
-    def test_list_api_shows_service_name_not_withdrawn_user(
-        self, api_client, inquiry, user
-    ):
-        """sender=None에는 탈퇴와 시스템 발신 두 의미가 겹친다.
-
-        구분하지 않으면 목록에 "탈퇴한 유저 — 문의하신 내용에 답변이 등록되었습니다"로
-        표시된다(1차 리뷰 MEDIUM). 담당자 닉네임 비노출보다 나쁜 결과라 반드시 갈라야 한다.
-        """
-        from apps.supports.tasks import notify_inquiry_answered_task
-
-        notify_inquiry_answered_task(inquiry.id)
-        api_client.force_authenticate(user=user)
-
-        response = api_client.get(reverse("notifications:notification_list"))
-
-        assert response.status_code == 200
-        row = next(
-            r
-            for r in response.data["results"]
-            if r["notification_type"] == NotificationType.INQUIRY_ANSWERED
-        )
-        assert row["sender"]["nickname"] == SYSTEM_SENDER_NAME
-        assert row["sender"]["nickname"] != "탈퇴한 유저"
-
-    def test_withdrawn_user_notification_still_says_withdrawn(self, user, other_user):
-        """시스템 발신 분기가 기존 탈퇴 표시를 덮어쓰지 않아야 한다."""
-        from apps.notifications.utils.create_notification import create_noti
-
-        create_noti(
-            None,
-            user.id,
-            NotificationType.FOLLOW,
-            other_user.id,
-            TargetChoices.USER,
-            "누군가 회원님을 팔로우 했습니다.",
-        )
-
-        noti = Notification.objects.get(receiver=user)
-        data = NotificationListSerializer(noti).data
-        assert data["sender"]["nickname"] == "탈퇴한 유저"

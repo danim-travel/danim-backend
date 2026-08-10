@@ -9,6 +9,7 @@
 from typing import Any, cast
 
 from django.core.cache import cache
+from django.db import transaction
 from django.db.models import QuerySet
 
 from apps.core.exceptions.exception import ConflictException, NotFoundException
@@ -136,25 +137,31 @@ def delete_my_inquiry(inquiry_id: str, user: User) -> None:
     레코드 삭제 시 S3 객체를 지우지 않으며(수명주기 정책 영역), 문의만 예외로
     두면 동작이 불규칙해진다.
 
-    **판정을 파이썬이 아니라 DELETE의 WHERE에 둔다.** `first()`로 읽어 상태를 보고
-    조건 없는 `delete()`를 부르면, SELECT와 DELETE 사이에 운영진의 답변 저장이
-    커밋됐을 때 그 답변까지 CASCADE로 지워진다. ATOMIC_REQUESTS가 꺼져 있어 뷰
-    전체를 감싸는 트랜잭션도 없다. 게다가 예약된 알림 태스크는 행이 사라진 것을
-    warning으로만 남기고 끝나 소실이 무증상이 된다(1차 리뷰 MEDIUM).
+    **행 잠금으로 답변 저장과의 경합을 막는다.** 상태 판정과 삭제 사이가 벌어지면
+    그 틈에 커밋된 답변이 함께 지워진다. 판정을 `filter(status=PENDING).delete()`로
+    옮기는 것으로는 닫히지 않는다 — `InquiryAnswer`가 CASCADE로 붙어 있어 Django가
+    fast-delete를 못 쓰고 collector 경로로 내려가는데, 거기서 자식은
+    `_raw_delete()`가 `WHERE inquiry_id IN (…)`를 **삭제 시점에 새로 평가**하고
+    부모는 `delete_batch(pk_list)`로 지운다. 둘 다 status 조건이 없어서, SELECT
+    이후에 들어온 답변이 FK 위반도 없이 쓸려나간다(2차 리뷰 — 1차 처방의 오류).
+
+    `select_for_update()`가 이 창을 닫는다. PostgreSQL에서 자식 INSERT는 부모 행에
+    FOR KEY SHARE를 잡으므로 FOR UPDATE와 충돌한다:
+      - 우리가 먼저 잠그면 답변 INSERT가 대기 → 삭제 커밋 후 FK 위반으로 **운영자
+        화면에 드러나며** 실패한다(조용한 소실보다 낫다).
+      - 답변이 먼저면 우리가 대기 → 잠금 획득 후 재평가해 ANSWERED를 보고 409.
+    ATOMIC_REQUESTS가 꺼져 있어 뷰 전체를 감싸는 트랜잭션이 없으므로 여기서
+    atomic을 직접 연다.
     """
-    deleted = (
-        Inquiry.objects.filter(
-            id=inquiry_id, user=user, status=InquiryStatus.PENDING
-        ).delete()[1]
-    ).get(Inquiry._meta.label, 0)
-    if deleted:
-        return
-    # 0건이면 "없어서"인지 "이미 처리돼서"인지 갈라 응답만 정한다. 이 조회는 위
-    # DELETE와 별개 시점이라 경합에 노출되지만, 어느 쪽으로 갈리든 결과는 "지울 수
-    # 없다"로 같아서 해가 없다.
-    if Inquiry.objects.filter(id=inquiry_id, user=user).exists():
-        raise ConflictException("이미 처리된 문의는 삭제할 수 없습니다.")
-    raise NotFoundException("존재하지 않는 문의입니다.")
+    with transaction.atomic():
+        inquiry = (
+            Inquiry.objects.select_for_update().filter(id=inquiry_id, user=user).first()
+        )
+        if inquiry is None:
+            raise NotFoundException("존재하지 않는 문의입니다.")
+        if inquiry.status != InquiryStatus.PENDING:
+            raise ConflictException("이미 처리된 문의는 삭제할 수 없습니다.")
+        inquiry.delete()
 
 
 def invalidate_faq_cache() -> None:

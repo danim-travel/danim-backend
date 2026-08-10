@@ -8,7 +8,12 @@ from django.db import transaction
 from django.db.models import F, Value
 from django.db.models.functions import Greatest
 
-from apps.notifications.models.model import Notification, NotificationType, TargetChoices
+from apps.notifications.models.model import (
+    SYSTEM_NOTI_TYPES,
+    Notification,
+    NotificationType,
+    TargetChoices,
+)
 from apps.users.models import User
 
 logger = logging.getLogger(__name__)
@@ -76,14 +81,6 @@ def create_notification(
         raise
 
 
-SYSTEM_SENDER_NAME = "다님 고객센터"
-
-# 발신 주체가 사람이 아니라 서비스인 알림. 목록 serializer는 sender=None을 "탈퇴한 유저"로
-# 표시하므로(원래 SET_NULL 전용 분기), 이 집합에 속한 종류는 그 분기 대신
-# SYSTEM_SENDER_NAME을 쓴다. 새 시스템 알림을 추가하면 여기에도 넣어야 표시가 맞는다.
-SYSTEM_NOTI_TYPES = frozenset({NotificationType.INQUIRY_ANSWERED})
-
-
 def create_system_notification(
     receiver_id: str, noti_type: str, target_id: str, target_type: str, msg: str
 ) -> None:
@@ -96,7 +93,15 @@ def create_system_notification(
         특정 운영자가 아니고 담당자 신원이 사용자에게 노출돼서도 안 된다.
       - 자기 알림 차단(receiver == sender): sender가 없어 성립하지 않는다.
     dedup도 걸지 않는다 — 시스템 알림은 사용자 행위 반복으로 폭증하는 축이 아니다.
+
+    예외: noti_type이 SYSTEM_NOTI_TYPES에 없으면 ValueError. 등록을 잊으면 목록
+        serializer가 sender=None을 탈퇴로 읽어 "탈퇴한 유저"가 다시 표시되는데,
+        조용히 잘못 나가는 대신 발송 시점에 깨뜨린다(2차 리뷰 LOW).
     """
+    if noti_type not in SYSTEM_NOTI_TYPES:
+        raise ValueError(
+            f"시스템 알림으로 보내려면 SYSTEM_NOTI_TYPES에 등록해야 합니다: {noti_type}"
+        )
     create_noti(None, receiver_id, noti_type, target_id, target_type, msg)
 
 
