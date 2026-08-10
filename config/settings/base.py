@@ -129,6 +129,19 @@ SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 
+# HTTPS 강제와 HSTS는 Django가 아니라 nginx가 담당한다
+# (nginx/nginx.conf·nginx.dev.conf — :80은 전부 301, 443에 HSTS 헤더).
+#
+# W004(HSTS): 여기서 SECURE_HSTS_SECONDS를 켜면 Django와 nginx가 각각 헤더를 붙여
+#   중복이 되고, 브라우저는 먼저 오는 값(upstream인 Django 쪽)을 채택해 nginx에
+#   적어둔 정책이 조용히 무력화된다(RFC 6797 §8.1). 값을 바꾸려면 nginx를 고칠 것.
+# W008(SSL 리다이렉트): 같은 이유다. nginx가 이미 :80을 301로 보내므로 Django의
+#   리다이렉트는 도달하지 않는 중복 경로다.
+#
+# 둘 다 "구현이 없다"가 아니라 "다른 계층이 담당한다"라서 침묵시킨다.
+# nginx에서 이 둘을 걷어내게 되면 이 목록도 함께 지워야 한다.
+SILENCED_SYSTEM_CHECKS = ["security.W004", "security.W008"]
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "apps.core.authentication.JWTAuthenticationNoWWW",
