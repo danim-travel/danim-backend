@@ -9,7 +9,7 @@ import pytest
 from django.urls import reverse
 from rest_framework.test import APIClient
 
-from apps.notifications.models.model import (
+from apps.notifications.models import (
     SYSTEM_SENDER_NAME,
     Notification,
     NotificationType,

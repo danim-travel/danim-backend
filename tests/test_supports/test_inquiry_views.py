@@ -8,7 +8,7 @@ from rest_framework.test import APIClient
 
 from apps.core.storage.s3.services import ActionEnum, CategoryEnum, SuffixEnum, s3_svc
 from apps.core.storage.s3.validators import is_valid_attach_key
-from apps.notifications.models.model import Notification, NotificationType, TargetChoices
+from apps.notifications.models import Notification, NotificationType, TargetChoices
 from apps.supports.models import Inquiry, InquiryAnswer, InquiryStatus
 from apps.users.models import User
 
@@ -267,9 +267,10 @@ class TestInquiryDelete:
     ):
         """삭제 거부 시 답변 행이 CASCADE로 사라지면 안 된다.
 
-        판정이 파이썬에 있고 DELETE에 status 조건이 없으면, 읽기와 삭제 사이에 답변이
-        커밋됐을 때 그 답변까지 지워진다(1차 리뷰 MEDIUM). 판정이 DELETE의 WHERE에
-        있어야 그 창이 닫힌다.
+        상태 판정과 삭제 사이가 벌어지면 그 틈에 커밋된 답변까지 지워진다.
+        판정을 `filter(status=PENDING).delete()`로 옮기는 것으로는 닫히지 않고
+        (collector 경로에서 자식 삭제가 status를 무시한다 — services.py 참고)
+        **행 잠금이 닫는다.**
         """
         with patch("apps.supports.signals.signal.notify_inquiry_answered_task.delay"):
             with django_capture_on_commit_callbacks(execute=True):
@@ -322,6 +323,83 @@ class TestAdminCloseAction:
         answered.refresh_from_db()
         assert inquiry.status == InquiryStatus.CLOSED
         assert answered.status == InquiryStatus.ANSWERED
+
+    def test_stale_save_resurrects_row(self, user, inquiry):
+        """왜 admin에도 잠금이 필요한지를 고정하는 특성 테스트.
+
+        `obj.save()`는 UPDATE가 0행이어도 예외를 내지 않고 INSERT로 폴백한다
+        (`Model._save_table` — pk가 있고 force_update·update_fields가 없을 때).
+        즉 운영자가 읽어둔 인스턴스로 저장하면 그사이 삭제된 문의가 **조용히
+        되살아난다.** 부모가 부활하니 FK 위반도 없어 아무도 눈치채지 못한다.
+
+        이 동작이 Django에서 바뀌면 아래 잠금 테스트들의 전제가 사라지므로,
+        전제 자체를 여기서 고정한다.
+        """
+        stale = Inquiry.objects.get(id=inquiry.id)
+        Inquiry.objects.filter(id=inquiry.id).delete()
+        assert not Inquiry.objects.filter(id=inquiry.id).exists()
+
+        stale.save()
+
+        assert Inquiry.objects.filter(id=inquiry.id).exists(), (
+            "Django의 UPDATE→INSERT 폴백 동작이 바뀌었습니다. "
+            "admin get_object 잠금의 근거를 재검토해야 합니다."
+        )
+
+    def test_admin_get_object_locks_row_on_post(self, user, inquiry):
+        """저장(POST) 경로에서는 문의 행을 FOR UPDATE로 잠근 뒤 읽어야 한다.
+
+        이 잠금이 사용자 삭제(delete_my_inquiry)의 잠금과 만나 뒤에 온 쪽을
+        대기시킨다. 삭제가 먼저 커밋되면 admin은 행을 못 찾아 저장이 성립하지
+        않으므로, 위 특성 테스트가 보여준 부활 경로에 도달하지 못한다.
+        """
+        from django.contrib.admin.sites import AdminSite
+        from django.db import connection, transaction
+        from django.test import RequestFactory
+        from django.test.utils import CaptureQueriesContext
+
+        from apps.supports.admin import InquiryAdmin
+
+        admin_obj = InquiryAdmin(Inquiry, AdminSite())
+        request = RequestFactory().post("/")
+        request.user = user
+
+        with transaction.atomic():
+            with CaptureQueriesContext(connection) as ctx:
+                found = admin_obj.get_object(request, inquiry.id)
+
+        assert found is not None
+        sqls = [q["sql"] for q in ctx.captured_queries if "inquiries" in q["sql"]]
+        assert any("FOR UPDATE" in sql for sql in sqls), (
+            "admin이 저장 시 문의 행을 잠그지 않습니다 — 사용자 삭제와 경합해 "
+            "삭제된 문의가 부활할 수 있습니다.\n" + "\n".join(sqls)
+        )
+
+    def test_admin_get_object_does_not_lock_on_get(self, user, inquiry):
+        """조회(GET)는 잠그지 않는다.
+
+        admin의 changeform_view는 GET/HEAD/OPTIONS/TRACE를 transaction.atomic
+        **밖에서** 처리하므로, 조회에도 select_for_update를 걸면
+        TransactionManagementError로 화면 자체가 열리지 않는다. POST 가드를
+        제거하면 이 테스트가 그 예외로 깨진다.
+        """
+        from django.contrib.admin.sites import AdminSite
+        from django.db import connection
+        from django.test import RequestFactory
+        from django.test.utils import CaptureQueriesContext
+
+        from apps.supports.admin import InquiryAdmin
+
+        admin_obj = InquiryAdmin(Inquiry, AdminSite())
+        request = RequestFactory().get("/")
+        request.user = user
+
+        with CaptureQueriesContext(connection) as ctx:
+            found = admin_obj.get_object(request, inquiry.id)
+
+        assert found is not None
+        sqls = [q["sql"] for q in ctx.captured_queries if "inquiries" in q["sql"]]
+        assert not any("FOR UPDATE" in sql for sql in sqls)
 
     def test_action_requires_change_permission(self, user):
         """액션에 permissions가 없으면 Django가 무조건 통과시킨다.

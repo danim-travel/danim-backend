@@ -8,7 +8,7 @@ from django.db import transaction
 from django.db.models import F, Value
 from django.db.models.functions import Greatest
 
-from apps.notifications.models.model import (
+from apps.notifications.models import (
     SYSTEM_NOTI_TYPES,
     Notification,
     NotificationType,

@@ -9,7 +9,7 @@ import logging
 
 from celery import shared_task
 
-from apps.notifications.models.model import NotificationType, TargetChoices
+from apps.notifications.models import NotificationType, TargetChoices
 from apps.notifications.utils.create_notification import create_system_notification
 from apps.supports.models import Inquiry
 
@@ -28,7 +28,9 @@ def notify_inquiry_answered_task(self, inquiry_id: str) -> None:
     SYSTEM_NOTI_TYPES가 함께 책임진다.
 
     조건: 문의가 이미 삭제됐으면 재시도해도 결과가 같으므로 경고만 남기고 종료한다.
-    예외: 그 밖의 실패는 지수 백오프로 재시도한다.
+    예외: ValueError(SYSTEM_NOTI_TYPES 미등록)는 프로그래밍 오류라 재시도해도 결과가
+        같으므로 그대로 올린다 — catch-all로 3회 재시도하면 게이트를 둔 취지가
+        무색해지고 같은 실패만 세 번 쌓인다. 그 밖의 실패만 지수 백오프로 재시도한다.
     """
     try:
         receiver_id = (
@@ -46,5 +48,7 @@ def notify_inquiry_answered_task(self, inquiry_id: str) -> None:
             target_type=TargetChoices.INQUIRY,
             msg=INQUIRY_ANSWERED_MESSAGE,
         )
+    except ValueError:
+        raise
     except Exception as e:
         raise self.retry(exc=e, countdown=2**self.request.retries)

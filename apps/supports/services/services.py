@@ -145,11 +145,18 @@ def delete_my_inquiry(inquiry_id: str, user: User) -> None:
     부모는 `delete_batch(pk_list)`로 지운다. 둘 다 status 조건이 없어서, SELECT
     이후에 들어온 답변이 FK 위반도 없이 쓸려나간다(2차 리뷰 — 1차 처방의 오류).
 
-    `select_for_update()`가 이 창을 닫는다. PostgreSQL에서 자식 INSERT는 부모 행에
-    FOR KEY SHARE를 잡으므로 FOR UPDATE와 충돌한다:
-      - 우리가 먼저 잠그면 답변 INSERT가 대기 → 삭제 커밋 후 FK 위반으로 **운영자
-        화면에 드러나며** 실패한다(조용한 소실보다 낫다).
-      - 답변이 먼저면 우리가 대기 → 잠금 획득 후 재평가해 ANSWERED를 보고 409.
+    `select_for_update()`가 이 창을 닫는다. 다만 **잠금은 양쪽에 있어야 한다** —
+    admin도 같은 행을 잠그도록 `InquiryAdmin.get_object`를 오버라이드했다.
+    한쪽만 잠그면 이렇게 된다: 운영자가 답변 화면에서 문의를 읽은 뒤 사용자가
+    삭제를 커밋하고, 운영자가 저장을 누르면 `save_model`의 `obj.save()`가 UPDATE
+    0행을 만나 **예외 없이 INSERT로 폴백해** 삭제된 문의를 되살린다
+    (`Model._save_table` — pk가 있고 force_update·update_fields가 없으면 폴백).
+    부모가 부활하므로 FK 위반도 나지 않아, 사용자는 204를 받았는데 문의가 답변까지
+    붙어 목록에 돌아온다(3차 리뷰 — 2차의 "FK 위반으로 드러난다"는 분석은 틀렸다).
+
+    양쪽이 잠그면 뒤에 온 쪽이 대기했다가 재평가한다:
+      - 삭제가 먼저면 → admin의 get_object가 행을 못 찾아 "존재하지 않음"으로 끝난다.
+      - 답변이 먼저면 → 우리가 대기 후 ANSWERED를 보고 409.
     ATOMIC_REQUESTS가 꺼져 있어 뷰 전체를 감싸는 트랜잭션이 없으므로 여기서
     atomic을 직접 연다.
     """

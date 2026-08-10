@@ -1,7 +1,8 @@
-from typing import Any
+from typing import Any, cast
 
 from django.contrib import admin
-from django.db.models import Count, QuerySet
+from django.core.exceptions import ValidationError
+from django.db.models import Count, Field, QuerySet
 from django.http import HttpRequest
 from django.utils import timezone
 from django.utils.html import format_html
@@ -169,6 +170,50 @@ class InquiryAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[Inquiry]:
         return super().get_queryset(request).select_related("answer")
+
+    def get_object(
+        self, request: HttpRequest, object_id: str, from_field: str | None = None
+    ) -> Inquiry | None:
+        """저장(POST) 시 대상 문의 행을 잠근 뒤 읽는다.
+
+        사용자 삭제(services.delete_my_inquiry)도 같은 행을 select_for_update로
+        잠그므로, 둘 중 뒤에 온 쪽이 대기한다. 이 잠금이 없으면 다음이 일어난다:
+          ① 운영자가 답변 화면을 열어 문의를 읽는다
+          ② 사용자가 그 문의를 삭제하고 커밋한다
+          ③ 운영자가 저장을 누른다 → save_model의 obj.save()가 UPDATE를 날리는데
+             0행이다. Django `Model._save_table`은 pk가 있고 force_update도
+             update_fields도 없으면 **예외 없이 INSERT로 폴백한다** → 삭제된 문의가
+             답변까지 붙어 되살아나고 알림도 나간다. 부모가 부활했으니 FK 위반도
+             나지 않아 아무도 모른다(3차 리뷰 — 2차의 "FK 위반으로 드러난다"는
+             분석이 틀렸다).
+
+        `request.method != "POST"` 가드가 필수다 — admin의 `changeform_view`는
+        GET/HEAD/OPTIONS/TRACE를 **transaction.atomic 밖에서** 처리하므로, 조회에도
+        잠그면 `TransactionManagementError`가 난다.
+
+        `of=("self",)`도 필수다 — 위 get_queryset의 `select_related("answer")`가
+        역방향 OneToOne이라 LEFT OUTER JOIN을 만드는데, PostgreSQL은 outer join의
+        nullable 쪽에 FOR UPDATE를 걸 수 없다. 잠글 대상을 문의 행으로 한정한다.
+        """
+        if request.method != "POST":
+            return super().get_object(request, object_id, from_field)
+
+        queryset = self.get_queryset(request).select_for_update(of=("self",))
+        # get_field는 역참조(ForeignObjectRel)도 반환할 수 있는 유니온이라 to_python이
+        # 없을 수 있다. admin의 from_field는 to_field_allowed를 통과한 실제 필드뿐이고
+        # 이 admin은 to_field를 쓰지 않으므로 사실상 pk 경로만 탄다.
+        field = cast(
+            "Field[Any, Any]",
+            (
+                Inquiry._meta.pk
+                if from_field is None
+                else Inquiry._meta.get_field(from_field)
+            ),
+        )
+        try:
+            return queryset.get(**{field.name: field.to_python(object_id)})
+        except (Inquiry.DoesNotExist, ValidationError, ValueError):
+            return None
 
     @admin.display(description="첨부 이미지")
     def image_preview(self, obj: Inquiry) -> Any:

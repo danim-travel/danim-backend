@@ -1,7 +1,6 @@
 from rest_framework import serializers
 
-from apps.notifications.models import Notification
-from apps.notifications.models.model import SYSTEM_NOTI_TYPES, SYSTEM_SENDER_NAME
+from apps.notifications.models import SYSTEM_NOTI_TYPES, SYSTEM_SENDER_NAME, Notification
 
 
 class NotificationListSerializer(serializers.ModelSerializer):
