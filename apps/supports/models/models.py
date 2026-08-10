@@ -115,7 +115,7 @@ class Inquiry(TimeStampModel):
     content = models.TextField()
     # presigned 발급 시 category=inquiry로 고정되며, 저장 시 validate_attach_key로
     # 형식·카테고리를 재검증한다(DM 이미지 key를 문의에 붙이는 교차 세탁 차단).
-    image_key = models.CharField(max_length=255, null=True, blank=True)
+    img_key = models.CharField(max_length=255, null=True, blank=True)
     status = models.CharField(
         max_length=20, choices=InquiryStatus.choices, default=InquiryStatus.PENDING
     )
@@ -123,7 +123,10 @@ class Inquiry(TimeStampModel):
     class Meta:
         db_table = "inquiries"
         ordering = ["-created_at"]
-        indexes = [models.Index(fields=["user", "created_at"])]
+        # 실제 목록 조회는 DefaultPagination의 커서 정렬(-id)을 타므로 인덱스도 id로
+        # 맞춘다. (user, created_at)이면 커서 페이지네이션이 이 인덱스를 쓰지 못한다.
+        # ULID는 시간 순증가라 -id 정렬이 -created_at과 사실상 같은 순서를 준다.
+        indexes = [models.Index(fields=["user", "id"])]
 
     def __str__(self) -> str:
         return f"[{self.get_category_display()}] {self.title}"

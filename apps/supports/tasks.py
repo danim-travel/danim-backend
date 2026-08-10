@@ -10,7 +10,7 @@ import logging
 from celery import shared_task
 
 from apps.notifications.models.model import NotificationType, TargetChoices
-from apps.notifications.utils.create_notification import create_noti
+from apps.notifications.utils.create_notification import create_system_notification
 from apps.supports.models import Inquiry
 
 logger = logging.getLogger(__name__)
@@ -22,13 +22,10 @@ INQUIRY_ANSWERED_MESSAGE = "문의하신 내용에 답변이 등록되었습니�
 def notify_inquiry_answered_task(self, inquiry_id: str) -> None:
     """문의 답변 등록 알림.
 
-    사용자 간 알림 경로(create_notification)를 쓰지 않고 create_noti를 직접 부른다.
-    그 경로에는 이 알림에 맞지 않는 규칙이 세 개 있다:
-      - 차단 게이트: 사용자가 운영자 계정을 차단해 두면 답변 알림이 조용히 사라진다.
-        문의 답변은 사용자가 먼저 요청한 것이라 사회적 관계로 막을 대상이 아니다.
-      - 자기 알림 차단(receiver == sender): sender가 없는 알림이라 성립하지 않는다.
-      - NOTIFICATION_MAP: 모든 문구가 sender 닉네임을 포맷에 넣는데, 답변자는 특정
-        운영자가 아니라 서비스다. 담당자 닉네임이 사용자에게 노출되어서도 안 된다.
+    발신 주체가 서비스이므로 시스템 알림 경로를 쓴다(근거는
+    create_system_notification docstring — 차단 게이트·닉네임 포맷·자기 알림 차단이
+    모두 이 알림에 맞지 않는다). 목록 화면의 발신자 표기도 그 모듈의
+    SYSTEM_NOTI_TYPES가 함께 책임진다.
 
     조건: 문의가 이미 삭제됐으면 재시도해도 결과가 같으므로 경고만 남기고 종료한다.
     예외: 그 밖의 실패는 지수 백오프로 재시도한다.
@@ -42,8 +39,7 @@ def notify_inquiry_answered_task(self, inquiry_id: str) -> None:
         if receiver_id is None:
             logger.warning(f"[문의 답변 알림 스킵] 삭제된 문의 inquiry_id={inquiry_id}")
             return
-        create_noti(
-            sender=None,
+        create_system_notification(
             receiver_id=receiver_id,
             noti_type=NotificationType.INQUIRY_ANSWERED,
             target_id=inquiry_id,

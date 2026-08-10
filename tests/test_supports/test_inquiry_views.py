@@ -9,6 +9,8 @@ from rest_framework.test import APIClient
 from apps.core.storage.s3.services import ActionEnum, CategoryEnum, SuffixEnum, s3_svc
 from apps.core.storage.s3.validators import is_valid_attach_key
 from apps.notifications.models.model import Notification, NotificationType, TargetChoices
+from apps.notifications.serializers.list_serializers import NotificationListSerializer
+from apps.notifications.utils.create_notification import SYSTEM_SENDER_NAME
 from apps.supports.models import Inquiry, InquiryAnswer, InquiryStatus
 from apps.users.models import User
 
@@ -93,7 +95,7 @@ class TestInquiryCreate:
 
         assert response.status_code == 400
 
-    def test_valid_inquiry_image_key_accepted(self, api_client, user):
+    def test_valid_inquiry_img_key_accepted(self, api_client, user):
         api_client.force_authenticate(user=user)
         key = s3_svc.create_key(
             action=ActionEnum.UPLOAD,
@@ -108,15 +110,31 @@ class TestInquiryCreate:
                 "category": "ETC",
                 "title": "첨부 있음",
                 "content": "내용",
-                "image_key": key,
+                "img_key": key,
             },
             format="json",
         )
 
         assert response.status_code == 201
-        assert Inquiry.objects.get(title="첨부 있음").image_key == key
+        assert Inquiry.objects.get(title="첨부 있음").img_key == key
+        # 버킷이 비공개라 key만 내려주면 클라이언트가 자기 첨부를 다시 못 본다.
+        assert response.data["image"]["key"] == key
+        assert response.data["image"]["img_url"]
 
-    def test_image_key_from_other_category_rejected(self, api_client, user):
+    def test_image_is_null_pair_when_no_attachment(self, api_client, user):
+        """첨부가 없어도 키 자체는 존재해야 프론트 분기가 undefined를 만나지 않는다."""
+        api_client.force_authenticate(user=user)
+
+        response = api_client.post(
+            reverse("supports:inquiry_list_create"),
+            {"category": "ETC", "title": "첨부 없음", "content": "내용"},
+            format="json",
+        )
+
+        assert response.status_code == 201
+        assert response.data["image"] == {"key": None, "img_url": None}
+
+    def test_img_key_from_other_category_rejected(self, api_client, user):
         """DM용으로 발급된 key를 문의에 붙이면 거부된다(교차 카테고리 세탁 차단).
 
         key를 문자열로 박아두면 S3_PREFIX/S3_PATH 설정이 바뀌었을 때 형식 오류로
@@ -136,7 +154,7 @@ class TestInquiryCreate:
 
         response = api_client.post(
             reverse("supports:inquiry_list_create"),
-            {"category": "ETC", "title": "제목", "content": "내용", "image_key": dm_key},
+            {"category": "ETC", "title": "제목", "content": "내용", "img_key": dm_key},
             format="json",
         )
 
@@ -221,6 +239,28 @@ class TestInquiryDelete:
 
         assert response.status_code == 409
 
+    def test_rejected_delete_keeps_answer(
+        self, api_client, user, inquiry, django_capture_on_commit_callbacks
+    ):
+        """삭제 거부 시 답변 행이 CASCADE로 사라지면 안 된다.
+
+        판정이 파이썬에 있고 DELETE에 status 조건이 없으면, 읽기와 삭제 사이에 답변이
+        커밋됐을 때 그 답변까지 지워진다(1차 리뷰 MEDIUM). 판정이 DELETE의 WHERE에
+        있어야 그 창이 닫힌다.
+        """
+        with patch("apps.supports.signals.signal.notify_inquiry_answered_task.delay"):
+            with django_capture_on_commit_callbacks(execute=True):
+                InquiryAnswer.objects.create(inquiry=inquiry, content="답변")
+        api_client.force_authenticate(user=user)
+
+        response = api_client.delete(
+            reverse("supports:inquiry_detail", args=[inquiry.id])
+        )
+
+        assert response.status_code == 409
+        assert Inquiry.objects.filter(id=inquiry.id).exists()
+        assert InquiryAnswer.objects.filter(inquiry_id=inquiry.id).exists()
+
     def test_others_inquiry_delete_is_404(self, api_client, other_user, inquiry):
         api_client.force_authenticate(user=other_user)
 
@@ -260,6 +300,40 @@ class TestAdminCloseAction:
         assert inquiry.status == InquiryStatus.CLOSED
         assert answered.status == InquiryStatus.ANSWERED
 
+    def test_action_requires_change_permission(self, user):
+        """액션에 permissions가 없으면 Django가 무조건 통과시킨다.
+
+        changelist는 view 권한만으로 열리므로, 게이트가 없으면 조회 권한만 가진
+        스태프가 문의 상태를 바꿀 수 있다(1차 리뷰 MEDIUM). 액션 함수를 직접 부르는
+        테스트는 이 계층을 통째로 건너뛰므로, Django의 필터(get_actions)로 검증한다.
+        """
+        from django.contrib.admin.sites import AdminSite
+        from django.contrib.auth.models import Permission
+        from django.test import RequestFactory
+
+        from apps.supports.admin import InquiryAdmin
+
+        admin_obj = InquiryAdmin(Inquiry, AdminSite())
+        request = RequestFactory().get("/")
+
+        user.is_staff = True
+        user.save(update_fields=["is_staff"])
+        user.user_permissions.add(
+            Permission.objects.get(
+                codename="view_inquiry", content_type__app_label="supports"
+            )
+        )
+        request.user = User.objects.get(pk=user.pk)  # 권한 캐시 초기화
+        assert "close_inquiries" not in admin_obj.get_actions(request)
+
+        user.user_permissions.add(
+            Permission.objects.get(
+                codename="change_inquiry", content_type__app_label="supports"
+            )
+        )
+        request.user = User.objects.get(pk=user.pk)
+        assert "close_inquiries" in admin_obj.get_actions(request)
+
 
 class TestAnswerSideEffects:
     def test_answer_marks_answered_and_schedules_notification(
@@ -279,8 +353,12 @@ class TestAnswerSideEffects:
         self, inquiry, django_capture_on_commit_callbacks
     ):
         """오탈자 수정마다 알림이 다시 가면 사용자에게 소음이 된다."""
-        with django_capture_on_commit_callbacks(execute=True):
-            answer = InquiryAnswer.objects.create(inquiry=inquiry, content="초안")
+        # 첫 저장도 patch로 감싼다 — 감싸지 않으면 on_commit 콜백이 실제 브로커로
+        # enqueue된다(ALWAYS_EAGER 미설정). CI는 redis 서비스가 있어 통과하지만
+        # redis 없는 로컬에서는 이 테스트가 연결 오류로 죽는다.
+        with patch("apps.supports.signals.signal.notify_inquiry_answered_task.delay"):
+            with django_capture_on_commit_callbacks(execute=True):
+                answer = InquiryAnswer.objects.create(inquiry=inquiry, content="초안")
 
         with patch(
             "apps.supports.signals.signal.notify_inquiry_answered_task.delay"
@@ -322,3 +400,44 @@ class TestNotifyInquiryAnsweredTask:
             notify_inquiry_answered_task(inquiry.id)
 
         assert Notification.objects.filter(receiver=user, target_id=inquiry.id).exists()
+
+    def test_list_api_shows_service_name_not_withdrawn_user(
+        self, api_client, inquiry, user
+    ):
+        """sender=None에는 탈퇴와 시스템 발신 두 의미가 겹친다.
+
+        구분하지 않으면 목록에 "탈퇴한 유저 — 문의하신 내용에 답변이 등록되었습니다"로
+        표시된다(1차 리뷰 MEDIUM). 담당자 닉네임 비노출보다 나쁜 결과라 반드시 갈라야 한다.
+        """
+        from apps.supports.tasks import notify_inquiry_answered_task
+
+        notify_inquiry_answered_task(inquiry.id)
+        api_client.force_authenticate(user=user)
+
+        response = api_client.get(reverse("notifications:notification_list"))
+
+        assert response.status_code == 200
+        row = next(
+            r
+            for r in response.data["results"]
+            if r["notification_type"] == NotificationType.INQUIRY_ANSWERED
+        )
+        assert row["sender"]["nickname"] == SYSTEM_SENDER_NAME
+        assert row["sender"]["nickname"] != "탈퇴한 유저"
+
+    def test_withdrawn_user_notification_still_says_withdrawn(self, user, other_user):
+        """시스템 발신 분기가 기존 탈퇴 표시를 덮어쓰지 않아야 한다."""
+        from apps.notifications.utils.create_notification import create_noti
+
+        create_noti(
+            None,
+            user.id,
+            NotificationType.FOLLOW,
+            other_user.id,
+            TargetChoices.USER,
+            "누군가 회원님을 팔로우 했습니다.",
+        )
+
+        noti = Notification.objects.get(receiver=user)
+        data = NotificationListSerializer(noti).data
+        assert data["sender"]["nickname"] == "탈퇴한 유저"

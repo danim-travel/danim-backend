@@ -135,13 +135,26 @@ def delete_my_inquiry(inquiry_id: str, user: User) -> None:
     첨부 이미지(S3 객체)는 함께 지우지 않는다 — 이 프로젝트의 어느 도메인도
     레코드 삭제 시 S3 객체를 지우지 않으며(수명주기 정책 영역), 문의만 예외로
     두면 동작이 불규칙해진다.
+
+    **판정을 파이썬이 아니라 DELETE의 WHERE에 둔다.** `first()`로 읽어 상태를 보고
+    조건 없는 `delete()`를 부르면, SELECT와 DELETE 사이에 운영진의 답변 저장이
+    커밋됐을 때 그 답변까지 CASCADE로 지워진다. ATOMIC_REQUESTS가 꺼져 있어 뷰
+    전체를 감싸는 트랜잭션도 없다. 게다가 예약된 알림 태스크는 행이 사라진 것을
+    warning으로만 남기고 끝나 소실이 무증상이 된다(1차 리뷰 MEDIUM).
     """
-    inquiry = Inquiry.objects.filter(id=inquiry_id, user=user).first()
-    if inquiry is None:
-        raise NotFoundException("존재하지 않는 문의입니다.")
-    if inquiry.status != InquiryStatus.PENDING:
+    deleted = (
+        Inquiry.objects.filter(
+            id=inquiry_id, user=user, status=InquiryStatus.PENDING
+        ).delete()[1]
+    ).get(Inquiry._meta.label, 0)
+    if deleted:
+        return
+    # 0건이면 "없어서"인지 "이미 처리돼서"인지 갈라 응답만 정한다. 이 조회는 위
+    # DELETE와 별개 시점이라 경합에 노출되지만, 어느 쪽으로 갈리든 결과는 "지울 수
+    # 없다"로 같아서 해가 없다.
+    if Inquiry.objects.filter(id=inquiry_id, user=user).exists():
         raise ConflictException("이미 처리된 문의는 삭제할 수 없습니다.")
-    inquiry.delete()
+    raise NotFoundException("존재하지 않는 문의입니다.")
 
 
 def invalidate_faq_cache() -> None:

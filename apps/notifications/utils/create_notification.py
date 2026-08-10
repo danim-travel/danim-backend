@@ -76,6 +76,30 @@ def create_notification(
         raise
 
 
+SYSTEM_SENDER_NAME = "다님 고객센터"
+
+# 발신 주체가 사람이 아니라 서비스인 알림. 목록 serializer는 sender=None을 "탈퇴한 유저"로
+# 표시하므로(원래 SET_NULL 전용 분기), 이 집합에 속한 종류는 그 분기 대신
+# SYSTEM_SENDER_NAME을 쓴다. 새 시스템 알림을 추가하면 여기에도 넣어야 표시가 맞는다.
+SYSTEM_NOTI_TYPES = frozenset({NotificationType.INQUIRY_ANSWERED})
+
+
+def create_system_notification(
+    receiver_id: str, noti_type: str, target_id: str, target_type: str, msg: str
+) -> None:
+    """발신 주체가 서비스인 알림(문의 답변 등)을 만든다.
+
+    사용자 간 경로(create_notification)를 쓰지 않는 이유:
+      - 차단 게이트: 사용자가 운영자 계정을 차단해 두면 본인이 먼저 요청한 답변
+        알림이 조용히 사라진다. 사회적 관계로 막을 대상이 아니다.
+      - NOTIFICATION_MAP: 모든 문구가 sender 닉네임을 포맷에 넣는데, 발신 주체가
+        특정 운영자가 아니고 담당자 신원이 사용자에게 노출돼서도 안 된다.
+      - 자기 알림 차단(receiver == sender): sender가 없어 성립하지 않는다.
+    dedup도 걸지 않는다 — 시스템 알림은 사용자 행위 반복으로 폭증하는 축이 아니다.
+    """
+    create_noti(None, receiver_id, noti_type, target_id, target_type, msg)
+
+
 def _build_dedup_key(
     receiver_id: str, sender_id: str, noti_type: str, target_id: str
 ) -> str | None:

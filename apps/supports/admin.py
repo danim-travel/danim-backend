@@ -6,6 +6,7 @@ from django.http import HttpRequest
 from django.utils import timezone
 from django.utils.html import format_html
 
+from apps.core.storage.s3 import s3_svc
 from apps.supports.models import (
     FAQ,
     FAQCategory,
@@ -151,12 +152,37 @@ class InquiryAdmin(admin.ModelAdmin):
     list_select_related = ("user",)
     inlines = [InquiryAnswerInline]
     actions = ["close_inquiries"]
-    # 문의 본문은 사용자가 쓴 것이라 운영진이 고칠 수 없어야 한다. status는 CLOSED
-    # 정리를 위해 남겨 둔다.
-    readonly_fields = ("user", "category", "title", "content", "image_key", "created_at")
+    # 문의 본문은 사용자가 쓴 것이라 운영진이 고칠 수 없어야 한다.
+    # status도 읽기전용이다 — 전이는 답변 저장(signal)과 종결 액션 두 경로만 갖는데,
+    # 자유 편집이 열려 있으면 그 상태 기계를 우회해 ANSWERED로 바꿔 놓고 답변이 없는
+    # 조합이 만들어진다.
+    readonly_fields = (
+        "user",
+        "category",
+        "title",
+        "content",
+        "image_preview",
+        "status",
+        "created_at",
+    )
+    exclude = ("img_key",)
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[Inquiry]:
         return super().get_queryset(request).select_related("answer")
+
+    @admin.display(description="첨부 이미지")
+    def image_preview(self, obj: Inquiry) -> Any:
+        """버킷이 비공개라 key만 보여주면 운영진도 첨부를 확인할 수 없다.
+        조회용 presigned URL(기본 15분)을 링크로 건다.
+        """
+        if not obj.img_key:
+            return "-"
+        return format_html(
+            '<a href="{}" target="_blank" rel="noreferrer">첨부 열기</a>'
+            '<div style="color:#5f6368;font-size:11px">{}</div>',
+            s3_svc.create_download_presigned_url(obj.img_key),
+            obj.img_key,
+        )
 
     @admin.display(description="상태", ordering="status")
     def status_badge(self, obj: Inquiry) -> Any:
@@ -166,7 +192,13 @@ class InquiryAdmin(admin.ModelAdmin):
             obj.get_status_display(),
         )
 
-    @admin.action(description="선택한 문의를 종결 처리 (답변 없이 닫기)")
+    # permissions가 없으면 Django는 이 액션을 무조건 통과시킨다
+    # (_filter_actions_by_permissions가 allowed_permissions 없는 액션은 필터 없이 넣는다).
+    # changelist는 view 권한만으로 열리므로, 이게 없으면 조회 권한만 가진 스태프가
+    # 문의 상태를 바꿀 수 있어 has_add_permission=False·readonly로 세운 경계와 어긋난다.
+    @admin.action(
+        permissions=["change"], description="선택한 문의를 종결 처리 (답변 없이 닫기)"
+    )
     def close_inquiries(self, request: HttpRequest, queryset: QuerySet) -> None:
         """스팸·중복처럼 답변할 가치가 없는 문의를 일괄 종결한다.
 

@@ -5,7 +5,7 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.throttling import BaseThrottle, ScopedRateThrottle
 from rest_framework.views import APIView
 
 from apps.core.exceptions.exception import ValidationException
@@ -101,6 +101,17 @@ class InquiryListCreateView(APIView):
     """POST/GET /api/v1/supports/inquiries — 1:1 문의 등록 / 내 문의 목록"""
 
     permission_classes = [IsAuthenticated]
+    throttle_scope = "inquiry_create"
+
+    def get_throttles(self) -> list[BaseThrottle]:
+        """등록에만 스로틀을 건다.
+
+        클래스에 throttle_classes를 두면 GET 목록까지 같은 한도에 묶여 무한스크롤이
+        몇 페이지 만에 429가 된다. 조이려는 대상은 쓰기뿐이다.
+        """
+        if self.request.method == "POST":
+            return [ScopedRateThrottle()]
+        return []
 
     @extend_schema(
         tags=["고객센터"],
@@ -153,13 +164,16 @@ class InquiryPresignedUrlView(PresignedUrlView):
     """POST /api/v1/supports/inquiries/presigned-url — 문의 첨부 이미지 업로드 URL
 
     category=inquiry로 고정 발급한다. 문의 저장 시 같은 카테고리인지 재검증하므로
-    (InquiryCreateSerializer.validate_image_key) 다른 카테고리 key는 붙지 않는다.
+    (InquiryCreateSerializer.validate_img_key) 다른 카테고리 key는 붙지 않는다.
     """
 
     permission_classes: list[type[Any]] = [IsAuthenticated]
     action = ActionEnum.UPLOAD
     category = CategoryEnum.INQUIRY
     suffix = SuffixEnum.NONE
+    # 발급 자체는 저렴하지만 S3 객체를 무한히 만들 수 있는 축이라 조인다.
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "inquiry_presigned"
 
     @extend_schema(tags=["고객센터"], summary="문의 이미지 업로드 URL 발급")
     def post(self, request: Request) -> Response:

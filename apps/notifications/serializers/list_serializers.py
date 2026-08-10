@@ -1,6 +1,10 @@
 from rest_framework import serializers
 
 from apps.notifications.models import Notification
+from apps.notifications.utils.create_notification import (
+    SYSTEM_NOTI_TYPES,
+    SYSTEM_SENDER_NAME,
+)
 
 
 class NotificationListSerializer(serializers.ModelSerializer):
@@ -22,9 +26,13 @@ class NotificationListSerializer(serializers.ModelSerializer):
 
     def get_sender(self, obj):
         if not obj.sender:
+            # sender=None에는 두 가지 의미가 겹쳐 있다: 탈퇴(SET_NULL)와 시스템 발신.
+            # notification_type으로 갈라야 문의 답변이 "탈퇴한 유저 — 답변이
+            # 등록되었습니다"로 나가는 것을 막을 수 있다.
+            is_system = obj.notification_type in SYSTEM_NOTI_TYPES
             return {
                 "user_id": None,
-                "nickname": "탈퇴한 유저",
+                "nickname": SYSTEM_SENDER_NAME if is_system else "탈퇴한 유저",
                 "profile_img": None,
             }
         return {
