@@ -27,17 +27,33 @@ jobs:
           confs=$(ls nginx/*.conf)
           echo "검사 대상: $confs"
 
-          # conf가 참조하는 인증서 경로를 그대로 만들어 준다
-          # (grep -h: 파일명 접두 회피 / ssl_certificate\s+: ssl_certificate_key 미매치)
-          for cert in $(grep -hoE '^\s*ssl_certificate\s+\S+' $confs | awk '{print $2}' | tr -d ';'); do
-            dir=$(dirname "$cert")
-            host=$(basename "$dir")
-            sudo mkdir -p "$dir"
-            sudo openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
-              -keyout "$dir/privkey.pem" -out "$dir/fullchain.pem" \
-              -subj "/CN=$host" 2>/dev/null
-          done
-          sudo chmod -R a+rX /etc/letsencrypt
+          # conf가 참조하는 인증서·키 경로를 **파일명까지 그대로** 만들어 준다.
+          # 디렉터리만 뽑고 fullchain.pem/privkey.pem을 가정하면, conf가 다른
+          # 파일명을 쓰는 순간 nginx -t가 파일 부재로 죽어 문법과 무관한 거짓 실패가
+          # 된다. (grep -h: 파일명 접두 회피)
+          certs=$(grep -hoE '^[[:space:]]*ssl_certificate[[:space:]]+[^;]+' $confs \
+                  | awk '{print $2}' | sort -u)
+          keys=$(grep -hoE '^[[:space:]]*ssl_certificate_key[[:space:]]+[^;]+' $confs \
+                  | awk '{print $2}' | sort -u)
+
+          if [ -z "$certs" ]; then
+            echo "TLS 설정이 없어 인증서 생성을 건너뜁니다."
+          else
+            # cert와 key는 짝이므로 같은 디렉터리 기준으로 한 쌍씩 만든다
+            for cert in $certs; do
+              dir=$(dirname "$cert")
+              key=$(echo "$keys" | grep "^$dir/" | head -1)
+              [ -n "$key" ] || key="$dir/privkey.pem"
+              sudo mkdir -p "$dir"
+              sudo openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+                -keyout "$key" -out "$cert" \
+                -subj "/CN=$(basename "$dir")" 2>/dev/null
+              echo "생성: $cert / $key"
+            done
+            # 존재를 확인한 뒤에만 권한을 연다 — 무가드면 TLS 없는 conf에서
+            # 디렉터리 부재로 set -e에 걸려 문법과 무관하게 게이트가 죽는다
+            sudo chmod -R a+rX /etc/letsencrypt
+          fi
 
           # compose와 같은 이미지 태그를 쓴다(런타임과 파서가 갈리지 않도록)
           for conf in $confs; do
