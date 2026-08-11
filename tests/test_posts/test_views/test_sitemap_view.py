@@ -58,3 +58,11 @@ class SitemapViewTest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data, [])
+
+    def test_throttle_blocks_after_rate_limit(self) -> None:
+        """sitemap 스코프 rate(12/hour)를 넘기면 13번째 요청부터 429가 반환된다"""
+        for _ in range(12):
+            response = self.client.get(self.url)
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
