@@ -11,7 +11,7 @@ from apps.supports.models import (
     FAQCategory,
     Inquiry,
     InquiryAnswer,
-    PendingAttachmentDeletion,
+    PendingInquiryAttachmentDeletion,
 )
 
 
@@ -68,20 +68,25 @@ class InquiryCreateSerializer(serializers.ModelSerializer):
             return None
         validate_attach_key(value, CategoryEnum.INQUIRY)
 
-        # **파기 예약된 key는 재등록을 막는다.**
+        # **key 재사용을 두 검사의 합집합으로 막는다. 둘은 대안이 아니라 상호보완이다.**
         #
-        # 부재(`Inquiry.filter(img_key=K).exists()`)로 판정하면 체크-후-행동 창이
-        # 닫히지 않는다. 문의 삭제는 하드 삭제라, A가 지워진 직후 구간에서는
-        # 파기 태스크의 검사와 이 검사가 **같은 False를 본다** — A는 이미 없고 B는
-        # 아직 없기 때문이다. 그 사이 B가 커밋되면 태스크가 살아 있는 B의 첨부를
-        # 지운다(4차 리뷰).
+        #   구간                 Inquiry 검사        대장 검사
+        #   삭제 트랜잭션 커밋 전   A가 보인다 → 막음    아직 안 보임(READ COMMITTED)
+        #   삭제 트랜잭션 커밋 후   A가 사라져 못 봄     행이 보인다 → 막음
         #
-        # 대장에 **존재**하는지로 판정하면 그 구간이 닫힌다. 대장 행은 삭제와 같은
-        # 트랜잭션에서 생기고 S3 파기가 성공한 뒤에만 사라지므로, "지워질 예정이거나
-        # 지워지는 중"인 key는 항상 잡힌다.
+        # 대장만 두면(5차 리뷰 HIGH) "살아 있는 두 문의가 같은 key를 공유"하는 상태가
+        # 만들어진다. 상세 응답이 `image.key`를 그대로 돌려주므로 재제출만으로 도달
+        # 가능하다. 그 상태에서 A를 지우면 파기 태스크가 B의 참조를 보고 **재시도 없이
+        # 보류**하고, 대장 행과 S3 객체가 함께 남는다. B에 답변이 달리면 사용자는 409로
+        # B도 못 지워 회수 수단이 사라진다.
+        #
+        # Inquiry 검사만 두면 반대로 커밋 후 구간이 열린다 — A가 이미 없고 B는 아직
+        # 없어 이 검사와 파기 태스크의 검사가 **같은 False를 본다**(4차 리뷰).
         #
         # 정상 사용에는 제약이 없다 — 첨부는 presigned로 매번 새 key를 발급받는다.
-        if PendingAttachmentDeletion.objects.filter(key=value).exists():
+        if Inquiry.objects.filter(img_key=value).exists():
+            raise serializers.ValidationError("이미 사용된 이미지입니다.")
+        if PendingInquiryAttachmentDeletion.objects.filter(key=value).exists():
             raise serializers.ValidationError("파기 예약된 이미지입니다.")
         return value
 

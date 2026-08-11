@@ -9,7 +9,7 @@
 from typing import Any, cast
 
 from django.core.cache import cache
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import QuerySet
 
 from apps.core.exceptions.exception import ConflictException, NotFoundException
@@ -97,8 +97,18 @@ def create_faq_feedback(faq_id: str, is_helpful: bool, user: User | None) -> Non
 
 
 def create_inquiry(user: User, validated_data: dict[str, Any]) -> Inquiry:
-    """1:1 문의 등록. 상태는 모델 기본값(PENDING)에서 시작한다."""
-    return Inquiry.objects.create(user=user, **validated_data)
+    """1:1 문의 등록. 상태는 모델 기본값(PENDING)에서 시작한다.
+
+    예외: img_key 부분 유니크 제약 위반은 409로 바꾼다. serializer가 먼저 걸러내지만
+        그 검사도 체크-후-행동이라 동시 요청 둘이 각각 통과할 수 있다 — 제약이 그
+        경합을 막는 최종 방어선이고, 변환하지 않으면 500이 된다.
+    """
+    try:
+        return Inquiry.objects.create(user=user, **validated_data)
+    except IntegrityError as exc:
+        if "uq_inquiry_img_key" not in str(exc):
+            raise
+        raise ConflictException("이미 사용된 이미지입니다.") from exc
 
 
 def get_my_inquiries(user: User) -> QuerySet[Inquiry]:

@@ -15,7 +15,7 @@ from apps.core.storage.s3.services import CategoryEnum
 from apps.core.storage.s3.validators import is_valid_attach_key
 from apps.notifications.models import NotificationType, TargetChoices
 from apps.notifications.utils.create_notification import create_system_notification
-from apps.supports.models import Inquiry, PendingAttachmentDeletion
+from apps.supports.models import Inquiry, PendingInquiryAttachmentDeletion
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +69,13 @@ def notify_inquiry_answered_task(self, inquiry_id: str) -> None:
 # ⚠ 전역 설정으로 올리면 안 된다 — create_notification_task는 멱등하지 않아
 #   재배달이 중복 알림이 된다.
 #
+# 재배달 계약(reject_on_worker_lost는 --pool=solo에서 무동작이다 — WorkerLostError는
+# prefork 풀이 자식 사망 시 올린다. 풀을 바꿀 때를 대비해 켜 두는 것뿐):
+#   - graceful 종료(SIGTERM, stop_grace_period 내) → kombu restore_at_shutdown이
+#     미ack 메시지를 즉시 큐로 되돌린다.
+#   - SIGKILL(유예 초과·OOM-kill) → visibility_timeout(기본 3600초) 뒤에 재배달된다.
+#     **최대 1시간 지연**이며 그동안 대장 행이 회수 대상으로 남아 있는다.
+#
 # 재시도 간격도 늘렸다. 1·2·4초(총 7초)는 S3 일시 장애를 넘기기에 짧다.
 @shared_task(
     bind=True,
@@ -110,18 +117,18 @@ def delete_inquiry_attachment_task(self, key: str) -> None:
         return
 
     if Inquiry.objects.filter(img_key=key).exists():
-        logger.info(f"[문의 첨부 파기 보류] 다른 문의가 아직 참조합니다 key={key}")
+        # 대장 행은 **의도적으로 유지한다.** 여기서 지우면 M-①의 창이 다시 열린다
+        # (다른 태스크가 그 사이 대장이 빈 것을 보고 S3 왕복을 시작한다).
+        # 참조가 사라지면 그때 파기된다 — #341의 회수 대상은 "대장에 있으면서
+        # 어떤 Inquiry도 참조하지 않는 key"여야 한다(5차 리뷰).
+        logger.info(
+            f"[문의 첨부 파기 보류] 다른 문의가 아직 참조합니다 key={key} "
+            "— 대장 행은 유지한다(참조가 사라지면 그때 파기)"
+        )
         return
 
     try:
         s3_svc.delete(key)
-        # 성공을 남긴다. ①개인정보 파기 시점의 증적이고 ②"워커가 돌며 파기 중"과
-        # "워커는 떴는데 메시지가 한 건도 안 온다(큐 오타·시그널 미연결)"를
-        # 로그로 구분해 준다 — 후자는 증상이 오직 침묵이다(4차 리뷰).
-        logger.info(f"[문의 첨부 파기 완료] key={key}")
-        # 대장은 **성공한 뒤에만** 지운다. 남아 있는 행은 곧 "아직 파기되지 않은
-        # 개인정보"다.
-        PendingAttachmentDeletion.objects.filter(key=key).delete()
     except Exception as exc:
         if self.request.retries >= self.max_retries:
             logger.error(
@@ -131,3 +138,12 @@ def delete_inquiry_attachment_task(self, key: str) -> None:
             raise
         # 10·20·40·80·160초 — S3 일시 장애가 몇 분 이어져도 넘긴다.
         raise self.retry(exc=exc, countdown=10 * 2**self.request.retries)
+
+    # 성공을 남긴다. ①개인정보 파기 시점의 증적이고 ②"워커가 돌며 파기 중"과 "워커는
+    # 떴는데 메시지가 한 건도 안 온다(큐 오타·시그널 미연결)"를 구분해 준다.
+    logger.info(f"[문의 첨부 파기 완료] key={key}")
+    # 대장은 **성공한 뒤에만** 지운다. 남아 있는 행은 곧 "아직 파기되지 않은 개인정보"다.
+    # try 밖에 두는 이유: 안에 있으면 DB 일시 장애가 "S3 파기 실패"로 오보되고
+    # (이미 지웠는데 "객체가 남아 있을 수 있습니다" ERROR가 나간다) 재시도마다 S3
+    # 왕복을 반복한다(5차 리뷰 LOW).
+    PendingInquiryAttachmentDeletion.objects.filter(key=key).delete()

@@ -92,6 +92,13 @@ services:
   #   아래 둘을 반드시 지킬 것:
   #   1) maxmemory-policy는 noeviction을 유지한다. 어떤 eviction 정책을 걸든
   #      브로커 메시지(=파기 지시)가 evict 대상이 되어 조용히 사라진다.
+  #      ⚠ maxmemory가 **함께** 있어야 한다 — noeviction은 redis 기본값이라
+  #        명시만으로는 동작 변화가 없고, 한계가 없으면 정책이 발동하지도
+  #        않는다. 그 상태에서 mem_limit만 걸면 우아한 거부(OOM 에러 응답)가
+  #        커널 SIGKILL로 바뀌고, restart:always + AOF라 워킹셋이 상한을
+  #        넘는 순간 영구 크래시루프가 된다(5차 리뷰).
+  #        mem_limit은 maxmemory보다 넉넉해야 한다 — AOF rewrite는 fork라
+  #        copy-on-write로 메모리가 튄다.
   #   2) 이 DB에 `cache.clear()`를 호출하지 말 것 — django-redis는 FLUSHDB를 쳐서
   #      대기 중인 파기 지시까지 전멸시킨다(현재 호출부 0건).
   #   근본 해결은 브로커를 별 인스턴스로 분리하는 것이다(후속 과제).
@@ -99,6 +106,7 @@ services:
     image: redis:7-alpine
     command: >
       redis-server --appendonly yes
+      --maxmemory 200mb
       --maxmemory-policy noeviction
     volumes:
       - redis-data:/data

@@ -20,7 +20,7 @@ from apps.supports.models import (
     Inquiry,
     InquiryAnswer,
     InquiryStatus,
-    PendingAttachmentDeletion,
+    PendingInquiryAttachmentDeletion,
 )
 from apps.supports.services import invalidate_faq_cache
 from apps.supports.tasks import (
@@ -121,5 +121,5 @@ def delete_inquiry_attachment(sender: type, instance: Inquiry, **kwargs: Any) ->
         return
     # 대장 기록은 **삭제와 같은 트랜잭션**에서 남긴다. 롤백되면 함께 사라지고,
     # 커밋되면 브로커 메시지가 유실돼도 "지워야 할 key"가 DB에 남는다.
-    PendingAttachmentDeletion.objects.get_or_create(key=key)
+    PendingInquiryAttachmentDeletion.objects.get_or_create(key=key)
     transaction.on_commit(lambda: _schedule_attachment_deletion(key), robust=True)

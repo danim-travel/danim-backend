@@ -76,10 +76,11 @@ jobs:
             docker pull ${{ secrets.DOCKER_USERNAME }}/danim-backend:dev
             docker-compose -f docker-compose.dev.yml down
 
-            # 워커는 migrate 이후에 띄운다(근거는 deploy.yml의 같은 위치 주석).
-            docker-compose -f docker-compose.dev.yml up -d db redis django nginx
+            # migrate를 일회성 컨테이너로 돌린다(근거는 deploy.yml의 같은 위치 주석).
+            # dev는 DB가 compose 서비스라 먼저 띄운다.
+            docker-compose -f docker-compose.dev.yml up -d db redis
             sleep 10
-            docker-compose -f docker-compose.dev.yml exec -T django uv run --no-sync python manage.py migrate
+            docker-compose -f docker-compose.dev.yml run --rm --no-deps django uv run --no-sync python manage.py migrate
             docker-compose -f docker-compose.dev.yml up -d
 
             # up -d는 컨테이너를 **시작**하면 반환한다. celery는 Django 앱 전체를
@@ -87,7 +88,7 @@ jobs:
             # 아직 running이라 통과해 버린다. 잠시 기다린 뒤 상태와 재시작 횟수를
             # 함께 본다 — RestartCount>0이면 떴다가 죽고 있다는 뜻이다(4차 리뷰).
             sleep 25
-            for s in django celery-worker celery-s3-worker celery-beat; do
+            for s in django nginx celery-worker celery-s3-worker celery-beat; do
               cid=$(docker-compose -f docker-compose.dev.yml ps -q "$s")
               st=$(docker inspect -f '{{.State.Status}}' "$cid" 2>/dev/null || echo missing)
               rc=$(docker inspect -f '{{.RestartCount}}' "$cid" 2>/dev/null || echo 0)

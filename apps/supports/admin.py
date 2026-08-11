@@ -16,6 +16,7 @@ from apps.supports.models import (
     Inquiry,
     InquiryAnswer,
     InquiryStatus,
+    PendingInquiryAttachmentDeletion,
 )
 
 # 키를 str로 고정한다 — Inquiry.status는 CharField라 런타임 값이 평범한 str이고,
@@ -305,4 +306,45 @@ class InquiryAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         # 문의는 사용자가 API로만 만든다.
+        return False
+
+
+@admin.register(PendingInquiryAttachmentDeletion)
+class PendingInquiryAttachmentDeletionAdmin(admin.ModelAdmin):
+    """파기 대장 조회 전용.
+
+    대장은 "적어만 두고 아무도 읽지 않는" 상태였다 — 브로커가 메시지를 잃으면
+    (redis OOM·AOF 유실) 로그조차 남지 않아 psql로 직접 조회해야 발견됐다.
+    파기 이행을 입증하려면 최소한 볼 수 있어야 한다(5차 리뷰).
+
+    행이 오래 남아 있다면 둘 중 하나다:
+      ① 파기가 아직 안 됐다 — 회수 대상
+      ② 다른 문의가 같은 key를 참조해 보류됐다(tasks의 "파기 보류" 로그)
+    ②는 참조가 사라지면 자동으로 파기되므로 회수 대상이 아니다. 주기 재예약
+    배치(#341)는 "대장에 있으면서 **어떤 Inquiry도 참조하지 않는** key"만 골라야 한다.
+
+    쓰기는 막는다 — 대장은 코드가 관리하는 상태이고, 손으로 지우면 파기되지 않은
+    개인정보의 유일한 기록이 사라진다.
+    """
+
+    list_display = ("key", "referenced_by_live_inquiry", "created_at")
+    ordering = ("created_at",)
+    search_fields = ("key",)
+    show_full_result_count = False
+
+    @admin.display(description="살아 있는 문의가 참조 중", boolean=True)
+    def referenced_by_live_inquiry(self, obj: PendingInquiryAttachmentDeletion) -> bool:
+        return Inquiry.objects.filter(img_key=obj.key).exists()
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
+
+    def has_change_permission(
+        self, request: HttpRequest, obj: PendingInquiryAttachmentDeletion | None = None
+    ) -> bool:
+        return False
+
+    def has_delete_permission(
+        self, request: HttpRequest, obj: PendingInquiryAttachmentDeletion | None = None
+    ) -> bool:
         return False

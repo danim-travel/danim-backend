@@ -19,7 +19,7 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 
 from apps.core.storage.s3.services import ActionEnum, CategoryEnum, SuffixEnum, s3_svc
-from apps.supports.models import Inquiry, InquiryStatus, PendingAttachmentDeletion
+from apps.supports.models import Inquiry, PendingInquiryAttachmentDeletion
 from apps.supports.services import delete_my_inquiry
 from apps.supports.tasks import delete_inquiry_attachment_task
 from apps.users.models import User
@@ -158,14 +158,14 @@ class TestCleanupIsScheduled:
 
 
 class TestDeletionLedger:
-    """대장(PendingAttachmentDeletion) — 파기 지시의 양(positive) 기록."""
+    """대장(PendingInquiryAttachmentDeletion) — 파기 지시의 양(positive) 기록."""
 
     def test_ledger_row_created_with_delete(self, user, inquiry, img_key):
         """대장은 삭제와 같은 트랜잭션에서 생겨야 브로커 유실을 견딘다."""
         with patch(TASK_PATH):
             delete_my_inquiry(inquiry.id, user)
 
-        assert PendingAttachmentDeletion.objects.filter(key=img_key).exists()
+        assert PendingInquiryAttachmentDeletion.objects.filter(key=img_key).exists()
 
     def test_ledger_row_not_created_on_rollback(self, inquiry, img_key):
         from django.db import transaction
@@ -177,19 +177,19 @@ class TestDeletionLedger:
         except RuntimeError:
             pass
 
-        assert not PendingAttachmentDeletion.objects.filter(key=img_key).exists()
+        assert not PendingInquiryAttachmentDeletion.objects.filter(key=img_key).exists()
 
     def test_ledger_row_removed_only_after_success(self, img_key):
-        PendingAttachmentDeletion.objects.create(key=img_key)
+        PendingInquiryAttachmentDeletion.objects.create(key=img_key)
 
         with patch("apps.supports.tasks.s3_svc.delete", side_effect=RuntimeError("S3")):
             with pytest.raises(RuntimeError):
                 delete_inquiry_attachment_task(img_key)
-        assert PendingAttachmentDeletion.objects.filter(key=img_key).exists()
+        assert PendingInquiryAttachmentDeletion.objects.filter(key=img_key).exists()
 
         with patch("apps.supports.tasks.s3_svc.delete"):
             delete_inquiry_attachment_task(img_key)
-        assert not PendingAttachmentDeletion.objects.filter(key=img_key).exists()
+        assert not PendingInquiryAttachmentDeletion.objects.filter(key=img_key).exists()
 
     def test_pending_key_cannot_be_reused(self, api_client, user, inquiry, img_key):
         """파기 예약된 key로는 새 문의를 등록할 수 없다.
@@ -238,6 +238,60 @@ class TestDeletionLedger:
         s3_delete.assert_called_once_with(img_key)
         assert not Inquiry.objects.filter(img_key=img_key).exists()
 
+    def test_live_key_cannot_be_reused(self, api_client, user, inquiry, img_key):
+        """살아 있는 문의의 key는 재등록할 수 없다.
+
+        상세 응답이 `image.key`를 그대로 돌려주므로 재제출만으로 도달 가능하다.
+        대장 검사만 두면(5차 리뷰 HIGH) 이 경우가 통과해 "한 key = 한 문의"가 깨지고,
+        A를 지웠을 때 태스크가 B의 참조를 보고 **재시도 없이 보류**해 대장 행과 S3
+        객체가 회수 수단 없이 남는다.
+        """
+        api_client.force_authenticate(user=user)
+
+        response = api_client.post(
+            reverse("supports:inquiry_list_create"),
+            {"category": "ETC", "title": "중복", "content": "내용", "img_key": img_key},
+            format="json",
+        )
+
+        assert response.status_code == 400
+        assert not Inquiry.objects.filter(title="중복").exists()
+
+    def test_db_constraint_is_last_line_of_defense(self, user, inquiry, img_key):
+        """serializer를 우회해도 DB가 막는다 — 그 검사도 체크-후-행동이라 필요하다."""
+        from django.db import IntegrityError, transaction
+
+        with pytest.raises(IntegrityError):
+            with transaction.atomic():
+                Inquiry.objects.create(
+                    user=user,
+                    category="ETC",
+                    title="제약 우회 시도",
+                    content="내용",
+                    img_key=img_key,
+                )
+
+    def test_ledger_delete_failure_does_not_misreport_s3(self, img_key, caplog):
+        """대장 삭제 실패가 "S3 파기 실패"로 오보되면 안 된다.
+
+        같은 try 안에 두면 이미 지운 뒤인데 "객체가 버킷에 남아 있을 수 있습니다"
+        ERROR가 나가고, 재시도마다 S3 왕복을 반복한다(5차 리뷰 LOW).
+        """
+        PendingInquiryAttachmentDeletion.objects.create(key=img_key)
+
+        with patch("apps.supports.tasks.s3_svc.delete") as s3_delete:
+            with patch(
+                "apps.supports.tasks.PendingInquiryAttachmentDeletion.objects"
+            ) as objects:
+                objects.filter.return_value.delete.side_effect = RuntimeError("DB")
+                with caplog.at_level(logging.INFO, logger="apps.supports.tasks"):
+                    with pytest.raises(RuntimeError):
+                        delete_inquiry_attachment_task(img_key)
+
+        s3_delete.assert_called_once_with(img_key)
+        assert "파기 완료" in caplog.text
+        assert "파기 실패" not in caplog.text
+
     def test_success_is_logged_for_audit(self, img_key, caplog):
         """파기 성공을 남긴다 — 이행 증적이자, "워커가 도는지"의 유일한 신호다."""
         with patch("apps.supports.tasks.s3_svc.delete"):
@@ -257,28 +311,24 @@ class TestCleanupTask:
 
         s3_delete.assert_called_once_with(img_key)
 
-    def test_skips_when_another_inquiry_still_references_key(self, user, img_key):
-        """같은 key를 쓰는 문의가 남아 있으면 지우지 않는다.
+    def test_skips_when_an_inquiry_still_references_key(self, inquiry, img_key):
+        """살아 있는 문의가 그 key를 참조하면 지우지 않는다 — 심층 방어.
 
-        img_key에 유니크 제약이 없고 validate_attach_key도 형식·카테고리만 본다.
-        그래서 답변이 달려 삭제가 막힌 문의(409)와 같은 key로 새 문의를 만든 뒤
-        그것을 지우면, 무조건 삭제하는 구현에서는 **삭제 불가 문의의 첨부까지
-        사라진다.** 삭제 불가라는 불변식이 우회되는 셈이다(1차 리뷰 MEDIUM).
+        이제 `uq_inquiry_img_key`가 "한 key = 한 문의"를 DB에서 강제하므로 이 분기에
+        정상적으로 도달할 수는 없다. 다만 제약 이전에 쌓인 행이나 serializer를
+        우회하는 미래 경로를 위해 남긴다. 여기서는 아직 살아 있는 문의의 key로
+        태스크를 직접 호출해(예: 중복 배달) 보존 쪽으로 실패하는지 확인한다.
         """
-        answered = Inquiry.objects.create(
-            user=user,
-            category="ACCOUNT",
-            title="답변 달린 문의",
-            content="내용",
-            img_key=img_key,
-            status=InquiryStatus.ANSWERED,
-        )
+        PendingInquiryAttachmentDeletion.objects.create(key=img_key)
 
         with patch("apps.supports.tasks.s3_svc.delete") as s3_delete:
             delete_inquiry_attachment_task(img_key)
 
         s3_delete.assert_not_called()
-        assert Inquiry.objects.filter(id=answered.id).exists()
+        assert Inquiry.objects.filter(id=inquiry.id).exists()
+        # 대장 행은 **유지돼야 한다.** 여기서 지우면 다른 태스크가 그 사이 대장이
+        # 빈 것을 보고 S3 왕복을 시작해 창이 재개된다(5차 리뷰).
+        assert PendingInquiryAttachmentDeletion.objects.filter(key=img_key).exists()
 
     def test_rejects_key_of_other_category(self, caplog):
         """문의용이 아닌 key로는 지우지 않는다 — 버킷의 임의 객체 삭제 방지."""
