@@ -41,23 +41,24 @@ class SitemapViewTest(APITestCase):
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertIn("post_id", response.data[0])
-        self.assertIn("updated_at", response.data[0])
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertIn("post_id", response.data["results"][0])
+        self.assertIn("updated_at", response.data["results"][0])
 
-    def test_response_is_flat_array(self) -> None:
-        """paginate 래퍼({"next","results"}) 없이 배열 그대로 응답"""
+    def test_response_is_paginated_wrapper(self) -> None:
+        """5만 건 상한(sitemaps.org)을 지키기 위해 {"next","results"} 커서 페이지네이션으로 응답한다"""
         Post.objects.create(user=self.user, title="test_title")
 
         response = self.client.get(self.url)
 
-        self.assertIsInstance(response.data, list)
+        self.assertEqual(set(response.data.keys()), {"next", "results"})
+        self.assertIsInstance(response.data["results"], list)
 
     def test_empty_when_no_posts(self) -> None:
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data, [])
+        self.assertEqual(response.data, {"next": None, "results": []})
 
     def test_throttle_blocks_after_rate_limit(self) -> None:
         """sitemap 스코프 rate(12/hour)를 넘기면 13번째 요청부터 429가 반환된다"""
