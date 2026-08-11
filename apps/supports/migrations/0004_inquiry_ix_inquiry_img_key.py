@@ -7,13 +7,17 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('supports', '0003_inquiry_inquiryanswer_and_more'),
+        ("supports", "0003_inquiry_inquiryanswer_and_more"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddIndex(
-            model_name='inquiry',
-            index=models.Index(condition=models.Q(('img_key__isnull', False)), fields=['img_key'], name='ix_inquiry_img_key'),
+            model_name="inquiry",
+            index=models.Index(
+                condition=models.Q(("img_key__isnull", False)),
+                fields=["img_key"],
+                name="ix_inquiry_img_key",
+            ),
         ),
     ]
