@@ -227,12 +227,16 @@ class TestCleanupTask:
         """아직 재시도가 남았으면 최종 실패 로그를 남기지 않는다.
 
         소진 판정이 없으면 첫 실패부터 ERROR가 찍혀 알림이 무의미해진다.
-        """
-        task = delete_inquiry_attachment_task
 
+        `apply(retries=0)`을 쓰면 안 된다 — eager 모드에서는 celery가 재시도
+        체인을 그 자리에서 끝까지 돌려 결국 소진 상태에 도달한다. 직접 호출은
+        `request.called_directly`라 retry가 즉시 원본 예외를 다시 던지므로
+        (`raise_with_context(exc or Retry(...))`) "1회 실패" 상태를 정확히 만든다.
+        """
         with patch("apps.supports.tasks.s3_svc.delete", side_effect=RuntimeError("S3")):
             with caplog.at_level(logging.ERROR, logger="apps.supports.tasks"):
-                task.apply(args=[img_key], retries=0)
+                with pytest.raises(RuntimeError):
+                    delete_inquiry_attachment_task(img_key)
 
         assert "파기 실패" not in caplog.text
 
