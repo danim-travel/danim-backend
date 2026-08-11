@@ -34,13 +34,22 @@ class SitemapServiceTest(TestCase):
         self.assertEqual(set(queryset.values_list("id", flat=True)), {post1.id, post2.id})
 
     def test_ordered_by_id(self) -> None:
-        """id(ULID) 오름차순으로 정렬된다 -> 응답 순서가 매 요청마다 흔들리지 않는다"""
-        post1 = Post.objects.create(user=self.user, title="t1")
-        post2 = Post.objects.create(user=self.user, title="t2")
+        """id(ULID) 오름차순으로 정렬된다 -> 응답 순서가 매 요청마다 흔들리지 않는다
 
-        ids = list(self.service.get_sitemap_posts().values_list("id", flat=True))
+        삽입 순서와 정렬 순서가 일치하면 order_by("id")를 지워도 통과해버리므로,
+        큰 id를 먼저 삽입하고 작은 id를 나중에 삽입해 둘을 어긋나게 만든다.
+        """
+        post_large = Post.objects.create(
+            id="01ZZZZZZZZZZZZZZZZZZZZZZZZ", user=self.user, title="t1"
+        )
+        post_small = Post.objects.create(
+            id="01AAAAAAAAAAAAAAAAAAAAAAAA", user=self.user, title="t2"
+        )
 
-        self.assertEqual(ids, sorted([post1.id, post2.id]))
+        with self.assertNumQueries(1):
+            ids = list(self.service.get_sitemap_posts().values_list("id", flat=True))
+
+        self.assertEqual(ids, [post_small.id, post_large.id])
 
     def test_empty_when_no_posts(self) -> None:
         """게시글이 없으면 빈 쿼리셋"""
