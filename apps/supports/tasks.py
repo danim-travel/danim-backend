@@ -1,14 +1,18 @@
-"""문의 답변 알림 비동기 발송.
+"""문의 답변 알림 발송 · 첨부 파기 (둘 다 비동기).
 
-admin에서 답변을 저장하는 순간 알림 생성·캐시 갱신·웹소켓 푸시가 동기로 붙으면
-운영진의 저장 화면이 Redis/채널 레이어 응답을 기다린다. 장애 시 답변 저장 자체가
-느려지거나 실패하므로 Celery로 분리한다(2단계에서 워커 투입이 선행 조건이었던 이유).
+외부 I/O를 요청 스레드에 붙이지 않는다는 같은 이유로 둘 다 Celery로 뺀다.
+- 답변 알림: 동기로 붙으면 운영진의 저장 화면이 Redis/채널 레이어 응답을 기다린다.
+- 첨부 파기: S3 왕복이 더 느리고, 탈퇴 CASCADE·admin 일괄 삭제에서는 문의 수만큼
+  직렬로 쌓여 탈퇴 API 자체가 타임아웃될 수 있다.
 """
 
 import logging
 
 from celery import shared_task
 
+from apps.core.storage.s3 import s3_svc
+from apps.core.storage.s3.services import CategoryEnum
+from apps.core.storage.s3.validators import is_valid_attach_key
 from apps.notifications.models import NotificationType, TargetChoices
 from apps.notifications.utils.create_notification import create_system_notification
 from apps.supports.models import Inquiry
@@ -52,3 +56,48 @@ def notify_inquiry_answered_task(self, inquiry_id: str) -> None:
         raise
     except Exception as e:
         raise self.retry(exc=e, countdown=2**self.request.retries)
+
+
+@shared_task(bind=True, max_retries=3)
+def delete_inquiry_attachment_task(self, key: str) -> None:
+    """삭제된 문의의 첨부 S3 객체를 파기한다.
+
+    Celery로 빼는 이유: `transaction.on_commit` 콜백은 비동기가 아니다 —
+    `run_and_clear_commit_hooks()`가 `Atomic.__exit__`에서 **같은 스레드로 동기
+    호출**하므로, 그대로 두면 S3 왕복이 끝날 때까지 요청이 리턴하지 못한다.
+    botocore 기본 타임아웃(connect/read 60s, 재시도 4회)에 탈퇴 CASCADE·admin
+    일괄 삭제의 건수가 곱해지면 탈퇴 API가 통째로 타임아웃될 수 있다.
+    같은 파일의 답변 알림이 이미 같은 이유로 분리돼 있다(1차 리뷰 MEDIUM).
+
+    조건: **다른 문의가 같은 key를 참조하면 지우지 않는다.** `img_key`에는 유니크
+        제약이 없고 `validate_attach_key`도 형식·카테고리만 보므로, 같은 key를
+        두 문의에 붙일 수 있다. 그 상태에서 무조건 지우면 삭제가 막힌 문의
+        (ANSWERED는 409)의 첨부까지 사라져, 삭제 불가라는 불변식이 우회된다.
+        이 검사는 커밋 이후에 돌아 "남아 있으면 보존" 쪽으로 실패한다.
+    조건: key 형식을 한 번 더 확인한다. 지금은 쓰기 경로가 serializer 하나뿐이라
+        도달 불가지만, 첨부 교체 API나 운영 스크립트가 생기면 버킷의 임의 객체를
+        지울 수 있는 자리다.
+    예외: S3 실패는 지수 백오프로 재시도하고, 재시도를 소진하면 `logger.error`로
+        남긴다 — WARNING은 Sentry LoggingIntegration 기본값(event_level=ERROR)에
+        걸리지 않아 컨테이너 stderr 한 줄로 끝난다. 파기 실패는 "삼켜도 되는 실패"가
+        아니라 사용자에게 한 약속이 깨진 것이라 알림이 떠야 한다.
+    """
+    if not is_valid_attach_key(key, CategoryEnum.INQUIRY):
+        logger.error(f"[문의 첨부 파기 거부] 문의용 key 형식이 아닙니다 key={key}")
+        return
+
+    if Inquiry.objects.filter(img_key=key).exists():
+        logger.info(f"[문의 첨부 파기 보류] 다른 문의가 아직 참조합니다 key={key}")
+        return
+
+    try:
+        s3_svc.delete(key)
+    except Exception as exc:
+        try:
+            raise self.retry(exc=exc, countdown=2**self.request.retries)
+        except self.MaxRetriesExceededError:
+            logger.error(
+                "[문의 첨부 파기 실패] 재시도를 모두 소진했습니다 — 개인정보가 담긴 "
+                f"객체가 버킷에 남아 있을 수 있습니다. key={key} error={exc}"
+            )
+            raise
