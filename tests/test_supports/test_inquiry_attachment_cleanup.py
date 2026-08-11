@@ -17,7 +17,7 @@ from django.contrib.admin.sites import AdminSite
 from django.test import RequestFactory
 
 from apps.core.storage.s3.services import ActionEnum, CategoryEnum, SuffixEnum, s3_svc
-from apps.supports.models import Inquiry, InquiryAnswer, InquiryStatus
+from apps.supports.models import Inquiry, InquiryStatus
 from apps.supports.services import delete_my_inquiry
 from apps.supports.tasks import delete_inquiry_attachment_task
 from apps.users.models import User
@@ -175,7 +175,6 @@ class TestCleanupTask:
             img_key=img_key,
             status=InquiryStatus.ANSWERED,
         )
-        InquiryAnswer.objects.filter(inquiry=answered).delete()  # 시그널 부작용 정리
 
         with patch("apps.supports.tasks.s3_svc.delete") as s3_delete:
             delete_inquiry_attachment_task(img_key)
@@ -202,17 +201,46 @@ class TestCleanupTask:
     def test_exhausted_retries_log_error_for_alerting(self, img_key, caplog):
         """최종 실패는 ERROR로 남겨야 한다.
 
-        Sentry LoggingIntegration 기본값이 event_level=ERROR라, WARNING이면
-        알림이 뜨지 않고 컨테이너 stderr 한 줄로 끝난다. 파기 실패는 사용자에게
-        한 약속이 깨진 것이라 조용히 사라지면 안 된다(1차 리뷰 MEDIUM).
+        Sentry LoggingIntegration 기본값이 event_level=ERROR라, WARNING이면 알림이
+        뜨지 않고 컨테이너 stderr 한 줄로 끝난다. 파기 실패는 사용자에게 한 약속이
+        깨진 것이라 조용히 사라지면 안 된다(1차 리뷰 MEDIUM).
+
+        **retry를 mock하지 않는다.** 이전 판은 `retry`에
+        `MaxRetriesExceededError`를 side_effect로 물려 검증했는데, celery는 exc가
+        주어지면 소진 시 **원본 예외를 다시 던지므로**(`app/task.py`:
+        `if exc: raise_with_context(exc)`) 실제로는 그 예외가 나오지 않는다.
+        즉 celery의 계약을 mock으로 덮어써서 존재하지 않는 경로를 검증하고 있었다
+        — 테스트는 초록불인데 프로덕션 로그는 영영 비는 상태였다(2차 리뷰 MEDIUM).
+        `apply(retries=max)`로 **실제 소진 상태**를 만들어 확인한다.
         """
         task = delete_inquiry_attachment_task
 
         with patch("apps.supports.tasks.s3_svc.delete", side_effect=RuntimeError("S3")):
-            with patch.object(task, "retry", side_effect=task.MaxRetriesExceededError()):
-                with caplog.at_level(logging.ERROR, logger="apps.supports.tasks"):
-                    with pytest.raises(task.MaxRetriesExceededError):
-                        task(img_key)
+            with caplog.at_level(logging.ERROR, logger="apps.supports.tasks"):
+                result = task.apply(args=[img_key], retries=task.max_retries)
 
+        assert result.failed()
         assert "파기 실패" in caplog.text
         assert img_key in caplog.text
+
+    def test_not_exhausted_retries_do_not_log_error(self, img_key, caplog):
+        """아직 재시도가 남았으면 최종 실패 로그를 남기지 않는다.
+
+        소진 판정이 없으면 첫 실패부터 ERROR가 찍혀 알림이 무의미해진다.
+        """
+        task = delete_inquiry_attachment_task
+
+        with patch("apps.supports.tasks.s3_svc.delete", side_effect=RuntimeError("S3")):
+            with caplog.at_level(logging.ERROR, logger="apps.supports.tasks"):
+                task.apply(args=[img_key], retries=0)
+
+        assert "파기 실패" not in caplog.text
+
+    def test_task_routed_to_dedicated_queue(self):
+        """전용 큐로 가야 알림 워커가 S3 지연에 밀리지 않는다.
+
+        워커는 --pool=solo(순차 처리)라 같은 큐에 얹으면 파기 한 건이 알림 전체를
+        붙잡는다. compose의 -Q 분리와 짝이므로 어느 한쪽만 바뀌면 태스크가
+        영원히 소비되지 않는다.
+        """
+        assert delete_inquiry_attachment_task.queue == "s3_cleanup"

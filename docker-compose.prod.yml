@@ -11,6 +11,37 @@ services:
       - redis
     restart: always
 
+  # 알림 워커. dev에는 있었지만 prod에는 한 번도 없었다(git log -S 확인) — 그동안
+  # 답변 알림 태스크가 prod에서 큐에만 쌓이고 아무도 꺼내지 않았다. 첨부 파기까지
+  # Celery로 옮기면서 같은 구멍에 빠지므로 여기서 함께 채운다(2차 리뷰 HIGH).
+  #
+  # dev와 달리 -Q로 큐를 명시한다. 알림은 짧고 첨부 파기는 외부 I/O라 성격이
+  # 다른데 solo 풀은 순차 처리라 하나가 늘어지면 다른 하나가 통째로 대기한다.
+  celery-worker:
+    image: ${DOCKER_USERNAME}/danim-backend:latest
+    command: uv run --no-sync celery -A config worker -l info --pool=solo -Q celery
+    env_file:
+      - envs/.env.prod
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.prod
+    depends_on:
+      - redis
+    restart: always
+
+  # 첨부 파기 전용 워커. S3 왕복은 알림보다 느리고 실패 시 재시도까지 도는데,
+  # 같은 solo 워커에 얹으면 그동안 알림이 전부 밀린다(docker-compose.dev.yml의
+  # 경고 주석이 정확히 이 경우를 금지한다).
+  celery-s3-worker:
+    image: ${DOCKER_USERNAME}/danim-backend:latest
+    command: uv run --no-sync celery -A config worker -l info --pool=solo -Q s3_cleanup
+    env_file:
+      - envs/.env.prod
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.prod
+    depends_on:
+      - redis
+    restart: always
+
   nginx:
     image: nginx:alpine
     ports:

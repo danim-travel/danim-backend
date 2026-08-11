@@ -58,7 +58,10 @@ def notify_inquiry_answered_task(self, inquiry_id: str) -> None:
         raise self.retry(exc=e, countdown=2**self.request.retries)
 
 
-@shared_task(bind=True, max_retries=3)
+# 전용 큐로 보낸다. 워커가 --pool=solo(순차 처리·task_time_limit 미지원)라
+# 기본 큐에 얹으면 S3가 늘어지는 동안 답변 알림이 전부 대기한다
+# (docker-compose.dev.yml의 경고 주석이 정확히 이 경우를 금지한다).
+@shared_task(bind=True, max_retries=3, queue="s3_cleanup")
 def delete_inquiry_attachment_task(self, key: str) -> None:
     """삭제된 문의의 첨부 S3 객체를 파기한다.
 
@@ -81,6 +84,11 @@ def delete_inquiry_attachment_task(self, key: str) -> None:
         남긴다 — WARNING은 Sentry LoggingIntegration 기본값(event_level=ERROR)에
         걸리지 않아 컨테이너 stderr 한 줄로 끝난다. 파기 실패는 "삼켜도 되는 실패"가
         아니라 사용자에게 한 약속이 깨진 것이라 알림이 떠야 한다.
+
+        소진 판정을 `self.retry` **호출 전에** 직접 한다. `retry(exc=...)`는 소진 시
+        `MaxRetriesExceededError`가 아니라 **원본 예외를 다시 던지므로**
+        (celery `app/task.py`: `if exc: raise_with_context(exc)`), 그 예외를 잡는
+        구조는 죽은 코드가 되고 로그가 영영 찍히지 않는다(2차 리뷰 MEDIUM).
     """
     if not is_valid_attach_key(key, CategoryEnum.INQUIRY):
         logger.error(f"[문의 첨부 파기 거부] 문의용 key 형식이 아닙니다 key={key}")
@@ -93,11 +101,10 @@ def delete_inquiry_attachment_task(self, key: str) -> None:
     try:
         s3_svc.delete(key)
     except Exception as exc:
-        try:
-            raise self.retry(exc=exc, countdown=2**self.request.retries)
-        except self.MaxRetriesExceededError:
+        if self.request.retries >= self.max_retries:
             logger.error(
                 "[문의 첨부 파기 실패] 재시도를 모두 소진했습니다 — 개인정보가 담긴 "
                 f"객체가 버킷에 남아 있을 수 있습니다. key={key} error={exc}"
             )
             raise
+        raise self.retry(exc=exc, countdown=2**self.request.retries)

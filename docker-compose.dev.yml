@@ -34,9 +34,11 @@ services:
   # 메모리를 많이 쓰는 태스크를 이 워커에 추가하면 그동안 알림 전송이 전부 대기하고,
   # mem_limit 초과로 OOM-kill 되면 처리 중이던 태스크는 visibility_timeout(기본 1시간)
   # 뒤에야 재배달된다. 그런 작업은 별도 큐(-Q)와 워커로 분리할 것.
+  # -Q celery: 이 워커는 기본 큐만 소비한다. 첨부 파기(s3_cleanup)는 위 주석이
+  # 금지한 "오래 걸리는 외부 I/O"라 아래 전용 워커로 분리했다.
   celery-worker:
     image: kochanyeol/danim-backend:dev
-    command: uv run --no-sync celery -A config worker -l info --pool=solo
+    command: uv run --no-sync celery -A config worker -l info --pool=solo -Q celery
     env_file:
       - envs/.env.dev
     environment:
@@ -47,6 +49,21 @@ services:
     restart: always
     mem_limit: 400m
     mem_reservation: 250m
+
+  # 첨부 파기 전용. S3 왕복이 늘어져도 알림이 밀리지 않게 큐를 분리한다.
+  celery-s3-worker:
+    image: kochanyeol/danim-backend:dev
+    command: uv run --no-sync celery -A config worker -l info --pool=solo -Q s3_cleanup
+    env_file:
+      - envs/.env.dev
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.dev
+    depends_on:
+      - db
+      - redis
+    restart: always
+    mem_limit: 300m
+    mem_reservation: 150m
 
   # CELERY_BEAT_SCHEDULE(매일 03:00 오래된 알림 정리)를 도는 스케줄러. beat 는 가볍다.
   celery-beat:

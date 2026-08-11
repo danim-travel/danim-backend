@@ -40,6 +40,8 @@ def mark_answered_and_notify(
         되돌아가는 문제도 생긴다.
     알림은 반드시 on_commit 이후에 예약한다 — 트랜잭션이 커밋되기 전에 태스크가
         워커에 도착하면 워커가 아직 없는 행을 조회해 알림이 유실된다.
+    robust=True인 이유는 아래 delete_inquiry_attachment 참고 — 브로커 장애가
+        커밋 이후 500으로 새어 나가지 않게 한다.
     """
     if not created:
         return
@@ -51,7 +53,9 @@ def mark_answered_and_notify(
     Inquiry.objects.filter(id=inquiry_id).update(
         status=InquiryStatus.ANSWERED, updated_at=timezone.now()
     )
-    transaction.on_commit(lambda: notify_inquiry_answered_task.delay(inquiry_id))
+    transaction.on_commit(
+        lambda: notify_inquiry_answered_task.delay(inquiry_id), robust=True
+    )
 
 
 @receiver(post_delete, sender=Inquiry)
@@ -74,8 +78,15 @@ def delete_inquiry_attachment(sender: type, instance: Inquiry, **kwargs: Any) ->
         스레드에서 동기 호출). 여기서 S3를 직접 부르면 요청이 그만큼 붙잡히고,
         트랜잭션 밖이라 잠금은 풀렸어도 응답 지연은 그대로다. 실제 파기와 재시도는
         태스크가 맡는다(tasks.delete_inquiry_attachment_task).
+
+    `robust=True`가 필요한 이유: 브로커 장애 시 `.delay()`가 던지는
+    `kombu.exceptions.OperationalError`가 훅 밖으로 나가면 **DB는 이미 커밋됐는데
+    사용자에게 500**이 나간다. 더 나쁜 것은 탈퇴 CASCADE다 — 문의 N건이면 훅도
+    N개인데, non-robust 훅이 raise하면 Django가 루프를 중단하고 **남은 훅을 조용히
+    버린다**(`run_and_clear_commit_hooks`가 로컬 리스트를 pop하며 도는 구조).
+    robust면 Django가 ERROR로 로깅하고 나머지 훅을 계속 실행한다(2차 리뷰 MEDIUM).
     """
     key = instance.img_key
     if not key:
         return
-    transaction.on_commit(lambda: delete_inquiry_attachment_task.delay(key))
+    transaction.on_commit(lambda: delete_inquiry_attachment_task.delay(key), robust=True)
