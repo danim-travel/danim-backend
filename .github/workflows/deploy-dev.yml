@@ -71,9 +71,24 @@ jobs:
             echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
             docker pull ${{ secrets.DOCKER_USERNAME }}/danim-backend:dev
             docker-compose -f docker-compose.dev.yml down
-            docker-compose -f docker-compose.dev.yml up -d
+
+            # 워커는 migrate 이후에 띄운다(근거는 deploy.yml의 같은 위치 주석).
+            docker-compose -f docker-compose.dev.yml up -d db redis django nginx
             sleep 10
             docker-compose -f docker-compose.dev.yml exec -T django uv run --no-sync python manage.py migrate
+            docker-compose -f docker-compose.dev.yml up -d
+
+            # up -d는 크래시루프에도 성공을 반환하므로 상태를 직접 확인한다.
+            for s in django celery-worker celery-s3-worker celery-beat; do
+              cid=$(docker-compose -f docker-compose.dev.yml ps -q "$s")
+              st=$(docker inspect -f '{{.State.Status}}' "$cid" 2>/dev/null || echo missing)
+              if [ "$st" != "running" ]; then
+                echo "::error::$s 기동 실패(status=$st)"
+                docker-compose -f docker-compose.dev.yml logs --tail=50 "$s"
+                exit 1
+              fi
+            done
+
             docker image prune -f
 
       - name: Close SSH port

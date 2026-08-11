@@ -6,6 +6,7 @@
 - 문의: 삭제되면 첨부 이미지(S3 객체)도 함께 지운다.
 """
 
+import logging
 from typing import Any
 
 from django.db import transaction
@@ -19,6 +20,8 @@ from apps.supports.tasks import (
     delete_inquiry_attachment_task,
     notify_inquiry_answered_task,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @receiver(post_save, sender=FAQCategory)
@@ -58,6 +61,27 @@ def mark_answered_and_notify(
     )
 
 
+def _schedule_attachment_deletion(key: str) -> None:
+    """파기 태스크를 예약하고, 실패하면 **key를 로그에 남긴다.**
+
+    `robust=True`만으로는 부족하다. Django가 훅 예외를 삼킬 때 찍는 로그는
+    `f"Error calling {func.__qualname__} in on_commit() ..."`인데, 람다를 넘기면
+    qualname이 `delete_inquiry_attachment.<locals>.<lambda>`라 **key가 클로저 안에
+    있어 출력되지 않는다.** 행은 이미 지워져 DB 어디에도 key가 없으므로, 그 로그로는
+    "무엇을 지워야 하는지"를 복구할 수 없다(3차 리뷰 HIGH).
+
+    브로커 장애로 예약이 실패해도 사용자 요청(행 삭제)은 이미 커밋됐다. 되돌릴 수
+    없으니 예외를 올리지 않고, 대신 key를 ERROR로 남겨 수동 회수가 가능하게 한다.
+    """
+    try:
+        delete_inquiry_attachment_task.delay(key)
+    except Exception as exc:
+        logger.error(
+            "[문의 첨부 파기 예약 실패] 브로커에 전달하지 못했습니다 — 이 key를 "
+            f"수동으로 파기해야 합니다. key={key} error={exc}"
+        )
+
+
 @receiver(post_delete, sender=Inquiry)
 def delete_inquiry_attachment(sender: type, instance: Inquiry, **kwargs: Any) -> None:
     """문의가 지워지면 첨부 파기를 예약한다.
@@ -89,4 +113,4 @@ def delete_inquiry_attachment(sender: type, instance: Inquiry, **kwargs: Any) ->
     key = instance.img_key
     if not key:
         return
-    transaction.on_commit(lambda: delete_inquiry_attachment_task.delay(key), robust=True)
+    transaction.on_commit(lambda: _schedule_attachment_deletion(key), robust=True)

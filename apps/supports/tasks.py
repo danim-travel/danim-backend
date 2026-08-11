@@ -61,7 +61,22 @@ def notify_inquiry_answered_task(self, inquiry_id: str) -> None:
 # 전용 큐로 보낸다. 워커가 --pool=solo(순차 처리·task_time_limit 미지원)라
 # 기본 큐에 얹으면 S3가 늘어지는 동안 답변 알림이 전부 대기한다
 # (docker-compose.dev.yml의 경고 주석이 정확히 이 경우를 금지한다).
-@shared_task(bind=True, max_retries=3, queue="s3_cleanup")
+#
+# acks_late=True는 **이 태스크에만** 건다. 기본값(False)은 실행 시작 시점에 ack해서,
+# 배포 down으로 워커가 죽으면 선점했던 메시지가 재배달 없이 증발한다. 행이 이미
+# 지워져 key의 유일한 사본이 이 메시지라 그대로 파기 지시가 사라진다(3차 리뷰 HIGH).
+# delete_object는 없는 key에도 204를 주는 멱등 연산이라 재배달이 안전하다.
+# ⚠ 전역 설정으로 올리면 안 된다 — create_notification_task는 멱등하지 않아
+#   재배달이 중복 알림이 된다.
+#
+# 재시도 간격도 늘렸다. 1·2·4초(총 7초)는 S3 일시 장애를 넘기기에 짧다.
+@shared_task(
+    bind=True,
+    max_retries=5,
+    queue="s3_cleanup",
+    acks_late=True,
+    reject_on_worker_lost=True,
+)
 def delete_inquiry_attachment_task(self, key: str) -> None:
     """삭제된 문의의 첨부 S3 객체를 파기한다.
 
@@ -107,4 +122,5 @@ def delete_inquiry_attachment_task(self, key: str) -> None:
                 f"객체가 버킷에 남아 있을 수 있습니다. key={key} error={exc}"
             )
             raise
-        raise self.retry(exc=exc, countdown=2**self.request.retries)
+        # 10·20·40·80·160초 — S3 일시 장애가 몇 분 이어져도 넘긴다.
+        raise self.retry(exc=exc, countdown=10 * 2**self.request.retries)

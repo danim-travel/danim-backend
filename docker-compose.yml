@@ -41,9 +41,13 @@ services:
       redis:
         condition: service_healthy
 
+  # 로컬은 워커가 하나뿐이라 두 큐를 모두 소비한다 — 큐를 명시하지 않으면 기본
+  # 큐만 보게 되어 s3_cleanup(첨부 파기)이 로컬에서 영원히 실행되지 않는다.
+  # dev/prod는 성격이 다른 작업이 서로를 막지 않도록 워커를 분리했지만, 로컬은
+  # 부하가 없어 분리 이득이 없다.
   celery-worker:
     build: .
-    command: uv run celery -A config worker -l info --pool=solo
+    command: uv run celery -A config worker -l info --pool=solo -Q celery,s3_cleanup
     volumes:
       - .:/app
       - venv:/app/.venv

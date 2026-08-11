@@ -244,7 +244,70 @@ class TestCleanupTask:
         """전용 큐로 가야 알림 워커가 S3 지연에 밀리지 않는다.
 
         워커는 --pool=solo(순차 처리)라 같은 큐에 얹으면 파기 한 건이 알림 전체를
-        붙잡는다. compose의 -Q 분리와 짝이므로 어느 한쪽만 바뀌면 태스크가
-        영원히 소비되지 않는다.
+        붙잡는다.
         """
         assert delete_inquiry_attachment_task.queue == "s3_cleanup"
+
+    def test_every_compose_consumes_the_queue(self):
+        """큐 이름은 compose의 -Q와 **짝**이라 한쪽만 바뀌면 파기가 영구 정지한다.
+
+        태스크 쪽만 단언하면 compose에 `-Q s3-cleanup`(하이픈) 같은 오타가 나도
+        테스트는 초록불인데 메시지는 아무도 꺼내지 않는다. 실제 파일을 읽어
+        확인한다(3차 리뷰 LOW).
+        """
+        import re
+        from pathlib import Path
+
+        queue = delete_inquiry_attachment_task.queue
+        root = Path(__file__).resolve().parents[2]
+
+        for name in [
+            "docker-compose.yml",
+            "docker-compose.dev.yml",
+            "docker-compose.prod.yml",
+        ]:
+            text = (root / name).read_text(encoding="utf-8")
+            consumed = set()
+            for group in re.findall(r"-Q\s+(\S+)", text):
+                consumed.update(group.split(","))
+            assert queue in consumed, (
+                f"{name}이 '{queue}' 큐를 소비하지 않습니다 — 첨부 파기 메시지가 "
+                f"영원히 쌓이기만 합니다. 현재 소비 큐: {sorted(consumed)}"
+            )
+
+    def test_task_is_ack_late_for_redelivery(self):
+        """워커가 죽어도 재배달돼야 한다.
+
+        기본값(acks_late=False)은 실행 시작 시점에 ack하므로, 배포 down으로 워커가
+        죽으면 선점했던 메시지가 재배달 없이 증발한다. 행이 이미 지워져 key의 유일한
+        사본이 그 메시지라 파기 지시 자체가 사라진다(3차 리뷰 HIGH).
+        delete_object는 없는 key에도 204라 멱등하므로 재배달이 안전하다.
+        """
+        assert delete_inquiry_attachment_task.acks_late is True
+        assert delete_inquiry_attachment_task.reject_on_worker_lost is True
+
+    def test_broker_failure_logs_key_and_keeps_other_hooks(
+        self, user, django_capture_on_commit_callbacks, caplog
+    ):
+        """브로커 장애로 예약이 실패해도 key가 로그에 남고 다른 훅은 계속 돈다.
+
+        robust=True만 두면 Django가 찍는 로그의 qualname이 람다라 **key가 보이지
+        않는다** — 행은 이미 지워져 무엇을 지워야 하는지 복구 불가능해진다.
+        그리고 non-robust였다면 첫 예외에서 루프가 끊겨 두 번째 문의의 훅은
+        아예 실행되지 않는다(3차 리뷰 HIGH / 2차 M-②).
+        """
+        from kombu.exceptions import OperationalError
+
+        keys = [_make_key(), _make_key()]
+        for i, k in enumerate(keys):
+            Inquiry.objects.create(
+                user=user, category="ETC", title=f"문의{i}", content="내용", img_key=k
+            )
+
+        with patch(TASK_PATH, side_effect=OperationalError("브로커 다운")):
+            with caplog.at_level(logging.ERROR):
+                with django_capture_on_commit_callbacks(execute=True):
+                    user.delete()
+
+        for k in keys:
+            assert k in caplog.text, f"예약 실패 로그에 key가 없습니다: {k}"

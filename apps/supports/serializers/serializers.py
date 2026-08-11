@@ -60,7 +60,20 @@ class InquiryCreateSerializer(serializers.ModelSerializer):
         # `value in (None, "")`로 쓰면 mypy가 str로 좁히지 못해 아래 호출이 걸린다.
         if not value:
             return None
-        return validate_attach_key(value, CategoryEnum.INQUIRY)
+        validate_attach_key(value, CategoryEnum.INQUIRY)
+
+        # 같은 key를 두 문의에 붙이지 못하게 **등록 시점에** 막는다.
+        #
+        # 허용하면 파기 태스크에 체크-후-행동 창이 생긴다: 태스크가
+        # `filter(img_key=K).exists()`로 False를 본 뒤 S3 왕복(최대 약 30초) 사이에
+        # 같은 K로 새 문의가 커밋되면, 그 살아 있는 첨부가 지워진다(3차 리뷰).
+        # 태스크의 참조 확인은 이 가드가 뚫렸을 때를 위한 이중 방어로 남는다.
+        #
+        # 정상 사용에는 제약이 없다 — 첨부는 presigned로 매번 새 key를 발급받으므로
+        # 같은 key를 재사용할 이유가 없다.
+        if Inquiry.objects.filter(img_key=value).exists():
+            raise serializers.ValidationError("이미 사용된 이미지입니다.")
+        return value
 
 
 class InquiryListSerializer(serializers.ModelSerializer):

@@ -126,7 +126,16 @@ class Inquiry(TimeStampModel):
         # 실제 목록 조회는 DefaultPagination의 커서 정렬(-id)을 타므로 인덱스도 id로
         # 맞춘다. (user, created_at)이면 커서 페이지네이션이 이 인덱스를 쓰지 못한다.
         # ULID는 시간 순증가라 -id 정렬이 -created_at과 사실상 같은 순서를 준다.
-        indexes = [models.Index(fields=["user", "id"])]
+        indexes = [
+            models.Index(fields=["user", "id"]),
+            # 파기 태스크와 등록 검증이 모두 img_key로 조회한다. 없으면 매번 순차
+            # 스캔이고, 탈퇴·일괄 삭제 시 solo 워커에서 건당 직렬로 쌓인다.
+            models.Index(
+                fields=["img_key"],
+                condition=models.Q(img_key__isnull=False),
+                name="ix_inquiry_img_key",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"[{self.get_category_display()}] {self.title}"

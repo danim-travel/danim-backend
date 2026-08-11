@@ -11,12 +11,17 @@ services:
       - redis
     restart: always
 
-  # 알림 워커. dev에는 있었지만 prod에는 한 번도 없었다(git log -S 확인) — 그동안
-  # 답변 알림 태스크가 prod에서 큐에만 쌓이고 아무도 꺼내지 않았다. 첨부 파기까지
-  # Celery로 옮기면서 같은 구멍에 빠지므로 여기서 함께 채운다(2차 리뷰 HIGH).
+  # 알림 워커. dev에는 있었지만 prod에는 한 번도 없었다(git log -S 확인).
+  # 그동안 미배달로 쌓여 있던 것은 아니다 — main에는 apps/supports가 없고 `.delay(`
+  # 호출도 0건이라 생산자 자체가 없었다. 이 PR에서 생산자(첨부 파기)와 소비자(워커)가
+  # 같은 배포로 함께 들어간다(2·3차 리뷰).
   #
   # dev와 달리 -Q로 큐를 명시한다. 알림은 짧고 첨부 파기는 외부 I/O라 성격이
   # 다른데 solo 풀은 순차 처리라 하나가 늘어지면 다른 하나가 통째로 대기한다.
+  #
+  # mem_limit은 dev와 같은 값으로 시작한다(같은 이미지·같은 Django 부팅).
+  # ⚠ prod 인스턴스 여유를 확인하고 조정할 것 — 파이썬 컨테이너가 1개에서 3개로
+  #   늘어난다. dev에서 2026-08-09에 컨테이너 증가로 디스크가 고갈된 이력이 있다.
   celery-worker:
     image: ${DOCKER_USERNAME}/danim-backend:latest
     command: uv run --no-sync celery -A config worker -l info --pool=solo -Q celery
@@ -27,10 +32,16 @@ services:
     depends_on:
       - redis
     restart: always
+    mem_limit: 400m
+    mem_reservation: 250m
 
   # 첨부 파기 전용 워커. S3 왕복은 알림보다 느리고 실패 시 재시도까지 도는데,
   # 같은 solo 워커에 얹으면 그동안 알림이 전부 밀린다(docker-compose.dev.yml의
   # 경고 주석이 정확히 이 경우를 금지한다).
+  #
+  # stop_grace_period: S3 호출 한 번이 최대 약 30초(connect 5 + read 10, 2회 시도)라
+  # docker 기본 10초로는 처리 중이던 파기가 SIGKILL로 끊긴다. acks_late 덕에 재배달은
+  # 되지만, 끊기지 않고 끝내는 편이 낫다.
   celery-s3-worker:
     image: ${DOCKER_USERNAME}/danim-backend:latest
     command: uv run --no-sync celery -A config worker -l info --pool=solo -Q s3_cleanup
@@ -41,6 +52,24 @@ services:
     depends_on:
       - redis
     restart: always
+    stop_grace_period: 40s
+    mem_limit: 400m
+    mem_reservation: 250m
+
+  # CELERY_BEAT_SCHEDULE(매일 03:00 오래된 알림 정리)를 도는 스케줄러.
+  # dev에는 있는데 prod에는 없어서, 소비자가 생겨도 **생산자가 없어** 그 배치는
+  # 영원히 실행되지 않는 상태였다. 보존기간 미집행은 파기 의무와도 맞닿는다(3차 리뷰).
+  celery-beat:
+    image: ${DOCKER_USERNAME}/danim-backend:latest
+    command: uv run --no-sync celery -A config beat -l info
+    env_file:
+      - envs/.env.prod
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.prod
+    depends_on:
+      - redis
+    restart: always
+    mem_limit: 250m
 
   nginx:
     image: nginx:alpine
@@ -54,6 +83,16 @@ services:
       - django
     restart: always
 
+  # named volume + appendonly: 배포는 `down`으로 컨테이너를 제거하므로, 익명 볼륨이면
+  # 매 배포마다 브로커 데이터가 새로 시작된다. 첨부 파기 지시는 행이 지워진 뒤
+  # 메시지에만 남아 있어 그때 유실되면 무엇을 지워야 하는지조차 복구할 수 없다
+  # (3차 리뷰 HIGH).
   redis:
     image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
     restart: always
+
+volumes:
+  redis-data:

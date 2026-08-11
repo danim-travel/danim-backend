@@ -75,9 +75,29 @@ jobs:
             docker pull ${{ secrets.DOCKER_USERNAME }}/danim-backend:latest
             export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
             docker compose -f docker-compose.prod.yml down
-            docker compose -f docker-compose.prod.yml up -d
+
+            # 워커는 migrate **이후에** 띄운다. 함께 띄우면 신규 코드 워커가 구
+            # 스키마에 태스크를 실행하는 창(sleep 10 + migrate 소요)이 매 배포마다
+            # 열린다. 웹 요청은 500으로 시끄럽게 실패해 드러나지만, 태스크는
+            # ProgrammingError를 재시도로 삼키고 조용히 소멸한다.
+            docker compose -f docker-compose.prod.yml up -d django nginx redis
             sleep 10
             docker compose -f docker-compose.prod.yml exec -T django uv run --no-sync python manage.py migrate
+            docker compose -f docker-compose.prod.yml up -d
+
+            # up -d는 컨테이너가 즉시 크래시루프에 빠져도 성공을 반환한다.
+            # 확인하지 않으면 워커가 못 떠도 "배포 완료"가 나가고, 증상은 오직
+            # 침묵(알림·첨부 파기 무동작)이다.
+            for s in django celery-worker celery-s3-worker celery-beat; do
+              cid=$(docker compose -f docker-compose.prod.yml ps -q "$s")
+              st=$(docker inspect -f '{{.State.Status}}' "$cid" 2>/dev/null || echo missing)
+              if [ "$st" != "running" ]; then
+                echo "::error::$s 기동 실패(status=$st)"
+                docker compose -f docker-compose.prod.yml logs --tail=50 "$s"
+                exit 1
+              fi
+            done
+
             docker image prune -f
 
       - name: Close SSH port
