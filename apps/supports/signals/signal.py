@@ -14,7 +14,14 @@ from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 from django.utils import timezone
 
-from apps.supports.models import FAQ, FAQCategory, Inquiry, InquiryAnswer, InquiryStatus
+from apps.supports.models import (
+    FAQ,
+    FAQCategory,
+    Inquiry,
+    InquiryAnswer,
+    InquiryStatus,
+    PendingAttachmentDeletion,
+)
 from apps.supports.services import invalidate_faq_cache
 from apps.supports.tasks import (
     delete_inquiry_attachment_task,
@@ -103,14 +110,16 @@ def delete_inquiry_attachment(sender: type, instance: Inquiry, **kwargs: Any) ->
         트랜잭션 밖이라 잠금은 풀렸어도 응답 지연은 그대로다. 실제 파기와 재시도는
         태스크가 맡는다(tasks.delete_inquiry_attachment_task).
 
-    `robust=True`가 필요한 이유: 브로커 장애 시 `.delay()`가 던지는
-    `kombu.exceptions.OperationalError`가 훅 밖으로 나가면 **DB는 이미 커밋됐는데
-    사용자에게 500**이 나간다. 더 나쁜 것은 탈퇴 CASCADE다 — 문의 N건이면 훅도
-    N개인데, non-robust 훅이 raise하면 Django가 루프를 중단하고 **남은 훅을 조용히
-    버린다**(`run_and_clear_commit_hooks`가 로컬 리스트를 pop하며 도는 구조).
-    robust면 Django가 ERROR로 로깅하고 나머지 훅을 계속 실행한다(2차 리뷰 MEDIUM).
+    `robust=True`는 이 훅에 한해서는 잉여다 — `_schedule_attachment_deletion`이
+    예외를 스스로 삼키므로 훅이 raise하지 않는다. 그럼에도 남겨 두는 이유는,
+    나중에 그 함수가 예외를 올리도록 바뀌면 **탈퇴 CASCADE에서 훅 하나의 실패가
+    남은 훅 전부를 조용히 버리기** 때문이다(non-robust 훅이 raise하면 Django가
+    루프를 중단한다). 삼킴이 사라져도 그 파급은 막힌다.
     """
     key = instance.img_key
     if not key:
         return
+    # 대장 기록은 **삭제와 같은 트랜잭션**에서 남긴다. 롤백되면 함께 사라지고,
+    # 커밋되면 브로커 메시지가 유실돼도 "지워야 할 key"가 DB에 남는다.
+    PendingAttachmentDeletion.objects.get_or_create(key=key)
     transaction.on_commit(lambda: _schedule_attachment_deletion(key), robust=True)

@@ -159,3 +159,33 @@ class InquiryAnswer(TimeStampModel):
 
     def __str__(self) -> str:
         return f"{self.inquiry.title} 답변"
+
+
+class PendingAttachmentDeletion(models.Model):
+    """파기 지시 대장 — 지워야 할 첨부 key의 **양(positive) 기록**.
+
+    왜 필요한가. 문의 행이 하드 삭제되면 `img_key`는 DB 어디에도 남지 않아,
+    파기 지시의 유일한 사본이 브로커 메시지가 된다. 그 결과 두 문제가 동시에 생겼다.
+
+    ① **부재로는 체크-후-행동 창이 닫히지 않는다.**
+       A(key=K) 삭제 커밋 → 태스크가 `Inquiry.filter(img_key=K).exists()`로 False를
+       보고 S3 왕복(최대 약 30초)을 시작 → 그 사이 같은 K로 B가 등록·커밋 → 태스크가
+       **살아 있는 B의 첨부를 지운다.** 등록 시점에 `Inquiry`로 같은 검사를 걸어도
+       그 구간에는 A가 이미 없고 B는 아직 없어 **두 검사가 같은 False를 본다**.
+       "지워야 할 key"를 남겨 두고 **존재**로 판정해야 닫힌다(4차 리뷰).
+    ② 브로커가 메시지를 잃으면 무엇을 지워야 하는지조차 복구할 수 없다.
+
+    수명: 문의 삭제와 같은 트랜잭션에서 생기고, S3 파기가 **성공한 뒤에만** 지워진다.
+    남아 있는 행은 곧 "아직 파기되지 않은 개인정보"이므로 회수·감사 대상이다.
+    주기 재조정 배치는 후속 과제다(이슈 #341).
+    """
+
+    key = models.CharField(max_length=255, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "pending_attachment_deletions"
+        ordering = ["created_at"]
+
+    def __str__(self) -> str:
+        return self.key

@@ -87,12 +87,23 @@ services:
   # 매 배포마다 브로커 데이터가 새로 시작된다. 첨부 파기 지시는 행이 지워진 뒤
   # 메시지에만 남아 있어 그때 유실되면 무엇을 지워야 하는지조차 복구할 수 없다
   # (3차 리뷰 HIGH).
+  # ⚠ 이 인스턴스 하나를 브로커·캐시(default/auth)·채널레이어가 **함께** 쓴다
+  #   (deploy.yml이 REDIS_URL 하나만 만든다). 그 위에 파기 지시의 내구성을 얹었으므로
+  #   아래 둘을 반드시 지킬 것:
+  #   1) maxmemory-policy는 noeviction을 유지한다. 어떤 eviction 정책을 걸든
+  #      브로커 메시지(=파기 지시)가 evict 대상이 되어 조용히 사라진다.
+  #   2) 이 DB에 `cache.clear()`를 호출하지 말 것 — django-redis는 FLUSHDB를 쳐서
+  #      대기 중인 파기 지시까지 전멸시킨다(현재 호출부 0건).
+  #   근본 해결은 브로커를 별 인스턴스로 분리하는 것이다(후속 과제).
   redis:
     image: redis:7-alpine
-    command: redis-server --appendonly yes
+    command: >
+      redis-server --appendonly yes
+      --maxmemory-policy noeviction
     volumes:
       - redis-data:/data
     restart: always
+    mem_limit: 300m
 
 volumes:
   redis-data:

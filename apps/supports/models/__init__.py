@@ -6,6 +6,7 @@ from apps.supports.models.models import (
     InquiryAnswer,
     InquiryCategory,
     InquiryStatus,
+    PendingAttachmentDeletion,
 )
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "InquiryAnswer",
     "InquiryCategory",
     "InquiryStatus",
+    "PendingAttachmentDeletion",
 ]

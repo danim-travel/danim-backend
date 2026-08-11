@@ -30,6 +30,10 @@ jobs:
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
+          # 기본값(false)이면 drone-ssh가 명령마다 종료코드 가드를 붙이지 않아
+          # migrate가 실패해도 다음 줄 up -d가 실행된다 — 신규 코드 워커가 구
+          # 스키마에 붙고, 마지막 명령이 성공하면 "배포 완료"까지 나간다(4차 리뷰).
+          script_stop: true
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_PRIVATE_KEY }}
@@ -85,14 +89,17 @@ jobs:
             docker compose -f docker-compose.prod.yml exec -T django uv run --no-sync python manage.py migrate
             docker compose -f docker-compose.prod.yml up -d
 
-            # up -d는 컨테이너가 즉시 크래시루프에 빠져도 성공을 반환한다.
-            # 확인하지 않으면 워커가 못 떠도 "배포 완료"가 나가고, 증상은 오직
-            # 침묵(알림·첨부 파기 무동작)이다.
+            # up -d는 컨테이너를 **시작**하면 반환한다. celery는 Django 앱 전체를
+            # 임포트하므로 설정·env 오류로 죽는 데 5~15초가 걸려, 곧바로 확인하면
+            # 아직 running이라 통과해 버린다. 잠시 기다린 뒤 상태와 재시작 횟수를
+            # 함께 본다 — RestartCount>0이면 떴다가 죽고 있다는 뜻이다(4차 리뷰).
+            sleep 25
             for s in django celery-worker celery-s3-worker celery-beat; do
               cid=$(docker compose -f docker-compose.prod.yml ps -q "$s")
               st=$(docker inspect -f '{{.State.Status}}' "$cid" 2>/dev/null || echo missing)
-              if [ "$st" != "running" ]; then
-                echo "::error::$s 기동 실패(status=$st)"
+              rc=$(docker inspect -f '{{.RestartCount}}' "$cid" 2>/dev/null || echo 0)
+              if [ "$st" != "running" ] || [ "$rc" -gt 0 ]; then
+                echo "::error::$s 기동 실패(status=$st restarts=$rc)"
                 docker compose -f docker-compose.prod.yml logs --tail=50 "$s"
                 exit 1
               fi

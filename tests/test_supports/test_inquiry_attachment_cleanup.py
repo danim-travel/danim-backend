@@ -15,9 +15,11 @@ from unittest.mock import patch
 import pytest
 from django.contrib.admin.sites import AdminSite
 from django.test import RequestFactory
+from django.urls import reverse
+from rest_framework.test import APIClient
 
 from apps.core.storage.s3.services import ActionEnum, CategoryEnum, SuffixEnum, s3_svc
-from apps.supports.models import Inquiry, InquiryStatus
+from apps.supports.models import Inquiry, InquiryStatus, PendingAttachmentDeletion
 from apps.supports.services import delete_my_inquiry
 from apps.supports.tasks import delete_inquiry_attachment_task
 from apps.users.models import User
@@ -25,6 +27,11 @@ from apps.users.models import User
 pytestmark = pytest.mark.django_db
 
 TASK_PATH = "apps.supports.signals.signal.delete_inquiry_attachment_task.delay"
+
+
+@pytest.fixture
+def api_client() -> APIClient:
+    return APIClient()
 
 
 @pytest.fixture
@@ -150,6 +157,97 @@ class TestCleanupIsScheduled:
         assert not Inquiry.objects.filter(id=inquiry.id).exists()
 
 
+class TestDeletionLedger:
+    """대장(PendingAttachmentDeletion) — 파기 지시의 양(positive) 기록."""
+
+    def test_ledger_row_created_with_delete(self, user, inquiry, img_key):
+        """대장은 삭제와 같은 트랜잭션에서 생겨야 브로커 유실을 견딘다."""
+        with patch(TASK_PATH):
+            delete_my_inquiry(inquiry.id, user)
+
+        assert PendingAttachmentDeletion.objects.filter(key=img_key).exists()
+
+    def test_ledger_row_not_created_on_rollback(self, inquiry, img_key):
+        from django.db import transaction
+
+        try:
+            with transaction.atomic():
+                Inquiry.objects.filter(id=inquiry.id).delete()
+                raise RuntimeError("의도적 롤백")
+        except RuntimeError:
+            pass
+
+        assert not PendingAttachmentDeletion.objects.filter(key=img_key).exists()
+
+    def test_ledger_row_removed_only_after_success(self, img_key):
+        PendingAttachmentDeletion.objects.create(key=img_key)
+
+        with patch("apps.supports.tasks.s3_svc.delete", side_effect=RuntimeError("S3")):
+            with pytest.raises(RuntimeError):
+                delete_inquiry_attachment_task(img_key)
+        assert PendingAttachmentDeletion.objects.filter(key=img_key).exists()
+
+        with patch("apps.supports.tasks.s3_svc.delete"):
+            delete_inquiry_attachment_task(img_key)
+        assert not PendingAttachmentDeletion.objects.filter(key=img_key).exists()
+
+    def test_pending_key_cannot_be_reused(self, api_client, user, inquiry, img_key):
+        """파기 예약된 key로는 새 문의를 등록할 수 없다.
+
+        **이번 라운드가 실제로 닫아야 했던 것이다.** 부재로 판정하면(삭제된 문의를
+        `Inquiry.filter(img_key=K)`로 찾는 방식) A가 지워진 직후 구간에서 등록 검사와
+        파기 태스크의 검사가 **같은 False를 본다** — A는 없고 B는 아직 없기 때문이다.
+        그 창에서 B가 커밋되면 태스크가 살아 있는 B의 첨부를 지운다(4차 리뷰).
+        대장에 **존재**하는지로 판정해야 닫힌다.
+        """
+        with patch(TASK_PATH):
+            delete_my_inquiry(inquiry.id, user)
+
+        api_client.force_authenticate(user=user)
+        response = api_client.post(
+            reverse("supports:inquiry_list_create"),
+            {"category": "ETC", "title": "재사용", "content": "내용", "img_key": img_key},
+            format="json",
+        )
+
+        assert response.status_code == 400
+        assert not Inquiry.objects.filter(title="재사용").exists()
+
+    def test_delete_then_reuse_does_not_destroy_live_attachment(
+        self, api_client, user, inquiry, img_key
+    ):
+        """삭제 → 재사용 시도 → 파기 실행 순서에서 살아 있는 첨부가 남아야 한다.
+
+        위 가드가 뚫리면(=B가 등록되면) 태스크가 B의 첨부를 지운다. 여기서는
+        가드가 B를 막으므로 파기가 안전하게 실행된다.
+        """
+        with patch(TASK_PATH):
+            delete_my_inquiry(inquiry.id, user)
+
+        api_client.force_authenticate(user=user)
+        api_client.post(
+            reverse("supports:inquiry_list_create"),
+            {"category": "ETC", "title": "재사용", "content": "내용", "img_key": img_key},
+            format="json",
+        )
+
+        with patch("apps.supports.tasks.s3_svc.delete") as s3_delete:
+            delete_inquiry_attachment_task(img_key)
+
+        # B가 만들어지지 않았으므로 파기해도 살아 있는 첨부가 없다
+        s3_delete.assert_called_once_with(img_key)
+        assert not Inquiry.objects.filter(img_key=img_key).exists()
+
+    def test_success_is_logged_for_audit(self, img_key, caplog):
+        """파기 성공을 남긴다 — 이행 증적이자, "워커가 도는지"의 유일한 신호다."""
+        with patch("apps.supports.tasks.s3_svc.delete"):
+            with caplog.at_level(logging.INFO, logger="apps.supports.tasks"):
+                delete_inquiry_attachment_task(img_key)
+
+        assert "파기 완료" in caplog.text
+        assert img_key in caplog.text
+
+
 class TestCleanupTask:
     """태스크 층 — 실제로 지우는가, 지우면 안 될 때 멈추는가."""
 
@@ -255,8 +353,10 @@ class TestCleanupTask:
         테스트는 초록불인데 메시지는 아무도 꺼내지 않는다. 실제 파일을 읽어
         확인한다(3차 리뷰 LOW).
         """
-        import re
+        import shlex
         from pathlib import Path
+
+        import yaml
 
         queue = delete_inquiry_attachment_task.queue
         root = Path(__file__).resolve().parents[2]
@@ -266,13 +366,21 @@ class TestCleanupTask:
             "docker-compose.dev.yml",
             "docker-compose.prod.yml",
         ]:
-            text = (root / name).read_text(encoding="utf-8")
-            consumed = set()
-            for group in re.findall(r"-Q\s+(\S+)", text):
-                consumed.update(group.split(","))
+            # 전문 정규식은 주석의 `-Q ...`까지 읽어, 서비스를 통째로 주석 처리해도
+            # 초록불이 된다. YAML을 파싱해 **실제 command**만 본다.
+            spec = yaml.safe_load((root / name).read_text(encoding="utf-8"))
+            consumed: set[str] = set()
+            for svc in (spec.get("services") or {}).values():
+                cmd = svc.get("command")
+                if not cmd:
+                    continue
+                tokens = shlex.split(cmd if isinstance(cmd, str) else " ".join(cmd))
+                for i, tok in enumerate(tokens):
+                    if tok == "-Q" and i + 1 < len(tokens):
+                        consumed.update(tokens[i + 1].split(","))
             assert queue in consumed, (
-                f"{name}이 '{queue}' 큐를 소비하지 않습니다 — 첨부 파기 메시지가 "
-                f"영원히 쌓이기만 합니다. 현재 소비 큐: {sorted(consumed)}"
+                f"{name}의 어떤 서비스도 '{queue}' 큐를 소비하지 않습니다 — 첨부 파기 "
+                f"메시지가 영원히 쌓이기만 합니다. 현재 소비 큐: {sorted(consumed)}"
             )
 
     def test_task_is_ack_late_for_redelivery(self):

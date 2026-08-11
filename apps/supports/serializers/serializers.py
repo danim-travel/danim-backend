@@ -6,7 +6,13 @@ from rest_framework import serializers
 from apps.core.storage.s3 import s3_svc
 from apps.core.storage.s3.services import CategoryEnum
 from apps.core.storage.s3.validators import validate_attach_key
-from apps.supports.models import FAQ, FAQCategory, Inquiry, InquiryAnswer
+from apps.supports.models import (
+    FAQ,
+    FAQCategory,
+    Inquiry,
+    InquiryAnswer,
+    PendingAttachmentDeletion,
+)
 
 
 class FAQCategorySerializer(serializers.ModelSerializer):
@@ -62,17 +68,21 @@ class InquiryCreateSerializer(serializers.ModelSerializer):
             return None
         validate_attach_key(value, CategoryEnum.INQUIRY)
 
-        # 같은 key를 두 문의에 붙이지 못하게 **등록 시점에** 막는다.
+        # **파기 예약된 key는 재등록을 막는다.**
         #
-        # 허용하면 파기 태스크에 체크-후-행동 창이 생긴다: 태스크가
-        # `filter(img_key=K).exists()`로 False를 본 뒤 S3 왕복(최대 약 30초) 사이에
-        # 같은 K로 새 문의가 커밋되면, 그 살아 있는 첨부가 지워진다(3차 리뷰).
-        # 태스크의 참조 확인은 이 가드가 뚫렸을 때를 위한 이중 방어로 남는다.
+        # 부재(`Inquiry.filter(img_key=K).exists()`)로 판정하면 체크-후-행동 창이
+        # 닫히지 않는다. 문의 삭제는 하드 삭제라, A가 지워진 직후 구간에서는
+        # 파기 태스크의 검사와 이 검사가 **같은 False를 본다** — A는 이미 없고 B는
+        # 아직 없기 때문이다. 그 사이 B가 커밋되면 태스크가 살아 있는 B의 첨부를
+        # 지운다(4차 리뷰).
         #
-        # 정상 사용에는 제약이 없다 — 첨부는 presigned로 매번 새 key를 발급받으므로
-        # 같은 key를 재사용할 이유가 없다.
-        if Inquiry.objects.filter(img_key=value).exists():
-            raise serializers.ValidationError("이미 사용된 이미지입니다.")
+        # 대장에 **존재**하는지로 판정하면 그 구간이 닫힌다. 대장 행은 삭제와 같은
+        # 트랜잭션에서 생기고 S3 파기가 성공한 뒤에만 사라지므로, "지워질 예정이거나
+        # 지워지는 중"인 key는 항상 잡힌다.
+        #
+        # 정상 사용에는 제약이 없다 — 첨부는 presigned로 매번 새 key를 발급받는다.
+        if PendingAttachmentDeletion.objects.filter(key=value).exists():
+            raise serializers.ValidationError("파기 예약된 이미지입니다.")
         return value
 
 

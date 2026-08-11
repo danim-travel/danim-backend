@@ -15,7 +15,7 @@ from apps.core.storage.s3.services import CategoryEnum
 from apps.core.storage.s3.validators import is_valid_attach_key
 from apps.notifications.models import NotificationType, TargetChoices
 from apps.notifications.utils.create_notification import create_system_notification
-from apps.supports.models import Inquiry
+from apps.supports.models import Inquiry, PendingAttachmentDeletion
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +115,13 @@ def delete_inquiry_attachment_task(self, key: str) -> None:
 
     try:
         s3_svc.delete(key)
+        # 성공을 남긴다. ①개인정보 파기 시점의 증적이고 ②"워커가 돌며 파기 중"과
+        # "워커는 떴는데 메시지가 한 건도 안 온다(큐 오타·시그널 미연결)"를
+        # 로그로 구분해 준다 — 후자는 증상이 오직 침묵이다(4차 리뷰).
+        logger.info(f"[문의 첨부 파기 완료] key={key}")
+        # 대장은 **성공한 뒤에만** 지운다. 남아 있는 행은 곧 "아직 파기되지 않은
+        # 개인정보"다.
+        PendingAttachmentDeletion.objects.filter(key=key).delete()
     except Exception as exc:
         if self.request.retries >= self.max_retries:
             logger.error(
