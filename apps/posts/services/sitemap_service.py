@@ -3,4 +3,4 @@ from apps.posts.models import Post
 
 class SitemapService:
     def get_sitemap_posts(self):
-        return Post.objects.only("id", "updated_at").order_by("id")
+        return Post.objects.order_by("id").values("id", "updated_at")

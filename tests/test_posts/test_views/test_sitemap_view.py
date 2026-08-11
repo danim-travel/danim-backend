@@ -1,5 +1,7 @@
 from datetime import date
 
+from django.core.cache import cache
+from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -8,7 +10,13 @@ from apps.posts.models import Post
 from apps.users.models import User
 from apps.users.models.models import LoginType
 
+LOCMEM = {
+    "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
+    "auth": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
+}
 
+
+@override_settings(CACHES=LOCMEM)
 class SitemapViewTest(APITestCase):
 
     user: User
@@ -24,6 +32,7 @@ class SitemapViewTest(APITestCase):
             login_type=LoginType.EMAIL,
         )
         self.url = reverse("posts:post_sitemap")
+        cache.clear()
 
     def test_get_sitemap_view_unauthenticated(self) -> None:
         """로그인 없이도 조회 가능 (SEO 크롤러 대상 공개 API)"""

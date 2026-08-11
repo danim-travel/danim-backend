@@ -148,6 +148,7 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "apps.core.exceptions.exception_handler.custom_exception_handler",
+    "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.ScopedRateThrottle"],
     # 스코프별 rate limit — 전역 스로틀은 걸지 않고, 무인증 쓰기 등
     # 필요한 뷰에서만 ScopedRateThrottle + throttle_scope로 선택 적용한다
     "DEFAULT_THROTTLE_RATES": {
@@ -157,6 +158,7 @@ REST_FRAMEWORK = {
         # presigned 발급은 S3 객체를 무한히 만들 수 있는 축이라 별도로 조인다
         # (발급 자체는 저렴해도 업로드까지 이어지면 용량·비용이 늘어난다).
         "inquiry_presigned": "20/min",
+        "sitemap": "12/hour",
     },
 }
 

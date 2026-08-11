@@ -1,3 +1,5 @@
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
@@ -11,8 +13,10 @@ from apps.posts.services.sitemap_service import SitemapService
 
 class SitemapView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = "sitemap"
     service = SitemapService()
 
+    @method_decorator(cache_page(60 * 30))
     @sitemap_schema
     def get(self, request: Request) -> Response:
 
