@@ -14,13 +14,15 @@ from unittest.mock import patch
 
 import pytest
 from django.contrib.admin.sites import AdminSite
+from django.db import IntegrityError
 from django.test import RequestFactory
 from django.urls import reverse
 from rest_framework.test import APIClient
 
+from apps.core.exceptions.exception import ConflictException
 from apps.core.storage.s3.services import ActionEnum, CategoryEnum, SuffixEnum, s3_svc
 from apps.supports.models import Inquiry, PendingInquiryAttachmentDeletion
-from apps.supports.services import delete_my_inquiry
+from apps.supports.services import create_inquiry, delete_my_inquiry
 from apps.supports.tasks import delete_inquiry_attachment_task
 from apps.users.models import User
 
@@ -271,6 +273,45 @@ class TestDeletionLedger:
                     img_key=img_key,
                 )
 
+    def test_constraint_violation_becomes_409(self, user, inquiry, img_key):
+        """DB 제약 위반은 500이 아니라 409로 나가야 한다.
+
+        serializer가 먼저 거르지만 그 검사도 체크-후-행동이라 동시 요청 둘이 각각
+        통과할 수 있다 — 제약에 걸리는 쪽이 실제로 생긴다. 변환이 없으면 사용자는
+        원인을 알 수 없는 500을 받는다.
+        """
+        with pytest.raises(ConflictException):
+            create_inquiry(
+                user,
+                {
+                    "category": "ETC",
+                    "title": "동시 요청",
+                    "content": "내용",
+                    "img_key": img_key,
+                },
+            )
+
+    def test_unrelated_integrity_error_is_not_swallowed(self, user, img_key):
+        """다른 제약 위반까지 409로 바꾸면 진짜 버그가 숨는다.
+
+        제약명 문자열 매칭이라 이름을 바꾸면 조용히 500으로 퇴행한다 — 위 테스트가
+        그때 빨개진다. 이쪽은 반대 방향(과잉 변환)을 잠근다.
+        """
+        with patch(
+            "apps.supports.services.services.Inquiry.objects.create",
+            side_effect=IntegrityError('violates foreign key constraint "fk_other"'),
+        ):
+            with pytest.raises(IntegrityError):
+                create_inquiry(
+                    user,
+                    {
+                        "category": "ETC",
+                        "title": "무관한 위반",
+                        "content": "내용",
+                        "img_key": img_key,
+                    },
+                )
+
     def test_ledger_delete_failure_does_not_misreport_s3(self, img_key, caplog):
         """대장 삭제 실패가 "S3 파기 실패"로 오보되면 안 된다.
 
@@ -433,13 +474,57 @@ class TestCleanupTask:
                 f"메시지가 영원히 쌓이기만 합니다. 현재 소비 큐: {sorted(consumed)}"
             )
 
-    def test_task_is_ack_late_for_redelivery(self):
-        """워커가 죽어도 재배달돼야 한다.
+    def test_dev_and_prod_redis_persists_the_broker(self):
+        """브로커 내구성은 redis 설정에 달려 있다 — 같은 하네스로 잠근다.
 
-        기본값(acks_late=False)은 실행 시작 시점에 ack하므로, 배포 down으로 워커가
+        `-Q` 오타를 막으려 만든 YAML 파싱을 더 위험한 문자열에도 적용한다(6차 리뷰).
+        문의 행이 지워지면 key의 유일한 사본이 브로커 메시지라, 배포 `down`으로
+        컨테이너가 사라질 때 appendonly가 없으면 파기 지시가 통째로 증발한다.
+
+        maxmemory는 **일부러 단언하지 않는다** — 같은 인스턴스의 auth 캐시가
+        fail-closed라 상한을 넣으면 메모리 압박이 로그인 500이 된다. 실측 후
+        도입은 #343이고, 그때 이 테스트에 상한 단언을 함께 넣는다.
+        """
+        import shlex
+        from pathlib import Path
+
+        import yaml
+
+        root = Path(__file__).resolve().parents[2]
+
+        # 로컬(docker-compose.yml)은 제외한다 — 브로커 유실이 개발자 재실행으로
+        # 끝나고, 매 컨테이너 재생성마다 AOF를 남길 이유가 없다.
+        for name in ["docker-compose.dev.yml", "docker-compose.prod.yml"]:
+            spec = yaml.safe_load((root / name).read_text(encoding="utf-8"))
+            redis = (spec.get("services") or {}).get("redis") or {}
+            cmd = redis.get("command") or ""
+            tokens = shlex.split(cmd if isinstance(cmd, str) else " ".join(cmd))
+
+            assert (
+                "--appendonly" in tokens
+                and tokens[tokens.index("--appendonly") + 1] == "yes"
+            ), (
+                f"{name}의 redis에 appendonly가 없습니다 — 배포 down 시 대기 중인 "
+                "첨부 파기 지시가 사라집니다."
+            )
+            assert redis.get("volumes"), (
+                f"{name}의 redis에 named volume이 없습니다 — AOF가 익명 볼륨에 쌓여 "
+                "컨테이너 제거와 함께 사라집니다."
+            )
+
+    def test_task_is_ack_late_for_redelivery(self):
+        """실행이 끝난 뒤에 ack해야 재배달 여지가 남는다.
+
+        기본값(acks_late=False)은 실행 **시작** 시점에 ack하므로, 배포 down으로 워커가
         죽으면 선점했던 메시지가 재배달 없이 증발한다. 행이 이미 지워져 key의 유일한
         사본이 그 메시지라 파기 지시 자체가 사라진다(3차 리뷰 HIGH).
         delete_object는 없는 key에도 204라 멱등하므로 재배달이 안전하다.
+
+        ⚠ 재배달 시점은 종료 방식에 따라 다르다(tasks.py의 계약 주석 참조):
+          graceful 종료는 restore_at_shutdown으로 즉시, SIGKILL은
+          visibility_timeout(기본 3600초)이라 **최대 1시간 뒤**다.
+          `reject_on_worker_lost`는 --pool=solo에서 무동작이며(WorkerLostError는
+          prefork가 자식 사망 시 올린다) 풀 교체에 대비해 켜 두는 것뿐이다.
         """
         assert delete_inquiry_attachment_task.acks_late is True
         assert delete_inquiry_attachment_task.reject_on_worker_lost is True

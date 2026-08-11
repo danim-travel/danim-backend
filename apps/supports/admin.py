@@ -3,7 +3,7 @@ from typing import Any, cast
 from django.contrib import admin
 from django.core.exceptions import ValidationError
 from django.db import connection, transaction
-from django.db.models import Count, Field, QuerySet
+from django.db.models import Count, Exists, Field, OuterRef, QuerySet
 from django.http import HttpRequest
 from django.utils import timezone
 from django.utils.html import format_html
@@ -202,12 +202,23 @@ class InquiryAdmin(admin.ModelAdmin):
         문의를 동시에 건드릴 때 COMMIT 시 IntegrityError가 난다 — Collector.delete()가
         atomic이라 부분 삭제 없이 전체 롤백되므로 조용한 소실은 아니지만, 사용자
         삭제와 순서를 맞추면 애초에 나지 않는다.
+
+        ⚠ **잠금 queryset을 super()에 넘기는 것만으로는 잠기지 않는다.**
+          `QuerySet.delete()`가 첫 줄에서 `del_query.query.select_for_update = False`로
+          **버린다**(django/db/models/query.py:1232). 지연 평가라 그때까지 SQL이 나가지
+          않았으므로 FOR UPDATE는 한 번도 실행되지 않는다. `list(...)`로 **여기서 먼저
+          평가**해야 실제로 잠긴다(6차 리뷰).
+
+          안 잠그면: 운영자가 대상을 수집한 뒤 사용자가 같은 행을 지우고 커밋해도,
+          collector는 이미 수집한 인스턴스 전부에 `post_delete`를 **무조건** 보낸다
+          (deletion.py — `if count:`는 카운터만 감싼다). 같은 key로 파기 태스크가 두 번
+          큐잉된다. 태스크가 멱등이라 손상은 없지만 "여기는 잠겨 있다"는 잘못된 안전망이
+          더 비싸다.
         """
         with transaction.atomic():
-            locked = Inquiry.objects.select_for_update(of=("self",)).filter(
-                pk__in=list(queryset.values_list("pk", flat=True))
-            )
-            super().delete_queryset(request, locked)
+            pks = list(queryset.values_list("pk", flat=True))
+            list(Inquiry.objects.select_for_update(of=("self",)).filter(pk__in=pks))
+            super().delete_queryset(request, Inquiry.objects.filter(pk__in=pks))
 
     def get_object(
         self, request: HttpRequest, object_id: str, from_field: str | None = None
@@ -332,9 +343,21 @@ class PendingInquiryAttachmentDeletionAdmin(admin.ModelAdmin):
     search_fields = ("key",)
     show_full_result_count = False
 
-    @admin.display(description="살아 있는 문의가 참조 중", boolean=True)
+    def get_queryset(
+        self, request: HttpRequest
+    ) -> QuerySet[PendingInquiryAttachmentDeletion]:
+        # 행마다 exists()를 치면 100행 목록이 101쿼리가 된다 — 1쿼리로 합친다.
+        return (
+            super()
+            .get_queryset(request)
+            .annotate(_referenced=Exists(Inquiry.objects.filter(img_key=OuterRef("key"))))
+        )
+
+    @admin.display(
+        description="살아 있는 문의가 참조 중", boolean=True, ordering="_referenced"
+    )
     def referenced_by_live_inquiry(self, obj: PendingInquiryAttachmentDeletion) -> bool:
-        return Inquiry.objects.filter(img_key=obj.key).exists()
+        return bool(getattr(obj, "_referenced", False))
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         return False

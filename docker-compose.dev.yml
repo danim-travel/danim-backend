@@ -15,17 +15,16 @@ services:
   # (근거는 docker-compose.prod.yml의 같은 위치 주석).
   # dev가 더 중요하다 — main에 apps/supports가 없어 첨부 파기가 **실제로 도는 유일한
   # 환경**이 dev이고, prod 첫 배포는 이 설계의 첫 실행이 된다.
-  # maxmemory가 없으면 noeviction이 무동작이라는 것도 prod와 같다(5차 리뷰).
+  # maxmemory·mem_limit을 두지 않는 이유도 prod와 같다 — auth 캐시가 이 인스턴스에서
+  # fail-closed다(6차 리뷰). 실측 후 도입은 이슈 #343.
   redis:
     image: redis:7-alpine
     command: >
       redis-server --appendonly yes
-      --maxmemory 200mb
       --maxmemory-policy noeviction
     volumes:
       - redis-data:/data
     restart: always
-    mem_limit: 300m
 
   django:
     image: kochanyeol/danim-backend:dev

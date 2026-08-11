@@ -92,26 +92,34 @@ services:
   #   아래 둘을 반드시 지킬 것:
   #   1) maxmemory-policy는 noeviction을 유지한다. 어떤 eviction 정책을 걸든
   #      브로커 메시지(=파기 지시)가 evict 대상이 되어 조용히 사라진다.
-  #      ⚠ maxmemory가 **함께** 있어야 한다 — noeviction은 redis 기본값이라
-  #        명시만으로는 동작 변화가 없고, 한계가 없으면 정책이 발동하지도
-  #        않는다. 그 상태에서 mem_limit만 걸면 우아한 거부(OOM 에러 응답)가
-  #        커널 SIGKILL로 바뀌고, restart:always + AOF라 워킹셋이 상한을
-  #        넘는 순간 영구 크래시루프가 된다(5차 리뷰).
-  #        mem_limit은 maxmemory보다 넉넉해야 한다 — AOF rewrite는 fork라
-  #        copy-on-write로 메모리가 튄다.
+  #      (redis 기본값과 같다. 값이 아니라 **의도**를 남기려고 명시한다.)
   #   2) 이 DB에 `cache.clear()`를 호출하지 말 것 — django-redis는 FLUSHDB를 쳐서
   #      대기 중인 파기 지시까지 전멸시킨다(현재 호출부 0건).
-  #   근본 해결은 브로커를 별 인스턴스로 분리하는 것이다(후속 과제).
+  #
+  # ⚠ maxmemory와 mem_limit은 **일부러 두지 않는다**(6차 리뷰). 상한을 넣는다는 것은
+  #   상한에 닿는 순간 쓰기를 거부한다는 뜻인데, 이 인스턴스에는 **fail-closed인
+  #   auth 캐시**가 얹혀 있다:
+  #     - CACHES["default"]  : IGNORE_EXCEPTIONS=True  → 조용히 miss(의도된 fail-open)
+  #     - CACHES["auth"]     : IGNORE_EXCEPTIONS **없음** → 예외가 그대로 올라간다.
+  #                            LOCATION도 REDIS_URL이다(REDIS_AUTH_URL이 아니다 —
+  #                            그건 EMAIL_VERIFY_REDIS_URL만 쓴다).
+  #                            → 로그인·회원가입·소셜·로그아웃이 전부 500
+  #     - CHANNEL_LAYERS     : hosts=[REDIS_URL] → group_send 실패로 실시간 DM 끊김
+  #   최대 테넌트는 explores의 피드 캐시(사용자 1인당 전체 게시글 id 리스트, TTL 30분)라
+  #   noeviction의 자가 회복 수단이 TTL 만료뿐이어서 **인증이 깜빡이는 플래핑 장애**가
+  #   된다. 5차에서 넣었던 200mb/300m은 측정 없이 정한 값이었고, 이 PR 이전에는
+  #   상한 자체가 없어 그 실패 모드가 존재하지 않았다 — 없던 장애를 만들 뻔했다.
+  #   상한은 실측 후에 넣는다. 절차는 이슈 #343.
+  #     docker exec <redis> redis-cli INFO memory | grep -E 'used_memory_human|peak'
+  #   내구성(파기 지시 유실 방지)은 상한이 아니라 appendonly + named volume이 준다.
   redis:
     image: redis:7-alpine
     command: >
       redis-server --appendonly yes
-      --maxmemory 200mb
       --maxmemory-policy noeviction
     volumes:
       - redis-data:/data
     restart: always
-    mem_limit: 300m
 
 volumes:
   redis-data:
