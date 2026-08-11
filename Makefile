@@ -17,6 +17,9 @@ DOCKER = docker compose exec django uv run
 # 두 번째 줄에 uv tool run 을 쓰는 이유: uv tool install 이 실행 파일을 ~/.local/bin 에
 # 두는데 그 경로가 PATH 에 없는 환경이 있어(설치 시 uv 가 경고한다) 곧바로 pre-commit 을
 # 부르면 실패한다. uv tool run 은 PATH 와 무관하게 설치된 도구를 찾아 실행한다.
+#
+# 아래 pre-commit 버전은 uv.lock 과 별도로 적히는 값이라 scripts/check_hook_pins.py 가
+# 함께 대조한다. 바꿀 때는 uv.lock 쪽도 같이 맞춰야 한다.
 hooks:
 	uv tool install pre-commit==4.6.0
 	uv tool run pre-commit install

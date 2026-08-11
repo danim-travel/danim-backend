@@ -26,6 +26,13 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-groups
 
+      # main 에 브랜치 보호가 없어 PR 을 거치지 않은 push 가 그대로 배포되므로,
+      # PR CI(ci.yml)뿐 아니라 배포를 일으키는 이 경로에도 같은 게이트를 둔다.
+      # 표준 라이브러리만 쓰지만 tomllib 이 3.11+ 이므로 러너 기본 python 대신
+      # 프로젝트 인터프리터로 실행한다(uv sync 직후라 재동기화는 no-op).
+      - name: 훅 설정 ↔ uv.lock 정합 검사
+        run: uv run python scripts/check_hook_pins.py
+
       - name: black
         run: uv run black --check .
 
