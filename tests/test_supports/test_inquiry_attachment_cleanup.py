@@ -428,6 +428,10 @@ class TestDedupMigration:
 
         # 정리 후에는 제약을 걸 수 있어야 한다. 이 CREATE가 곧 AddConstraint다.
         with connection.cursor() as cursor:
+            # Django의 TestCase는 트랜잭션 시작 시 SET CONSTRAINTS ALL DEFERRED로
+            # FK 검사를 미룬다. 그 상태로 CREATE INDEX를 치면 PostgreSQL이
+            # "pending trigger events"로 거부하므로, 먼저 미뤄 둔 트리거를 흘려보낸다.
+            cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")
             cursor.execute(
                 "CREATE UNIQUE INDEX uq_inquiry_img_key ON inquiries (img_key) "
                 "WHERE img_key IS NOT NULL"
