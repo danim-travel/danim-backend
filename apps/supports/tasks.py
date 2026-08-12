@@ -7,8 +7,10 @@
 """
 
 import logging
+from datetime import timedelta
 
 from celery import shared_task
+from django.utils import timezone
 
 from apps.core.storage.s3 import s3_svc
 from apps.core.storage.s3.services import CategoryEnum
@@ -148,3 +150,50 @@ def delete_inquiry_attachment_task(self, key: str) -> None:
     # (이미 지웠는데 "객체가 남아 있을 수 있습니다" ERROR가 나간다) 재시도마다 S3
     # 왕복을 반복한다(5차 리뷰 LOW).
     PendingInquiryAttachmentDeletion.objects.filter(key=key).delete()
+
+
+# 재구동 1회에 큐잉할 상한. 상한이 없으면 대장이 크게 밀린 상태에서 한 번의 실행이
+# s3_cleanup 큐를 수만 건으로 채워, 사용자 삭제로 들어오는 신규 파기가 그 뒤에 줄선다.
+# 남은 건은 다음 실행이 가져간다(대장은 성공해야 지워지므로 진행이 보장된다).
+REDRIVE_BATCH_SIZE = 500
+# 방금 예약된 건까지 다시 큐잉하면 중복만 늘어난다. 정상 경로는 재시도까지 약 5분
+# (10·20·40·80·160초)이면 끝나므로 그보다 넉넉히 잡는다.
+REDRIVE_MIN_AGE = timedelta(hours=1)
+
+
+@shared_task(queue="s3_cleanup")
+def redrive_pending_attachment_deletions() -> None:
+    """대장에 남은 파기 지시를 다시 큐잉한다 (매일 04:00, beat).
+
+    이 태스크가 **브로커 내구성을 대체한다.** 문의 행이 지워지면 key의 사본이
+    브로커 메시지뿐이라, 5차까지는 redis에 AOF를 걸어 그 메시지를 지키려 했다.
+    그런데 AOF write 실패(ENOSPC 포함)는 redis가 이후 **모든 쓰기를 -MISCONF로 거부**
+    하게 만들고, 같은 인스턴스의 fail-closed한 auth 캐시 때문에 그게 로그인 500이
+    된다(7차 리뷰). 사본을 redis 디스크가 아니라 **Postgres 대장**에 두고 여기서
+    다시 읽으면, redis는 잃어도 되는 순수 전송 계층으로 남는다.
+
+    조건: **대장에 있으면서 어떤 Inquiry도 참조하지 않는** key만 고른다. 참조가 남은
+        행은 실패가 아니라 **보류**이고(살아 있는 문의의 첨부라 지우면 안 된다),
+        다시 큐잉해도 태스크가 또 보류하므로 로그만 늘어난다.
+    조건: 갓 예약된 건은 제외한다(REDRIVE_MIN_AGE). 정상 경로가 아직 진행 중이다.
+    """
+    stale = (
+        PendingInquiryAttachmentDeletion.objects.filter(
+            created_at__lt=timezone.now() - REDRIVE_MIN_AGE
+        )
+        .exclude(key__in=Inquiry.objects.filter(img_key__isnull=False).values("img_key"))
+        .order_by("created_at")
+    )
+    keys = list(stale.values_list("key", flat=True)[:REDRIVE_BATCH_SIZE])
+    if not keys:
+        return
+
+    # 대장에 오래 남아 있다는 것은 이미 한 번 실패했거나 지시가 유실됐다는 뜻이다 —
+    # 재구동으로 조용히 덮지 말고, 몇 건이 얼마나 밀렸는지 알린다.
+    total = stale.count()
+    logger.warning(
+        f"[문의 첨부 파기 재구동] 미파기 {total}건 중 {len(keys)}건을 다시 큐잉합니다 "
+        f"— 가장 오래된 지시: {keys[0]}"
+    )
+    for key in keys:
+        delete_inquiry_attachment_task.delay(key)

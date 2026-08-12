@@ -83,22 +83,10 @@ services:
       - django
     restart: always
 
-  # named volume + appendonly: 배포는 `down`으로 컨테이너를 제거하므로, 익명 볼륨이면
-  # 매 배포마다 브로커 데이터가 새로 시작된다. 첨부 파기 지시는 행이 지워진 뒤
-  # 메시지에만 남아 있어 그때 유실되면 무엇을 지워야 하는지조차 복구할 수 없다
-  # (3차 리뷰 HIGH).
   # ⚠ 이 인스턴스 하나를 브로커·캐시(default/auth)·채널레이어가 **함께** 쓴다
-  #   (deploy.yml이 REDIS_URL 하나만 만든다). 그 위에 파기 지시의 내구성을 얹었으므로
-  #   아래 둘을 반드시 지킬 것:
-  #   1) maxmemory-policy는 noeviction을 유지한다. 어떤 eviction 정책을 걸든
-  #      브로커 메시지(=파기 지시)가 evict 대상이 되어 조용히 사라진다.
-  #      (redis 기본값과 같다. 값이 아니라 **의도**를 남기려고 명시한다.)
-  #   2) 이 DB에 `cache.clear()`를 호출하지 말 것 — django-redis는 FLUSHDB를 쳐서
-  #      대기 중인 파기 지시까지 전멸시킨다(현재 호출부 0건).
-  #
-  # ⚠ maxmemory와 mem_limit은 **일부러 두지 않는다**(6차 리뷰). 상한을 넣는다는 것은
-  #   상한에 닿는 순간 쓰기를 거부한다는 뜻인데, 이 인스턴스에는 **fail-closed인
-  #   auth 캐시**가 얹혀 있다:
+  #   (deploy.yml이 REDIS_URL 하나만 만든다). 그래서 **상한을 두지 않는다** —
+  #   상한을 둔다는 것은 상한에 닿는 순간 쓰기를 거부한다는 뜻인데, 여기엔
+  #   fail-closed인 auth 캐시가 얹혀 있다:
   #     - CACHES["default"]  : IGNORE_EXCEPTIONS=True  → 조용히 miss(의도된 fail-open)
   #     - CACHES["auth"]     : IGNORE_EXCEPTIONS **없음** → 예외가 그대로 올라간다.
   #                            LOCATION도 REDIS_URL이다(REDIS_AUTH_URL이 아니다 —
@@ -107,19 +95,30 @@ services:
   #     - CHANNEL_LAYERS     : hosts=[REDIS_URL] → group_send 실패로 실시간 DM 끊김
   #   최대 테넌트는 explores의 피드 캐시(사용자 1인당 전체 게시글 id 리스트, TTL 30분)라
   #   noeviction의 자가 회복 수단이 TTL 만료뿐이어서 **인증이 깜빡이는 플래핑 장애**가
-  #   된다. 5차에서 넣었던 200mb/300m은 측정 없이 정한 값이었고, 이 PR 이전에는
-  #   상한 자체가 없어 그 실패 모드가 존재하지 않았다 — 없던 장애를 만들 뻔했다.
-  #   상한은 실측 후에 넣는다. 절차는 이슈 #343.
-  #     docker exec <redis> redis-cli INFO memory | grep -E 'used_memory_human|peak'
-  #   내구성(파기 지시 유실 방지)은 상한이 아니라 appendonly + named volume이 준다.
+  #   된다.
+  #
+  #   "상한"에는 **메모리(maxmemory·mem_limit)뿐 아니라 디스크(appendonly)도 포함**된다.
+  #   AOF write/fsync가 실패하면(ENOSPC 포함) redis는 이후 **모든 쓰기 명령을
+  #   -MISCONF로 거부**하므로 정확히 같은 cascade가 디스크 쪽에서 돈다. 5차에 넣은
+  #   메모리 상한을 6차에서 뺐는데, 같은 PR이 남긴 AOF가 그 문을 디스크로 다시 열고
+  #   있었다(7차 리뷰). 이 호스트는 2026-08-09에 실제로 디스크가 고갈된 적이 있다.
+  #
+  #   **파기 지시의 내구성은 redis 디스크가 아니라 Postgres 대장이 준다.**
+  #   `pending_inquiry_attachment_deletions` 행은 문의 삭제와 같은 트랜잭션에서 생기고
+  #   S3 파기가 성공한 뒤에만 지워지며, 브로커가 메시지를 잃어도
+  #   `redrive_pending_attachment_deletions`(매일 04:00 beat)가 대장을 읽어 다시
+  #   큐잉한다. 그래서 redis는 base와 같은 **순수 전송 계층**으로 되돌린다 —
+  #   이 PR이 redis에 추가하는 실패 모드는 0이다.
+  #
+  #   지켜야 할 것 두 가지:
+  #   1) maxmemory-policy는 noeviction을 유지한다(redis 기본값과 같다. 값이 아니라
+  #      **의도**를 남긴다). 어떤 eviction 정책을 걸든 브로커 메시지가 evict 대상이
+  #      되어 조용히 사라지고, 그때 파기는 최대 하루 지연된다.
+  #   2) 이 DB에 `cache.clear()`를 호출하지 말 것 — django-redis는 FLUSHDB를 쳐서
+  #      대기 중인 파기 지시까지 전멸시킨다(현재 호출부 0건).
+  #   인스턴스 분리와 실측 상한은 이슈 #343.
   redis:
     image: redis:7-alpine
-    command: >
-      redis-server --appendonly yes
-      --maxmemory-policy noeviction
-    volumes:
-      - redis-data:/data
+    command: redis-server --maxmemory-policy noeviction
     restart: always
 
-volumes:
-  redis-data:

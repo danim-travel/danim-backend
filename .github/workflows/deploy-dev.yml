@@ -74,20 +74,29 @@ jobs:
             # 새 이미지 pull 및 재시작
             echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
             docker pull ${{ secrets.DOCKER_USERNAME }}/danim-backend:dev
-            # migrate를 구 스택이 서비스하는 동안 먼저 돌린다(근거는 deploy.yml의
-            # 같은 위치 주석 — `down` 뒤에 두면 실패 시 전면 다운으로 끝난다).
-            # dev는 DB가 compose 서비스라 떠 있는지 확인한다. `up -d db redis`는
-            # 이미 떠 있으면 아무것도 하지 않으므로 구 스택을 건드리지 않는다.
+            # 트래픽을 끊고(컨테이너는 남긴다) migrate 후 재기동한다.
+            # 근거는 deploy.yml의 같은 위치 주석 — `down` 뒤면 실패 시 전면 다운,
+            # 구 스택이 살아 있는 채면 DDL 락이 트래픽과 만난다.
+            docker-compose -f docker-compose.dev.yml stop django nginx celery-worker celery-s3-worker celery-beat
+
+            # dev는 DB가 compose 서비스다. 이미 떠 있으면 아무 일도 하지 않는다.
             docker-compose -f docker-compose.dev.yml up -d db redis
 
             # 고정 sleep은 EC2가 바쁠 때 그대로 실패한다 — 준비될 때까지 물어본다.
+            # `-h localhost`로 TCP를 강제한다: postgres 엔트리포인트의 초기화용 임시
+            # 서버는 listen_addresses=''로 TCP만 막고 유닉스 소켓은 열어 두므로,
+            # 소켓으로 물으면 볼륨을 처음 만드는 배포에서 조기 통과한다.
             for i in $(seq 1 30); do
-              docker-compose -f docker-compose.dev.yml exec -T db pg_isready -q && break
+              docker-compose -f docker-compose.dev.yml exec -T db                 sh -c 'pg_isready -q -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB"' && break
               [ "$i" = 30 ] && { echo "::error::db가 60초 안에 준비되지 않았습니다"; exit 1; }
               sleep 2
             done
 
-            docker-compose -f docker-compose.dev.yml run --rm --no-deps django uv run --no-sync python manage.py migrate
+            if ! docker-compose -f docker-compose.dev.yml run --rm --no-deps django uv run --no-sync python manage.py migrate; then
+              echo "::error::migrate 실패 — 구 스택을 되살립니다"
+              docker-compose -f docker-compose.dev.yml start django nginx celery-worker celery-s3-worker celery-beat
+              exit 1
+            fi
 
             docker-compose -f docker-compose.dev.yml down
             docker-compose -f docker-compose.dev.yml up -d

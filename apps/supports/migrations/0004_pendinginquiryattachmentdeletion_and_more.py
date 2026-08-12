@@ -58,6 +58,12 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        # 부분 유니크는 비-CONCURRENTLY `CREATE UNIQUE INDEX`로 나가 ShareLock으로
+        # 쓰기를 막는다. 배포는 트래픽을 끊고 migrate하므로(deploy.yml) 정상 경로에서는
+        # 대기가 없지만, 남아 있는 세션(psql·수동 exec) 하나가 잡고 있으면 무한정
+        # 기다리며 그 뒤의 모든 쓰기가 줄선다. 5초에 끊고 실패시키면 배포 스크립트가
+        # 구 스택을 되살린다 — 조용히 멈춰 있는 것보다 낫다.
+        migrations.RunSQL("SET lock_timeout = '5s'", reverse_sql=migrations.RunSQL.noop),
         migrations.CreateModel(
             name="PendingInquiryAttachmentDeletion",
             fields=[

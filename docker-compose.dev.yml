@@ -11,19 +11,15 @@ services:
       - postgres_data:/var/lib/postgresql/data
     restart: always
 
-  # prod와 같은 이유로 named volume + appendonly + noeviction을 둔다
-  # (근거는 docker-compose.prod.yml의 같은 위치 주석).
+  # prod와 같은 이유로 상한(메모리·디스크)을 두지 않는다 — 근거는
+  # docker-compose.prod.yml의 같은 위치 주석. 파기 지시의 내구성은 redis가 아니라
+  # Postgres 대장 + 재구동 배치가 준다.
   # dev가 더 중요하다 — main에 apps/supports가 없어 첨부 파기가 **실제로 도는 유일한
-  # 환경**이 dev이고, prod 첫 배포는 이 설계의 첫 실행이 된다.
-  # maxmemory·mem_limit을 두지 않는 이유도 prod와 같다 — auth 캐시가 이 인스턴스에서
-  # fail-closed다(6차 리뷰). 실측 후 도입은 이슈 #343.
+  # 환경**이 dev이고, prod 첫 배포는 이 설계의 첫 실행이 된다. 디스크 고갈 이력도
+  # 이 호스트에 있다(2026-08-09).
   redis:
     image: redis:7-alpine
-    command: >
-      redis-server --appendonly yes
-      --maxmemory-policy noeviction
-    volumes:
-      - redis-data:/data
+    command: redis-server --maxmemory-policy noeviction
     restart: always
 
   django:
@@ -111,5 +107,4 @@ services:
     restart: always
 
 volumes:
-  redis-data:
   postgres_data:

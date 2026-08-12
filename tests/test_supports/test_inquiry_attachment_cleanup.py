@@ -10,20 +10,25 @@
 """
 
 import logging
+from datetime import timedelta
 from unittest.mock import patch
 
 import pytest
 from django.contrib.admin.sites import AdminSite
-from django.db import IntegrityError
+from django.db import IntegrityError, connection
 from django.test import RequestFactory
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.core.exceptions.exception import ConflictException
 from apps.core.storage.s3.services import ActionEnum, CategoryEnum, SuffixEnum, s3_svc
 from apps.supports.models import Inquiry, PendingInquiryAttachmentDeletion
 from apps.supports.services import create_inquiry, delete_my_inquiry
-from apps.supports.tasks import delete_inquiry_attachment_task
+from apps.supports.tasks import (
+    delete_inquiry_attachment_task,
+    redrive_pending_attachment_deletions,
+)
 from apps.users.models import User
 
 pytestmark = pytest.mark.django_db
@@ -261,7 +266,7 @@ class TestDeletionLedger:
 
     def test_db_constraint_is_last_line_of_defense(self, user, inquiry, img_key):
         """serializer를 우회해도 DB가 막는다 — 그 검사도 체크-후-행동이라 필요하다."""
-        from django.db import IntegrityError, transaction
+        from django.db import IntegrityError, connection, transaction
 
         with pytest.raises(IntegrityError):
             with transaction.atomic():
@@ -341,6 +346,163 @@ class TestDeletionLedger:
 
         assert "파기 완료" in caplog.text
         assert img_key in caplog.text
+
+
+class TestAdminBulkDeleteLock:
+    """일괄 삭제 경로의 행 잠금."""
+
+    def test_bulk_delete_actually_emits_for_update(self, user, inquiry):
+        """queryset을 super()에 넘기는 것만으로는 잠기지 않는다.
+
+        `QuerySet.delete()`가 첫 줄에서 `del_query.query.select_for_update = False`로
+        버린다(django/db/models/query.py:1232). 지연 평가라 그때까지 SQL이 나가지
+        않았으므로 FOR UPDATE는 한 번도 실행되지 않는다 — 6차까지의 코드가 그랬고,
+        테스트가 없어 "잠겨 있다"는 잘못된 안전망이 다섯 라운드를 살아남았다.
+        """
+        from django.test.utils import CaptureQueriesContext
+
+        from apps.supports.admin import InquiryAdmin
+
+        admin_obj = InquiryAdmin(Inquiry, AdminSite())
+        request = RequestFactory().post("/")
+        request.user = user
+
+        with patch(TASK_PATH):
+            with CaptureQueriesContext(connection) as ctx:
+                admin_obj.delete_queryset(request, Inquiry.objects.filter(id=inquiry.id))
+
+        sqls = [q["sql"] for q in ctx.captured_queries if "inquiries" in q["sql"]]
+        assert any("FOR UPDATE" in sql for sql in sqls), (
+            "일괄 삭제가 대상 행을 잠그지 않습니다 — 사용자 삭제와 경합하면 이미 "
+            "삭제된 행에도 post_delete가 발송돼 같은 key가 두 번 큐잉됩니다.\n"
+            + "\n".join(sqls)
+        )
+        assert not Inquiry.objects.filter(id=inquiry.id).exists()
+
+
+class TestDedupMigration:
+    """유니크 제약을 걸기 전 중복 정리 — 실패하면 배포가 멈춘다."""
+
+    @staticmethod
+    def _dedup():
+        """마이그레이션 모듈은 이름이 숫자로 시작해 import 문으로 못 부른다."""
+        import importlib
+
+        from django.apps import apps as django_apps
+
+        module = importlib.import_module(
+            "apps.supports.migrations.0004_pendinginquiryattachmentdeletion_and_more"
+        )
+        module._null_out_duplicate_img_keys(django_apps, None)
+
+    def test_keeps_oldest_and_nulls_the_rest(self, user, img_key):
+        """가장 오래된 1건만 key를 유지하고, 그 뒤 제약을 걸 수 있어야 한다.
+
+        pytest는 **빈 테스트 DB**에 마이그레이션을 돌리므로 dedup이 항상 0행 no-op이다
+        — 즉 이 함수를 통째로 지워도 CI는 초록불이었다(7차 리뷰). 제약을 잠시 걷고
+        중복을 실제로 만들어 확인한다. DDL도 테스트 트랜잭션과 함께 롤백된다.
+        """
+        with connection.cursor() as cursor:
+            cursor.execute("DROP INDEX uq_inquiry_img_key")
+
+        created = [
+            Inquiry.objects.create(
+                user=user,
+                category="ETC",
+                title=f"중복{i}",
+                content="내용",
+                img_key=img_key,
+            )
+            for i in range(3)
+        ]
+        # ULID는 시간 순증가라 사전순 최솟값이 가장 먼저 만들어진 행이다.
+        oldest = min(created, key=lambda o: o.id)
+
+        self._dedup()
+
+        survivors = list(Inquiry.objects.filter(img_key=img_key))
+        assert [o.id for o in survivors] == [oldest.id], (
+            "중복 정리가 가장 오래된 1건만 남기지 않았습니다 — "
+            f"남은 행: {[o.id for o in survivors]}"
+        )
+
+        # 정리 후에는 제약을 걸 수 있어야 한다. 이 CREATE가 곧 AddConstraint다.
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "CREATE UNIQUE INDEX uq_inquiry_img_key ON inquiries (img_key) "
+                "WHERE img_key IS NOT NULL"
+            )
+
+    def test_leaves_single_use_keys_alone(self, user, inquiry, img_key):
+        """중복이 아닌 행은 건드리지 않는다 — 과잉 정리 방지."""
+        self._dedup()
+
+        inquiry.refresh_from_db()
+        assert inquiry.img_key == img_key
+
+
+class TestRedrive:
+    """대장 재구동 — 브로커를 잃어도 파기가 재개되는 유일한 경로."""
+
+    def test_is_scheduled(self):
+        """beat 스케줄이 곧 파기 약속의 이행 보증이다.
+
+        redis에 AOF를 두지 않으므로 브로커 메시지는 언제든 사라질 수 있다. 이 항목이
+        빠지면 그 순간 미파기가 **영구**가 된다(7차 리뷰).
+        """
+        from django.conf import settings
+
+        entry = settings.CELERY_BEAT_SCHEDULE.get("redrive-inquiry-attachment-deletions")
+        assert entry is not None, (
+            "재구동 배치가 스케줄에 없습니다 — 브로커 유실 시 파기를 재개할 주체가 "
+            "아무도 없습니다."
+        )
+        assert entry["task"] == "apps.supports.tasks.redrive_pending_attachment_deletions"
+
+    def test_requeues_only_unreferenced_and_aged_rows(self, user, inquiry, img_key):
+        """참조가 남은 행과 갓 예약된 행은 건너뛴다."""
+        orphan = _make_key()
+        fresh = _make_key()
+        PendingInquiryAttachmentDeletion.objects.create(key=orphan)
+        PendingInquiryAttachmentDeletion.objects.create(key=fresh)
+        # img_key는 살아 있는 문의(fixture)가 참조 중 — 실패가 아니라 보류다.
+        PendingInquiryAttachmentDeletion.objects.create(key=img_key)
+
+        old = timezone.now() - timedelta(hours=2)
+        PendingInquiryAttachmentDeletion.objects.filter(key__in=[orphan, img_key]).update(
+            created_at=old
+        )
+
+        with patch("apps.supports.tasks.delete_inquiry_attachment_task.delay") as delay:
+            redrive_pending_attachment_deletions()
+
+        assert [c.args[0] for c in delay.call_args_list] == [orphan], (
+            "재구동이 고른 대상이 잘못됐습니다 — 참조가 남은 key를 다시 큐잉하면 "
+            "태스크가 또 보류하고, 갓 예약된 key는 정상 경로가 아직 진행 중입니다."
+        )
+
+    def test_warns_so_the_backlog_is_visible(self, caplog):
+        """조용히 재구동하면 "몇 건이 얼마나 밀렸는지"를 아무도 모른다."""
+        key = _make_key()
+        PendingInquiryAttachmentDeletion.objects.create(key=key)
+        PendingInquiryAttachmentDeletion.objects.filter(key=key).update(
+            created_at=timezone.now() - timedelta(hours=2)
+        )
+
+        with patch("apps.supports.tasks.delete_inquiry_attachment_task.delay"):
+            with caplog.at_level(logging.WARNING, logger="apps.supports.tasks"):
+                redrive_pending_attachment_deletions()
+
+        assert "재구동" in caplog.text and key in caplog.text
+
+    def test_silent_when_nothing_to_do(self, caplog):
+        """평시에 매일 경고가 나가면 아무도 그 경고를 읽지 않게 된다."""
+        with patch("apps.supports.tasks.delete_inquiry_attachment_task.delay") as delay:
+            with caplog.at_level(logging.WARNING, logger="apps.supports.tasks"):
+                redrive_pending_attachment_deletions()
+
+        delay.assert_not_called()
+        assert not [r for r in caplog.records if r.name == "apps.supports.tasks"]
 
 
 class TestCleanupTask:
@@ -474,16 +636,16 @@ class TestCleanupTask:
                 f"메시지가 영원히 쌓이기만 합니다. 현재 소비 큐: {sorted(consumed)}"
             )
 
-    def test_dev_and_prod_redis_persists_the_broker(self):
-        """브로커 내구성은 redis 설정에 달려 있다 — 같은 하네스로 잠근다.
+    def test_dev_and_prod_redis_has_no_write_denying_limit(self):
+        """redis에 상한을 두지 않았음을 잠근다 — 같은 하네스로.
 
-        `-Q` 오타를 막으려 만든 YAML 파싱을 더 위험한 문자열에도 적용한다(6차 리뷰).
-        문의 행이 지워지면 key의 유일한 사본이 브로커 메시지라, 배포 `down`으로
-        컨테이너가 사라질 때 appendonly가 없으면 파기 지시가 통째로 증발한다.
+        `-Q` 오타를 막으려 만든 YAML 파싱을 더 위험한 문자열에도 적용한다(7차 리뷰).
 
-        maxmemory는 **일부러 단언하지 않는다** — 같은 인스턴스의 auth 캐시가
-        fail-closed라 상한을 넣으면 메모리 압박이 로그인 500이 된다. 실측 후
-        도입은 #343이고, 그때 이 테스트에 상한 단언을 함께 넣는다.
+        상한을 **넣지 않았음**을 단언한다. 메모리(`--maxmemory`)든 디스크
+        (`--appendonly`)든, 상한에 닿으면 redis는 쓰기를 거부하고 같은 인스턴스의
+        `CACHES["auth"]`는 fail-closed라 그게 **로그인 500**이 된다. 5차에 메모리
+        상한을, 6차까지 AOF를 넣었다가 각각 되돌린 자리라 주석만으로는 재발을 못 막는다.
+        실측 후 도입은 #343이고, 그때 이 단언을 함께 바꾼다.
         """
         import shlex
         from pathlib import Path
@@ -492,24 +654,22 @@ class TestCleanupTask:
 
         root = Path(__file__).resolve().parents[2]
 
-        # 로컬(docker-compose.yml)은 제외한다 — 브로커 유실이 개발자 재실행으로
-        # 끝나고, 매 컨테이너 재생성마다 AOF를 남길 이유가 없다.
+        # 로컬(docker-compose.yml)은 제외한다 — auth 캐시 500이 개발자 한 명의
+        # 재실행으로 끝난다.
         for name in ["docker-compose.dev.yml", "docker-compose.prod.yml"]:
             spec = yaml.safe_load((root / name).read_text(encoding="utf-8"))
             redis = (spec.get("services") or {}).get("redis") or {}
             cmd = redis.get("command") or ""
             tokens = shlex.split(cmd if isinstance(cmd, str) else " ".join(cmd))
 
-            assert (
-                "--appendonly" in tokens
-                and tokens[tokens.index("--appendonly") + 1] == "yes"
-            ), (
-                f"{name}의 redis에 appendonly가 없습니다 — 배포 down 시 대기 중인 "
-                "첨부 파기 지시가 사라집니다."
+            assert "--maxmemory" not in tokens, (
+                f"{name}의 redis에 메모리 상한이 있습니다 — 이 인스턴스의 auth 캐시는 "
+                "fail-closed라 상한 도달이 로그인 500이 됩니다. 실측 후 #343에서."
             )
-            assert redis.get("volumes"), (
-                f"{name}의 redis에 named volume이 없습니다 — AOF가 익명 볼륨에 쌓여 "
-                "컨테이너 제거와 함께 사라집니다."
+            assert "--appendonly" not in tokens and not redis.get("volumes"), (
+                f"{name}의 redis에 AOF/영속 볼륨이 있습니다 — AOF write 실패(ENOSPC 등)는 "
+                "이후 모든 쓰기를 -MISCONF로 거부시켜 위와 같은 결과가 됩니다. 파기 지시의 "
+                "내구성은 대장 + redrive 배치가 줍니다."
             )
 
     def test_task_is_ack_late_for_redelivery(self):

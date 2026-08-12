@@ -261,4 +261,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.notifications.tasks.delete_notification_task",
         "schedule": (crontab(hour=3, minute=0)),
     },
+    # 파기 대장에 남은 지시를 다시 큐잉한다. 브로커(redis)에 내구성을 두지 않고
+    # Postgres 대장을 유일한 사본으로 삼기 때문에, 이 스케줄이 곧 "파기 약속"의
+    # 이행 보증이다 — 지우면 브로커 유실이 영구 미파기가 된다(7차 리뷰).
+    "redrive-inquiry-attachment-deletions": {
+        "task": "apps.supports.tasks.redrive_pending_attachment_deletions",
+        "schedule": (crontab(hour=4, minute=0)),
+    },
 }

@@ -102,9 +102,16 @@ def create_inquiry(user: User, validated_data: dict[str, Any]) -> Inquiry:
     예외: img_key 부분 유니크 제약 위반은 409로 바꾼다. serializer가 먼저 걸러내지만
         그 검사도 체크-후-행동이라 동시 요청 둘이 각각 통과할 수 있다 — 제약이 그
         경합을 막는 최종 방어선이고, 변환하지 않으면 500이 된다.
+
+        INSERT를 `atomic()`으로 감싸는 이유: PostgreSQL은 오류가 난 트랜잭션에서
+        이후 모든 쿼리를 거부한다. `save_base`는 savepoint를 만들지 않으므로,
+        이 함수가 바깥 트랜잭션 안에서 호출되면 IntegrityError를 잡아도 그 트랜잭션은
+        이미 깨져 있어 409 응답을 만들다 다시 터진다. 지금은 ATOMIC_REQUESTS가 꺼져
+        있고 호출부가 뷰뿐이라 도달하지 않지만, 그 전제는 설정 한 줄로 사라진다.
     """
     try:
-        return Inquiry.objects.create(user=user, **validated_data)
+        with transaction.atomic():
+            return Inquiry.objects.create(user=user, **validated_data)
     except IntegrityError as exc:
         if "uq_inquiry_img_key" not in str(exc):
             raise
