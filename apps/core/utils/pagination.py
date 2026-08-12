@@ -36,11 +36,6 @@ class DefaultPagination(CursorPagination):
         )
 
 
-class SitemapPagination(DefaultPagination):
-    page_size = 10000  # 최대 5만건 까지 가능 압축전 50Mb 까지 사용하가능
-    ordering = "id"
-
-
 def paginate(
     queryset: QuerySet,
     request: Request,

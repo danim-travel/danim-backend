@@ -12,16 +12,16 @@ sitemap_schema = extend_schema(
     summary="SEO 사이트맵용 게시글 목록 조회",
     description=(
         "검색엔진 sitemap 생성을 위해 전체 게시글의 id/수정일자 목록을 반환합니다. "
-        "인증이 필요 없습니다. sitemaps.org 프로토콜의 5만 건 상한을 지키기 위해 "
-        "1만 건 단위 커서 페이지네이션으로 응답합니다."
+        "인증이 필요 없습니다. 전체 목록은 고정 키로 캐싱되며, sitemaps.org "
+        "프로토콜의 5만 건 상한을 지키기 위해 1만 건 단위로 페이지네이션됩니다."
     ),
     parameters=[
         OpenApiParameter(
-            name="cursor",
+            name="page",
             location=OpenApiParameter.QUERY,
             required=False,
-            type=str,
-            description="다음 페이지 커서 (응답의 next에서 추출)",
+            type=int,
+            description="페이지 번호 (기본 1, 응답의 next에서 다음 페이지 URL 추출)",
         ),
     ],
     responses={

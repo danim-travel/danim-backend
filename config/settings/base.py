@@ -149,6 +149,11 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "apps.core.exceptions.exception_handler.custom_exception_handler",
     "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.ScopedRateThrottle"],
+    # nginx(신뢰 프록시 1단)가 "클라이언트 XFF, 실제IP" 형태로 XFF를 만든다.
+    # 미설정 시 DRF가 XFF 전체 문자열을 ident로 써서 클라이언트가 앞부분을
+    # 조작해 스로틀 버킷을 무한히 갈라놓을 수 있다.
+    # ⚠ 앞단에 ALB/CDN을 붙이면 이 값도 함께 올려야 한다.
+    "NUM_PROXIES": 1,
     # 스코프별 rate limit — 전역 스로틀은 걸지 않고, 무인증 쓰기 등
     # 필요한 뷰에서만 ScopedRateThrottle + throttle_scope로 선택 적용한다
     "DEFAULT_THROTTLE_RATES": {
