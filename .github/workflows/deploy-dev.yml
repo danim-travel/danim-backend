@@ -77,7 +77,11 @@ jobs:
             # 트래픽을 끊고(컨테이너는 남긴다) migrate 후 재기동한다.
             # 근거는 deploy.yml의 같은 위치 주석 — `down` 뒤면 실패 시 전면 다운,
             # 구 스택이 살아 있는 채면 DDL 락이 트래픽과 만난다.
-            docker-compose -f docker-compose.dev.yml stop django nginx celery-worker celery-s3-worker celery-beat
+            # 목록이 흩어져 있으면 서비스를 추가할 때 한 곳을 빠뜨린다 —
+            # 특히 롤백(start)에서 빠지면 그 서비스만 안 살아난다.
+            SVCS="django nginx celery-worker celery-s3-worker celery-beat"
+
+            docker-compose -f docker-compose.dev.yml stop $SVCS
 
             # dev는 DB가 compose 서비스다. 이미 떠 있으면 아무 일도 하지 않는다.
             docker-compose -f docker-compose.dev.yml up -d db redis
@@ -94,7 +98,7 @@ jobs:
 
             if ! docker-compose -f docker-compose.dev.yml run --rm --no-deps django uv run --no-sync python manage.py migrate; then
               echo "::error::migrate 실패 — 구 스택을 되살립니다"
-              docker-compose -f docker-compose.dev.yml start django nginx celery-worker celery-s3-worker celery-beat
+              docker-compose -f docker-compose.dev.yml start $SVCS
               exit 1
             fi
 
@@ -106,7 +110,7 @@ jobs:
             # 아직 running이라 통과해 버린다. 잠시 기다린 뒤 상태와 재시작 횟수를
             # 함께 본다 — RestartCount>0이면 떴다가 죽고 있다는 뜻이다(4차 리뷰).
             sleep 25
-            for s in django nginx celery-worker celery-s3-worker celery-beat; do
+            for s in $SVCS; do
               cid=$(docker-compose -f docker-compose.dev.yml ps -q "$s")
               st=$(docker inspect -f '{{.State.Status}}' "$cid" 2>/dev/null || echo missing)
               rc=$(docker inspect -f '{{.RestartCount}}' "$cid" 2>/dev/null || echo 0)

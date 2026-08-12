@@ -63,7 +63,15 @@ class Migration(migrations.Migration):
         # 대기가 없지만, 남아 있는 세션(psql·수동 exec) 하나가 잡고 있으면 무한정
         # 기다리며 그 뒤의 모든 쓰기가 줄선다. 5초에 끊고 실패시키면 배포 스크립트가
         # 구 스택을 되살린다 — 조용히 멈춰 있는 것보다 낫다.
-        migrations.RunSQL("SET lock_timeout = '5s'", reverse_sql=migrations.RunSQL.noop),
+        #
+        # `SET LOCAL`이어야 한다. 비-LOCAL `SET`은 COMMIT 후에도 **세션에 남고**
+        # `migrate`는 모든 마이그레이션을 한 커넥션으로 돌리므로, 이 뒤에 오는
+        # users/0007(CHECK 추가 = AccessExclusiveLock + 전체 스캔)이나
+        # users/0008(비-CONCURRENTLY GIN)까지 5초 제한을 물려받는다. 그쪽은 정당하게
+        # 5초를 넘길 수 있어서, 여기서 정한 값이 남의 마이그레이션을 죽이면 안 된다.
+        migrations.RunSQL(
+            "SET LOCAL lock_timeout = '5s'", reverse_sql=migrations.RunSQL.noop
+        ),
         migrations.CreateModel(
             name="PendingInquiryAttachmentDeletion",
             fields=[

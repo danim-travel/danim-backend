@@ -266,7 +266,7 @@ class TestDeletionLedger:
 
     def test_db_constraint_is_last_line_of_defense(self, user, inquiry, img_key):
         """serializer를 우회해도 DB가 막는다 — 그 검사도 체크-후-행동이라 필요하다."""
-        from django.db import IntegrityError, connection, transaction
+        from django.db import transaction
 
         with pytest.raises(IntegrityError):
             with transaction.atomic():
@@ -395,7 +395,8 @@ class TestDedupMigration:
         )
         module._null_out_duplicate_img_keys(django_apps, None)
 
-    def test_keeps_oldest_and_nulls_the_rest(self, user, img_key):
+    @pytest.mark.parametrize("dupes", [2, 3])
+    def test_keeps_oldest_and_nulls_the_rest(self, user, img_key, dupes):
         """가장 오래된 1건만 key를 유지하고, 그 뒤 제약을 걸 수 있어야 한다.
 
         pytest는 **빈 테스트 DB**에 마이그레이션을 돌리므로 dedup이 항상 0행 no-op이다
@@ -413,7 +414,7 @@ class TestDedupMigration:
                 content="내용",
                 img_key=img_key,
             )
-            for i in range(3)
+            for i in range(dupes)
         ]
         # ULID는 시간 순증가라 사전순 최솟값이 가장 먼저 만들어진 행이다.
         oldest = min(created, key=lambda o: o.id)
@@ -428,14 +429,46 @@ class TestDedupMigration:
 
         # 정리 후에는 제약을 걸 수 있어야 한다. 이 CREATE가 곧 AddConstraint다.
         with connection.cursor() as cursor:
-            # Django의 TestCase는 트랜잭션 시작 시 SET CONSTRAINTS ALL DEFERRED로
-            # FK 검사를 미룬다. 그 상태로 CREATE INDEX를 치면 PostgreSQL이
-            # "pending trigger events"로 거부하므로, 먼저 미뤄 둔 트리거를 흘려보낸다.
+            # Django는 PostgreSQL FK를 DEFERRABLE INITIALLY DEFERRED로 만든다
+            # (backends/postgresql/operations.py:150 — base는 빈 문자열을 돌려준다).
+            # 그래서 같은 트랜잭션의 INSERT가 남긴 AFTER 트리거가 커밋까지 대기하고,
+            # PostgreSQL은 pending trigger events가 있는 테이블에 CREATE INDEX를
+            # 거부한다. 미뤄 둔 트리거를 **지금 발화**시켜(검사를 끄는 게 아니다) 푼다.
             cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")
             cursor.execute(
                 "CREATE UNIQUE INDEX uq_inquiry_img_key ON inquiries (img_key) "
                 "WHERE img_key IS NOT NULL"
             )
+
+    def test_runs_before_the_constraint_is_added(self):
+        """`operations`에서 순서가 뒤집히거나 빠지면 dedup은 존재해도 소용없다.
+
+        위 테스트들은 함수를 직접 부르므로 `RunPython`을 통째로 빼도 통과한다 —
+        마이그레이션이 그 함수를 실제로 부르는지, 그리고 `AddConstraint`보다 **먼저**
+        부르는지는 여기서만 확인된다(8차 리뷰).
+        """
+        import importlib
+
+        from django.db import migrations
+
+        module = importlib.import_module(
+            "apps.supports.migrations.0004_pendinginquiryattachmentdeletion_and_more"
+        )
+        ops = module.Migration.operations
+
+        idx_dedup = next(
+            i
+            for i, op in enumerate(ops)
+            if isinstance(op, migrations.RunPython)
+            and op.code is module._null_out_duplicate_img_keys
+        )
+        idx_constraint = next(
+            i for i, op in enumerate(ops) if isinstance(op, migrations.AddConstraint)
+        )
+        assert idx_dedup < idx_constraint, (
+            "중복 정리가 AddConstraint보다 뒤에 있습니다 — 기존 중복이 있으면 "
+            "제약 생성이 실패하고 배포가 그 자리에서 멈춥니다."
+        )
 
     def test_leaves_single_use_keys_alone(self, user, inquiry, img_key):
         """중복이 아닌 행은 건드리지 않는다 — 과잉 정리 방지."""
@@ -461,7 +494,10 @@ class TestRedrive:
             "재구동 배치가 스케줄에 없습니다 — 브로커 유실 시 파기를 재개할 주체가 "
             "아무도 없습니다."
         )
-        assert entry["task"] == "apps.supports.tasks.redrive_pending_attachment_deletions"
+        # 리터럴 대신 태스크 객체에서 뽑는다 — 문자열끼리 비교하면 registry 등록
+        # 여부를 검증하지 못하고, 큐가 빠져 알림 워커(solo)에 얹혀도 아무도 못 잡는다.
+        assert entry["task"] == redrive_pending_attachment_deletions.name
+        assert redrive_pending_attachment_deletions.queue == "s3_cleanup"
 
     def test_requeues_only_unreferenced_and_aged_rows(self, user, inquiry, img_key):
         """참조가 남은 행과 갓 예약된 행은 건너뛴다."""

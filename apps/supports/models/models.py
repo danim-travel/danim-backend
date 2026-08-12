@@ -189,7 +189,9 @@ class PendingInquiryAttachmentDeletion(models.Model):
 
     수명: 문의 삭제와 같은 트랜잭션에서 생기고, S3 파기가 **성공한 뒤에만** 지워진다.
     남아 있는 행은 곧 "아직 파기되지 않은 개인정보"이므로 회수·감사 대상이다.
-    주기 재조정 배치는 후속 과제다(이슈 #341).
+    주기 재구동은 `tasks.redrive_pending_attachment_deletions`(매일 04:00)가 한다 —
+    **브로커에 내구성을 두지 않으므로 그 배치가 파기 약속의 이행 보증이다.**
+    영구 실패 행의 해소(시도 횟수·포기 조건·운영자 조치 수단)는 후속 과제다(#341).
     """
 
     key = models.CharField(max_length=255, unique=True)

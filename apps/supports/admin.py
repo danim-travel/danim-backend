@@ -331,8 +331,9 @@ class PendingInquiryAttachmentDeletionAdmin(admin.ModelAdmin):
     행이 오래 남아 있다면 둘 중 하나다:
       ① 파기가 아직 안 됐다 — 회수 대상
       ② 다른 문의가 같은 key를 참조해 보류됐다(tasks의 "파기 보류" 로그)
-    ②는 참조가 사라지면 자동으로 파기되므로 회수 대상이 아니다. 주기 재예약
-    배치(#341)는 "대장에 있으면서 **어떤 Inquiry도 참조하지 않는** key"만 골라야 한다.
+    ②는 참조가 사라지면 자동으로 파기되므로 회수 대상이 아니다. 주기 재구동
+    (`tasks.redrive_pending_attachment_deletions`)도 같은 기준으로 "대장에 있으면서
+    **어떤 Inquiry도 참조하지 않는** key"만 고른다.
 
     쓰기는 막는다 — 대장은 코드가 관리하는 상태이고, 손으로 지우면 파기되지 않은
     개인정보의 유일한 기록이 사라진다.

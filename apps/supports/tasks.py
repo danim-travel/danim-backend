@@ -122,8 +122,8 @@ def delete_inquiry_attachment_task(self, key: str) -> None:
     if Inquiry.objects.filter(img_key=key).exists():
         # 대장 행은 **의도적으로 유지한다.** 여기서 지우면 M-①의 창이 다시 열린다
         # (다른 태스크가 그 사이 대장이 빈 것을 보고 S3 왕복을 시작한다).
-        # 참조가 사라지면 그때 파기된다 — #341의 회수 대상은 "대장에 있으면서
-        # 어떤 Inquiry도 참조하지 않는 key"여야 한다(5차 리뷰).
+        # 참조가 사라지면 그때 파기된다 — 아래 재구동도 같은 기준으로 "대장에 있으면서
+        # 어떤 Inquiry도 참조하지 않는 key"만 고른다(5차 리뷰).
         logger.info(
             f"[문의 첨부 파기 보류] 다른 문의가 아직 참조합니다 key={key} "
             "— 대장 행은 유지한다(참조가 사라지면 그때 파기)"
@@ -184,16 +184,21 @@ def redrive_pending_attachment_deletions() -> None:
         .exclude(key__in=Inquiry.objects.filter(img_key__isnull=False).values("img_key"))
         .order_by("created_at")
     )
-    keys = list(stale.values_list("key", flat=True)[:REDRIVE_BATCH_SIZE])
-    if not keys:
+    rows = list(stale.values("key", "created_at")[:REDRIVE_BATCH_SIZE])
+    if not rows:
         return
+    keys = [row["key"] for row in rows]
 
     # 대장에 오래 남아 있다는 것은 이미 한 번 실패했거나 지시가 유실됐다는 뜻이다 —
-    # 재구동으로 조용히 덮지 말고, 몇 건이 얼마나 밀렸는지 알린다.
+    # 재구동으로 조용히 덮지 말고, 몇 건이 **얼마나** 밀렸는지 알린다. 건수만으로는
+    # "1건이 1시간"과 "1건이 90일"이 같은 로그가 되어 심각도를 판단할 수 없다.
     total = stale.count()
+    oldest = rows[0]  # created_at 오름차순이라 첫 행이 가장 오래됐다
+    age = timezone.now() - oldest["created_at"]
     logger.warning(
         f"[문의 첨부 파기 재구동] 미파기 {total}건 중 {len(keys)}건을 다시 큐잉합니다 "
-        f"— 가장 오래된 지시: {keys[0]}"
+        f"— 가장 오래된 지시: {oldest['key']} "
+        f"({age.days}일 {age.seconds // 3600}시간 경과)"
     )
     for key in keys:
         delete_inquiry_attachment_task.delay(key)

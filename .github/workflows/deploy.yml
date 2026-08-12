@@ -104,11 +104,15 @@ jobs:
             #   즉 **가산이라서 안전한 게 아니라, 트래픽을 끊고 돌리기 때문에 안전하다.**
             #   제한적 제약(UNIQUE·CHECK·FK)과 비-CONCURRENTLY DDL, 대량 RunPython은
             #   무중단이 필요해지면 2단계 배포로 나눠야 한다.
-            docker compose -f docker-compose.prod.yml stop django nginx celery-worker celery-s3-worker celery-beat
+            # 목록이 흩어져 있으면 서비스를 추가할 때 한 곳을 빠뜨린다 —
+            # 특히 롤백(start)에서 빠지면 그 서비스만 안 살아난다.
+            SVCS="django nginx celery-worker celery-s3-worker celery-beat"
+
+            docker compose -f docker-compose.prod.yml stop $SVCS
 
             if ! docker compose -f docker-compose.prod.yml run --rm --no-deps django uv run --no-sync python manage.py migrate; then
               echo "::error::migrate 실패 — 구 스택을 되살립니다"
-              docker compose -f docker-compose.prod.yml start django nginx celery-worker celery-s3-worker celery-beat
+              docker compose -f docker-compose.prod.yml start $SVCS
               exit 1
             fi
 
@@ -120,7 +124,7 @@ jobs:
             # 아직 running이라 통과해 버린다. 잠시 기다린 뒤 상태와 재시작 횟수를
             # 함께 본다 — RestartCount>0이면 떴다가 죽고 있다는 뜻이다(4차 리뷰).
             sleep 25
-            for s in django nginx celery-worker celery-s3-worker celery-beat; do
+            for s in $SVCS; do
               cid=$(docker compose -f docker-compose.prod.yml ps -q "$s")
               st=$(docker inspect -f '{{.State.Status}}' "$cid" 2>/dev/null || echo missing)
               rc=$(docker inspect -f '{{.RestartCount}}' "$cid" 2>/dev/null || echo 0)
