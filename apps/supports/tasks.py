@@ -181,8 +181,13 @@ def redrive_pending_attachment_deletions() -> None:
         PendingInquiryAttachmentDeletion.objects.filter(
             created_at__lt=timezone.now() - REDRIVE_MIN_AGE
         )
-        .exclude(key__in=Inquiry.objects.filter(img_key__isnull=False).values("img_key"))
-        .order_by("created_at")
+        # ⚠ `img_key__isnull=False`를 "어차피 NULL은 안 맞는다"며 지우지 말 것.
+        #   서브쿼리에 NULL이 섞이면 SQL의 `NOT IN`은 어떤 행에도 참이 되지 않아
+        #   **전체 0행**을 돌려준다 — 재구동이 조용히 영구 무동작이 된다. 문의 대부분은
+        #   첨부가 없어(img_key=NULL) 이 조건이 빠지는 순간 항상 그 상태가 된다.
+        .exclude(
+            key__in=Inquiry.objects.filter(img_key__isnull=False).values("img_key")
+        ).order_by("created_at")
     )
     rows = list(stale.values("key", "created_at")[:REDRIVE_BATCH_SIZE])
     if not rows:
