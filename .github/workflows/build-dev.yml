@@ -12,8 +12,13 @@ jobs:
   nginx:
     uses: ./.github/workflows/nginx-check.yml
 
+  # develop 도 브랜치 보호가 없어 PR 을 거치지 않은 push 가 그대로 배포된다.
+  # 훅 설정과 uv.lock 이 어긋난 채 배포되면 이후 커밋이 mypy 크래시로 막힌다.
+  pins:
+    uses: ./.github/workflows/pins-check.yml
+
   build:
-    needs: nginx
+    needs: [nginx, pins]
     runs-on: ubuntu-latest
 
     steps:

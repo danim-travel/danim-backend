@@ -8,18 +8,22 @@ CI 는 실패" 또는 mypy 크래시로 이어진다(이 검사가 생긴 계기
 검사 항목
     1. 훅 저장소의 rev 가 uv.lock 의 해당 패키지 버전과 같은가
     2. additional_dependencies 의 == 고정값이 uv.lock 과 같은가
-    3. Makefile 이 설치하는 pre-commit 버전이 uv.lock 과 같은가
-    4. 매핑에 없는 훅 저장소가 새로 생기지 않았는가
-    5. 읽어내지 못한 additional_dependencies 블록이 없는가
-    6. 미고정 의존성 개수가 그대로인가 (MAX_UNPINNED 래칫)
+    3. uv.lock 이 요구하는 extra 가 훅 설정에도 붙어 있는가
+    4. Makefile 이 설치하는 pre-commit 버전이 uv.lock 과 같은가
+    5. 매핑에 없는 훅 저장소가 새로 생기지 않았는가
+    6. 읽어내지 못한 additional_dependencies 블록이 없는가
+    7. 있어야 할 의존성이 전부 있고, 고정돼야 할 것이 고정돼 있는가 (이름 집합)
 
-4~6 번이 있는 이유: 1~3 이 실패했을 때 값을 고치는 대신 고정값을 지우거나, 저장소를
-새로 추가하거나, 인라인 표기로 바꾸면 검사가 통과해버린다. 드리프트를 막으려는 검사를
-드리프트로 우회하는 길이라 함께 막아둔다.
+7 번이 개수가 아니라 **이름 집합**인 이유: 개수 래칫은 "미고정이 N개인가" 만 보므로,
+줄을 통째로 지우거나 주석 처리하거나 다른 항목과 맞바꾸면 개수가 그대로라 통과한다.
+그리고 줄 삭제는 `==` 제거보다 나쁘다 — 그 패키지가 훅 env 에 아예 설치되지 않아
+django-stubs 플러그인의 `django.setup()` 이 ImportError 로 죽거나, 스텁이 extra 없이
+떠서 이 검사가 막으려던 mypy INTERNAL ERROR 가 그대로 재발한다.
 
-pyyaml 을 쓰지 않는 이유: 프로젝트 의존성에 없어서, 이 검사 하나를 위해 의존성을 늘리면
-검사가 막으려는 문제(수동 관리 대상 증가)를 스스로 키우게 된다. 대상 파일 구조가 단순하고
-`check-yaml` 훅이 문법을 별도로 보장하므로 필요한 부분만 직접 읽는다.
+pyyaml 을 쓰지 않는 이유: uv.lock 에 pyyaml 이 있긴 하지만 pre-commit 이 끌고 온
+**전이 의존**이라 직접 의존처럼 기대면 안 된다. pre-commit 을 걷어내거나 그쪽 의존이
+바뀌면 조용히 사라진다. 대상 파일 구조가 단순하고 `check-yaml` 훅이 문법을 따로
+보장하므로 필요한 부분만 직접 읽는다.
 """
 
 from __future__ import annotations
@@ -48,20 +52,51 @@ UNCHECKABLE_REPOS = {
     "https://github.com/pre-commit/pre-commit-hooks",  # uv.lock 에 없는 훅 전용 패키지
 }
 
-# 현재 미고정 의존성 개수. 늘어도 줄어도 실패하는 래칫이다.
-#   늘어남 = 고정값을 지워 검사를 우회한 것 -> 막는다
-#   줄어듦 = 새로 고정한 것 -> 이 값도 같이 낮춰 다음 우회의 기준선을 조인다
-MAX_UNPINNED = 7
+# 반드시 == 로 고정돼 있어야 하는 패키지. django.setup() 경로(INSTALLED_APPS·settings
+# 모듈 레벨 임포트)에 있거나 스텁이라, 버전이 갈리면 타입체크 결과가 달라진다.
+REQUIRED_PINNED = {
+    "python-ulid",
+    "django",
+    "django-stubs",
+    "django-stubs-ext",
+    "djangorestframework-stubs",
+    "daphne",
+    "channels",
+    "djangorestframework",
+    "djangorestframework-simplejwt",
+    "django-allauth",
+    "dj-rest-auth",
+    "django-cors-headers",
+    "django-storages",
+    "drf-spectacular",
+    "django-redis",
+    "boto3",
+    "boto3-stubs",
+    "mypy-boto3-s3",
+    "pgvector",
+}
+
+# 고정하지 않아도 되는 패키지. 수동 관리 대상을 늘리지 않으려고 남겨 둔 것들이라
+# 버전은 묻지 않되, 목록에서 사라지는 것 자체는 막는다.
+UNPINNED_ALLOWED = {
+    "django-environ",
+    "channels-redis",
+    "psycopg2-binary",
+    "pillow",
+    "httpx",
+    "sentry-sdk",
+    "celery",
+}
 
 _REPO_RE = re.compile(r"^\s*-\s*repo:\s*(\S+)")
 _REV_RE = re.compile(r"^\s*rev:\s*(\S+)")
 _ADDITIONAL_RE = re.compile(r"^\s*additional_dependencies:")
-_PIN_RE = re.compile(r"^([A-Za-z0-9._-]+)(?:\[[^\]]*\])?==([^\s;,=<>!~]+)$")
+_DEP_RE = re.compile(r"^([A-Za-z0-9._-]+)(?:\[([^\]]*)\])?(?:==([^\s;,=<>!~]+))?$")
 _MAKE_PRECOMMIT_RE = re.compile(r"uv tool install\s+pre-commit==(\S+)")
 
 
 def normalize(name: str) -> str:
-    """PyPI 이름 정규화 — uv.lock 은 소문자·하이픈 형태로 기록한다(Pillow -> pillow)."""
+    """PyPI 이름 정규화(PEP 503) — uv.lock 은 소문자·하이픈으로 쓴다(Pillow -> pillow)."""
     return re.sub(r"[-_.]+", "-", name).lower()
 
 
@@ -77,6 +112,25 @@ def clean_dep(raw: str) -> str:
     return re.sub(r"\s+", "", raw)
 
 
+@dataclass(frozen=True)
+class Dep:
+    """훅 설정의 의존성 한 줄."""
+
+    name: str  # 정규화된 이름
+    extras: frozenset[str]
+    version: str | None  # == 고정값. 없으면 None
+
+
+def parse_dep(dep: str) -> Dep | None:
+    """`pkg[extra]==1.0` 을 뜯는다. 이해하지 못한 표기는 None(호출부에서 실패시킨다)."""
+    m = _DEP_RE.match(dep)
+    if m is None:
+        return None
+    raw_extras = m.group(2) or ""
+    extras = frozenset(normalize(e) for e in raw_extras.split(",") if e.strip())
+    return Dep(normalize(m.group(1)), extras, m.group(3))
+
+
 def read_lock_versions(text: str) -> dict[str, set[str]]:
     """패키지 이름 -> 버전 집합. uv.lock 은 같은 이름을 여러 번 기록할 수 있다.
 
@@ -88,6 +142,40 @@ def read_lock_versions(text: str) -> dict[str, set[str]]:
     for package in data.get("package", []):
         versions.setdefault(normalize(package["name"]), set()).add(package["version"])
     return versions
+
+
+def read_lock_extras(text: str) -> tuple[dict[str, frozenset[str]], str | None]:
+    """프로젝트가 요구하는 extra 를 uv.lock 에서 뽑는다 ((패키지 -> {extra}), 오류).
+
+    하드코딩하지 않는 이유: pyproject 에서 extra 를 붙이거나 떼면 uv.lock 이 따라 바뀌므로
+    여기서 읽으면 목록이 저절로 따라온다. `django-stubs[compatible-mypy]` 처럼 extra 가
+    빠지면 mypy 버전 제약이 통째로 비활성화돼 INTERNAL ERROR 가 재발하는 자리가 있다.
+
+    프로젝트 자신은 이름이 아니라 `source = { virtual = "." }` 로 찾는다 — 이름으로 찾으면
+    패키지명을 바꿨을 때 아무 extra 도 못 읽고 조용히 통과한다.
+    """
+    data = tomllib.loads(text)
+    extras: dict[str, frozenset[str]] = {}
+    found_project = False
+
+    for package in data.get("package", []):
+        source = package.get("source", {})
+        if not ({"virtual", "editable"} & source.keys()):
+            continue
+        found_project = True
+        metadata = package.get("metadata", {})
+        groups: list[list[dict]] = [metadata.get("requires-dist", [])]
+        groups.extend(metadata.get("requires-dev", {}).values())
+        for reqs in groups:
+            for req in reqs:
+                if req.get("extras"):
+                    name = normalize(req["name"])
+                    declared = frozenset(normalize(e) for e in req["extras"])
+                    extras[name] = extras.get(name, frozenset()) | declared
+
+    if not found_project:
+        return {}, "uv.lock 에서 프로젝트 자신을 찾지 못해 extra 를 대조할 수 없습니다"
+    return extras, None
 
 
 @dataclass
@@ -150,27 +238,53 @@ def resolve(lock: dict[str, set[str]], name: str) -> tuple[str | None, str | Non
     return next(iter(found)), None
 
 
+def check_membership(
+    pinned: set[str],
+    unpinned: set[str],
+    required: set[str],
+    allowed: set[str],
+) -> list[str]:
+    """이름 집합 대조 — 개수가 아니라 "무엇이" 있어야 하는지를 지킨다."""
+    errors: list[str] = []
+
+    if gone := sorted(required - pinned - unpinned):
+        errors.append(
+            f"의존성 목록에서 사라진 고정 대상: {gone}"
+            " — 줄을 지워 검사를 빠져나가지 마세요. 훅 env 에 설치되지 않습니다"
+        )
+    if demoted := sorted(required & unpinned):
+        errors.append(f"고정이 풀린 패키지: {demoted} — uv.lock 값으로 == 고정하세요")
+    if vanished := sorted(allowed - pinned - unpinned):
+        errors.append(f"의존성 목록에서 사라진 항목: {vanished}")
+    if unknown := sorted((pinned | unpinned) - required - allowed):
+        errors.append(
+            f"목록에 없는 의존성: {unknown}"
+            " — check_hook_pins.py 의 REQUIRED_PINNED 또는 UNPINNED_ALLOWED 에 등록하세요"
+        )
+    return errors
+
+
 def check(
     config_text: str,
     lock_text: str,
     makefile_text: str,
-    max_unpinned: int = MAX_UNPINNED,
-) -> tuple[list[str], list[str], int]:
-    """(오류 목록, 미고정 의존성 목록, 대조한 건수)를 돌려준다."""
+    required: set[str] | None = None,
+    allowed: set[str] | None = None,
+) -> tuple[list[str], int]:
+    """(오류 목록, 대조한 건수)를 돌려준다."""
+    required = REQUIRED_PINNED if required is None else required
+    allowed = UNPINNED_ALLOWED if allowed is None else allowed
     lock = read_lock_versions(lock_text)
+    lock_extras, extras_error = read_lock_extras(lock_text)
     config = read_config(config_text)
-    revs, deps = config.revs, config.deps
 
     # 파싱 실패를 통과로 오인하지 않도록 최소 개수를 확인한다.
-    if not revs or not deps:
-        return (
-            [".pre-commit-config.yaml 파싱 결과가 비었습니다. 형식을 확인하세요."],
-            [],
-            0,
-        )
+    if not config.revs or not config.deps:
+        return ([".pre-commit-config.yaml 파싱 결과가 비었습니다. 형식을 확인하세요."], 0)
 
     errors: list[str] = []
-    unpinned: list[str] = []
+    if extras_error:
+        errors.append(extras_error)
 
     # 인라인 표기(`additional_dependencies: [a, b]`) 등으로 항목을 못 읽으면 그 훅의
     # 고정값이 통째로 검사에서 빠진다. 조용히 넘기지 않는다.
@@ -188,7 +302,7 @@ def check(
             )
 
     for repo, package in REPO_TO_PACKAGE.items():
-        rev = revs.get(repo)
+        rev = config.revs.get(repo)
         if rev is None:
             errors.append(f"rev 누락: {repo}")
             continue
@@ -198,16 +312,33 @@ def check(
         elif rev.lstrip("v") != expected:
             errors.append(f"rev 불일치: {package} 훅={rev} uv.lock={expected}")
 
-    for dep in deps:
-        if (m := _PIN_RE.match(dep)) is None:
-            unpinned.append(dep)
+    pinned: set[str] = set()
+    unpinned: set[str] = set()
+
+    for raw in config.deps:
+        dep = parse_dep(raw)
+        if dep is None:
+            errors.append(f"이해할 수 없는 의존성 표기: {raw!r}")
             continue
-        name, version = m.group(1), m.group(2)
-        expected, reason = resolve(lock, name)
+
+        # uv.lock 이 extra 를 요구하면 훅에도 붙어 있어야 한다. 빠지면 그 extra 가 거는
+        # 제약(예: compatible-mypy 의 mypy 버전 범위)이 통째로 사라진다.
+        if missing := sorted(lock_extras.get(dep.name, frozenset()) - dep.extras):
+            errors.append(
+                f"extra 누락: {dep.name}{missing} — uv.lock 이 요구하는 extra 입니다"
+            )
+
+        if dep.version is None:
+            unpinned.add(dep.name)
+            continue
+        pinned.add(dep.name)
+        expected, reason = resolve(lock, dep.name)
         if expected is None:
-            errors.append(f"{reason} (훅={version})")
-        elif version != expected:
-            errors.append(f"핀 불일치: {name} 훅={version} uv.lock={expected}")
+            errors.append(f"{reason} (훅={dep.version})")
+        elif dep.version != expected:
+            errors.append(f"핀 불일치: {dep.name} 훅={dep.version} uv.lock={expected}")
+
+    errors.extend(check_membership(pinned, unpinned, required, allowed))
 
     # Makefile 의 `make hooks` 는 pre-commit 자체 버전을 따로 적는 세 번째 출처다.
     if (m := _MAKE_PRECOMMIT_RE.search(makefile_text)) is None:
@@ -223,33 +354,16 @@ def check(
                 f"핀 불일치: pre-commit Makefile={m.group(1)} uv.lock={expected}"
             )
 
-    if len(unpinned) > max_unpinned:
-        errors.append(
-            f"미고정 의존성이 {len(unpinned)}개로 늘었습니다 (허용 {max_unpinned}개)."
-            " 고정값을 지워 검사를 우회하지 말고 uv.lock 값으로 맞추세요"
-        )
-    elif len(unpinned) < max_unpinned:
-        errors.append(
-            f"미고정 의존성이 {len(unpinned)}개로 줄었습니다 (기준 {max_unpinned}개)."
-            f" check_hook_pins.py 의 MAX_UNPINNED 를 {len(unpinned)} 로 낮추세요"
-        )
-
-    checked = len(REPO_TO_PACKAGE) + 1 + (len(deps) - len(unpinned))
-    return errors, unpinned, checked
+    checked = len(REPO_TO_PACKAGE) + 1 + len(pinned)
+    return errors, checked
 
 
 def main() -> int:
-    errors, unpinned, checked = check(
+    errors, checked = check(
         CONFIG.read_text(encoding="utf-8"),
         LOCK.read_text(encoding="utf-8"),
         MAKEFILE.read_text(encoding="utf-8"),
     )
-
-    if unpinned:
-        print(f"[INFO] 미고정 의존성 {len(unpinned)}개 — 설치 시점 최신이 깔립니다.")
-        for dep in unpinned:
-            print(f"       - {dep}")
-        print()
 
     if errors:
         print(f"[FAIL] 훅 설정이 uv.lock 과 어긋납니다 ({len(errors)}건)")
@@ -259,7 +373,10 @@ def main() -> int:
         print("       uv.lock 을 기준으로 훅 설정을 맞추세요.")
         return 1
 
-    print(f"[OK] 훅 설정이 uv.lock 과 일치합니다 (대조 {checked}건)")
+    print(
+        f"[OK] 훅 설정이 uv.lock 과 일치합니다 (버전 대조 {checked}건,"
+        f" 고정 {len(REQUIRED_PINNED)}건 · 미고정 {len(UNPINNED_ALLOWED)}건 확인)"
+    )
     return 0
 
 

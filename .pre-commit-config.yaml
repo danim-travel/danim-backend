@@ -77,5 +77,6 @@ repos:
           # 같은 이유로 고정한다.
           - pgvector==0.4.2
           - httpx
-          - sentry-sdk
+          # [django] extra 는 uv.lock(pyproject)이 요구하는 것과 맞춘다.
+          - sentry-sdk[django]
           - celery
