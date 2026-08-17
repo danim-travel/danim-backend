@@ -1,3 +1,5 @@
+from typing import Any
+
 from django.core.cache import cache
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
@@ -18,10 +20,13 @@ class SitemapPagination(PageNumberPagination):
 
 class SitemapService:
 
-    def get_sitemap_posts(self):
+    def get_sitemap_posts(self) -> list[Any]:
         cache_key = cache.get(SitemapKey.key())
         if cache_key is not None:
             return cache_key
+        # 발행/비공개 상태 필터 없음 — 의도된 것이다. PostDetailView 등 다른 조회
+        # API들도 현재 동일하게 user.is_active/게시글 공개 여부를 걸러내지 않는다.
+        # 비공개·임시저장·정지 개념이 생기면 이 쿼리도 반드시 같이 갱신해야 한다.
         posts = list(
             Post.objects.order_by("id").values("id", "updated_at")[:SITEMAP_MAX_URLS]
         )

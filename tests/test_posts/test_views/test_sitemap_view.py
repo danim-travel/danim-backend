@@ -3,6 +3,7 @@ from datetime import date
 from django.core.cache import cache
 from django.test import override_settings
 from django.urls import reverse
+from django.utils import timezone as dj_timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -36,14 +37,18 @@ class SitemapViewTest(APITestCase):
 
     def test_get_sitemap_view_unauthenticated(self) -> None:
         """로그인 없이도 조회 가능 (SEO 크롤러 대상 공개 API)"""
-        Post.objects.create(user=self.user, title="test_title")
+        post = Post.objects.create(user=self.user, title="test_title")
 
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 1)
-        self.assertIn("post_id", response.data["results"][0])
-        self.assertIn("updated_at", response.data["results"][0])
+        result = response.data["results"][0]
+        self.assertEqual(result["post_id"], post.id)
+        self.assertEqual(
+            result["updated_at"],
+            dj_timezone.localtime(post.updated_at).strftime("%Y-%m-%d"),
+        )
 
     def test_response_is_paginated_wrapper(self) -> None:
         """5만 건 상한(sitemaps.org)을 지키기 위해 {"next","results"} 커서 페이지네이션으로 응답한다"""

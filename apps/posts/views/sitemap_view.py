@@ -1,4 +1,7 @@
+from typing import Any, cast
+
 from rest_framework.permissions import AllowAny
+from rest_framework.renderers import JSONRenderer
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
@@ -13,6 +16,7 @@ class SitemapView(APIView):
     permission_classes = [AllowAny]
     throttle_scope = "sitemap"
     throttle_classes = [ScopedRateThrottle]
+    renderer_classes = [JSONRenderer]
     service = SitemapService()
 
     @sitemap_schema
@@ -20,7 +24,7 @@ class SitemapView(APIView):
 
         posts = self.service.get_sitemap_posts()
         paginator = SitemapPagination()
-        page = paginator.paginate_queryset(posts, request)
+        page = paginator.paginate_queryset(cast(Any, posts), request)
         serializer = SitemapSerializer(page, many=True)
 
         return paginator.get_paginated_response(serializer.data)
