@@ -1,4 +1,5 @@
 from datetime import date
+from unittest import mock
 
 from django.core.cache import cache
 from django.test import override_settings
@@ -8,6 +9,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.posts.models import Post
+from apps.posts.services.sitemap_service import SitemapPagination
 from apps.users.models import User
 from apps.users.models.models import LoginType
 
@@ -75,3 +77,26 @@ class SitemapViewTest(APITestCase):
 
         response = self.client.get(self.url, HTTP_X_FORWARDED_FOR="10.0.0.99,203.0.113.5")
         self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+    @mock.patch.object(SitemapPagination, "page_size", 2)
+    def test_pagination_covers_all_posts_exactly_once(self) -> None:
+        """page_size를 줄여 여러 페이지에 걸친 순회가 누락·중복 없이 동작하는지 검증한다
+
+        기본 page_size(1만)로는 테스트용 게시글 몇 건으로 절대 2페이지에 진입하지
+        않아 next/다음 페이지 진입 경로가 한 번도 실행되지 않는다.
+        """
+        ids = {Post.objects.create(user=self.user, title=f"t{i}").id for i in range(5)}
+
+        seen: list[str] = []
+        url = self.url
+        hops = 0
+        while url:
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            seen += [result["post_id"] for result in response.data["results"]]
+            url = response.data["next"]
+            hops += 1
+            self.assertLess(hops, 10)
+
+        self.assertEqual(sorted(seen), sorted(ids))
+        self.assertEqual(len(seen), len(set(seen)))

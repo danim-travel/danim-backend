@@ -164,6 +164,9 @@ REST_FRAMEWORK = {
         "inquiry_presigned": "20/min",
         # 검색엔진 크롤러는 보통 하루 한두 번이면 충분하지만, 여러 크롤러가
         # 겹치거나 페이지네이션을 여러 번 순회하는 상황을 감안해 여유를 뒀다.
+        # SITEMAP_PAGE_SIZE(apps/posts/services/sitemap_service.py, 1만 건)를
+        # 전제로 산출: 12 × 10,000 = 시간당 최대 12만 건까지 전량 순회 가능.
+        # page_size를 바꾸면 이 값도 같이 재계산할 것.
         "sitemap": "12/hour",
     },
 }
