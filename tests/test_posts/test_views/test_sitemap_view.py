@@ -60,10 +60,13 @@ class SitemapViewTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data, {"next": None, "results": []})
 
-    def test_throttle_blocks_after_rate_limit(self) -> None:
-        """sitemap 스코프 rate(12/hour)를 넘기면 13번째 요청부터 429가 반환된다"""
-        for _ in range(12):
-            response = self.client.get(self.url)
+    def test_throttle_not_bypassed_by_forwarded_for(self) -> None:
+        """XFF 앞부분을 조작해도(nginx가 뒤에 진짜 IP를 붙이는 걸 흉내냄) 같은 클라이언트로 식별돼 429가 걸린다"""
+        for i in range(12):
+            response = self.client.get(
+                self.url, HTTP_X_FORWARDED_FOR=f"10.0.0.{i},203.0.113.5"
+            )
             self.assertEqual(response.status_code, status.HTTP_200_OK)
-        response = self.client.get(self.url)
+
+        response = self.client.get(self.url, HTTP_X_FORWARDED_FOR="10.0.0.99,203.0.113.5")
         self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
