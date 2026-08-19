@@ -19,6 +19,8 @@ bookmark_list_schema = extend_schema(
                             {
                                 "post_id": "01JWNZ8KQE4VXRM2P7HFGB3YDN",
                                 "thumbnail": "https://s3.ap-northeast-2.amazonaws.com/danim/posts/thumbnail.png",
+                                "thumbnail_width": 1080,
+                                "thumbnail_height": 1350,
                                 "description": "깽깽이 발로 갈까요.",
                                 "comment_count": 3,
                                 "is_liked": False,

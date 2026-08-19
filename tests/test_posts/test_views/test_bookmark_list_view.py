@@ -22,7 +22,12 @@ class BookmarkListViewTest(APITestCase):
             login_type=LoginType.EMAIL,
         )
         self.post1 = Post.objects.create(
-            user=self.user, title="t1", description="d1", thumbnail="prod/p/1.jpg"
+            user=self.user,
+            title="t1",
+            description="d1",
+            thumbnail="prod/p/1.jpg",
+            thumbnail_width=1080,
+            thumbnail_height=1350,
         )
         self.post2 = Post.objects.create(
             user=self.user, title="t2", description="d2", thumbnail="prod/p/2.jpg"
@@ -52,12 +57,32 @@ class BookmarkListViewTest(APITestCase):
         for field in [
             "post_id",
             "thumbnail",
+            "thumbnail_width",
+            "thumbnail_height",
             "description",
             "comment_count",
             "is_liked",
             "like_count",
         ]:
             self.assertIn(field, item)
+
+    def test_thumbnail_size_present(self) -> None:
+        """썸네일 크기 값이 있으면 그대로 응답"""
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url)
+        results = response.data["results"]
+        post1_item = next(r for r in results if r["post_id"] == self.post1.id)
+        self.assertEqual(post1_item["thumbnail_width"], 1080)
+        self.assertEqual(post1_item["thumbnail_height"], 1350)
+
+    def test_thumbnail_size_null_for_legacy_post(self) -> None:
+        """레거시 게시글(크기값 없음)은 null 응답"""
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url)
+        results = response.data["results"]
+        post2_item = next(r for r in results if r["post_id"] == self.post2.id)
+        self.assertIsNone(post2_item["thumbnail_width"])
+        self.assertIsNone(post2_item["thumbnail_height"])
 
     def test_ordered_recent_bookmark_first(self) -> None:
         """최근 북마크가 맨 앞"""
