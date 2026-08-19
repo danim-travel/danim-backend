@@ -61,6 +61,8 @@ class BookmarkViewTest(APITestCase):
     def test_delete_bookmark_view(self) -> None:
         """로그인한 유저의 북마크 취소 성공 테스트"""
         BookMark.objects.create(post=self.post, user=self.user)
+        self.user.bookmark_count = 1
+        self.user.save()
         self.client.force_authenticate(user=self.user)
         response = self.client.delete(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
