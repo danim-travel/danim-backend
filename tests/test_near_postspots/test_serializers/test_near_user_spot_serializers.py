@@ -94,12 +94,26 @@ class TestNearUserSpotResponseSerializer(NearPostSpotBase):
         self.assertEqual(len(serializer.data), 1)
         spot_object = serializer.data["top_near"][0]
         self.assertEqual(spot_object["post_id"], self.postspot_user1.post_id)
-        self.assertEqual(spot_object["thumbnail"], self.postspot_user1.post.thumbnail)
+        # 서명은 매 호출 달라지므로 문자열 비교 대신 구성 요소를 본다.
+        # key 가 경로에 들어가고 서명 파라미터가 붙어야 프론트가 바로 쓸 수 있다.
+        thumbnail = spot_object["thumbnail"]
+        self.assertIn(self.postspot_user1.post.thumbnail, thumbnail)
+        self.assertIn("X-Amz-Signature=", thumbnail)
         self.assertEqual(spot_object["y"], str(self.postspot_user1.location.y))
         self.assertEqual(spot_object["x"], str(self.postspot_user1.location.x))
         self.assertEqual(
             spot_object["place_name"], self.postspot_user1.location.place_name
         )
+
+    def test_response_serializer_thumbnail_empty(self):
+        """썸네일이 없는 게시글은 빈 문자열을 준다.
+
+        Post.thumbnail 이 blank=True, default="" 라 실제로 비어 있을 수 있다.
+        None 을 주면 프론트가 null 분기를 따로 넣어야 하므로 기존 CharField 동작을 유지한다.
+        """
+        self.postspot_user1.post.thumbnail = ""
+        serializer = NearUserResponseSerializer({"top_near": [self.postspot_user1]})
+        self.assertEqual(serializer.data["top_near"][0]["thumbnail"], "")
 
     def test_response_serializer_multiple(self):
         """여러 게시글 직렬화"""
