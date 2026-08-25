@@ -50,6 +50,22 @@ class TestNearUserService(NearPostSpotBase):
         result = get_near_post_queryset({"latitude": 35.0, "longitude": 129.0})
         self.assertEqual(len(result), 0)
 
+    def test_exclude_post_id_removes_that_posts_spots(self):
+        """exclude_post_id를 주면 해당 게시글의 스팟만 결과에서 빠진다"""
+        result = get_near_post_queryset(
+            {"latitude": 37.338, "longitude": 127.0},
+            exclude_post_id=self.post_user1.id,
+        )
+
+        near_ids = [s.id for s in result]
+        self.assertNotIn(self.postspot_user1.id, near_ids)
+        self.assertIn(self.postspot_user2.id, near_ids)
+
+    def test_exclude_post_id_defaults_to_no_exclusion(self):
+        """exclude_post_id를 주지 않으면 기존과 동일하게 아무것도 제외하지 않는다"""
+        result = get_near_post_queryset({"latitude": 37.338, "longitude": 127.0})
+        self.assertEqual(len(result), 2)
+
     def test_antimeridian_wraparound_found(self):
         """날짜변경선 근처 검색 시 반대편(부호가 바뀐) 좌표의 스팟도 조회된다"""
         self._create_spot(0.0, -179.99, self.user1)  # 검색 중심에서 약 2.2km
