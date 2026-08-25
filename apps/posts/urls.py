@@ -3,10 +3,8 @@ from django.urls import URLPattern, URLResolver, include, path
 from apps.posts.views import (
     bookmark_list_view,
     bookmark_view,
-    create_view,
-    detail_view,
     like_view,
-    main_list_view,
+    post_view,
     presigned_url_post_view,
     share_view,
 )
@@ -14,8 +12,8 @@ from apps.posts.views import (
 app_name = "posts"
 
 urlpatterns: list[URLPattern | URLResolver] = [
-    path("", create_view.PostCreateView.as_view(), name="post_create"),
-    path("/main", main_list_view.PostMainListView.as_view(), name="post_main_list"),
+    path("", post_view.PostListCreateView.as_view(), name="post_list_create"),
+    path("/main", post_view.PostListCreateView.as_view(), name="post_main_list"),
     path(
         "/presigned-url",
         presigned_url_post_view.PostImageView.as_view(),
@@ -25,7 +23,7 @@ urlpatterns: list[URLPattern | URLResolver] = [
         "/bookmarks", bookmark_list_view.BookmarkListView.as_view(), name="bookmark_list"
     ),
     path("/nearspots", include("apps.posts.near_postspot.urls")),
-    path("/<str:post_id>", detail_view.PostDetailView.as_view(), name="post_detail"),
+    path("/<str:post_id>", post_view.PostDetailView.as_view(), name="post_detail"),
     path("/<str:post_id>/like", like_view.PostLikeView.as_view(), name="post_like"),
     path(
         "/<str:post_id>/bookmark", bookmark_view.BookmarkView.as_view(), name="bookmark"

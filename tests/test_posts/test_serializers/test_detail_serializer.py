@@ -6,19 +6,19 @@ from django.test import TestCase
 from apps.posts.models import Post, PostLike, PostSpot
 from apps.posts.models.bookmark_model import BookMark
 from apps.posts.serializers.detail_serializer import PostDetailSerializer
-from apps.posts.services.detail_service import PostDetailService
+from apps.posts.services.post_service import PostService
 from apps.users.models import User
 from apps.users.models.models import LoginType
 
 
 class PostDetailSerializerTest(TestCase):
 
-    service: PostDetailService
+    service: PostService
     user: User
     post: Post
 
     def setUp(self) -> None:
-        self.service = PostDetailService()
+        self.service = PostService()
         self.user = User.objects.create(
             email="test@example.com",
             name="test",

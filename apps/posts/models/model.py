@@ -65,7 +65,7 @@ class PostSpot(TimeStampModel):
     location = models.ForeignKey(
         Location, on_delete=models.PROTECT, related_name="post_spots"
     )
-    content = models.TextField(blank=True, default="")
+    content = models.TextField(max_length=3000, blank=True, default="")
     order = models.PositiveIntegerField()
 
     class Meta:

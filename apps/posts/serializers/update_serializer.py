@@ -26,7 +26,9 @@ class LocationUpdateSerializer(serializers.Serializer):
 class PostSpotUpdateSerializer(serializers.Serializer):
     id = serializers.CharField(required=False)
     order = serializers.IntegerField()
-    content = serializers.CharField(required=False, allow_blank=True, default="")
+    content = serializers.CharField(
+        required=False, allow_blank=True, default="", max_length=3000
+    )
     location = LocationUpdateSerializer()
     images = PostSpotImageUpdateSerializer(many=True, required=False, default=list)
 

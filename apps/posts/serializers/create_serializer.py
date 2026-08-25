@@ -32,7 +32,9 @@ class PostSpotCreateSerializer(serializers.Serializer):
     """게시글 핀 생성 Request Body 검증 serializer"""
 
     order = serializers.IntegerField()
-    content = serializers.CharField(required=False, allow_blank=True, default="")
+    content = serializers.CharField(
+        required=False, allow_blank=True, default="", max_length=3000
+    )
     location = LocationCreateSerializer()
     images = PostSpotImageCreateSerializer(many=True, required=False, default=list)
 

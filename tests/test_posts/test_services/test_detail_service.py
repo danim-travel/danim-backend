@@ -5,20 +5,20 @@ from django.test import TestCase
 from apps.core.exceptions.exception import NotFoundException
 from apps.posts.models import Post, PostLike
 from apps.posts.models.bookmark_model import BookMark
-from apps.posts.services.detail_service import PostDetailService
+from apps.posts.services.post_service import PostService
 from apps.users.models import User
 from apps.users.models.models import LoginType
 
 
 class PostDetailServiceTest(TestCase):
 
-    service: PostDetailService
+    service: PostService
     user: User
     other_user: User
     post: Post
 
     def setUp(self) -> None:
-        self.service = PostDetailService()
+        self.service = PostService()
         self.user = User.objects.create(
             email="test@example.com",
             name="test",

@@ -7,7 +7,6 @@ from apps.users.models import User
 
 
 class PostLikeService:
-
     def like_post(self, post_id: str, user: User) -> Post:
         """게시글 좋아요 서비스 로직"""
         try:

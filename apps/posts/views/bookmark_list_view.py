@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.utils.pagination import paginate
-from apps.posts.schemas.bookmark_list_view_schema import bookmark_list_schema
+from apps.posts.schemas import bookmark_list_schema
 from apps.posts.serializers.bookmark_list_serializer import BookmarkListSerializer
 from apps.posts.services.bookmark_list_service import BookmarkListService
 from apps.users.models import User

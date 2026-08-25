@@ -1,9 +1,10 @@
 from datetime import date
+from typing import Any
 
 from django.test import TestCase
 
 from apps.posts.models import Location, Post, PostSpot, PostSpotImage
-from apps.posts.services.create_service import PostCreateService
+from apps.posts.services.post_service import PostService
 from apps.users.models import User
 from apps.users.models.models import LoginType
 
@@ -11,7 +12,7 @@ from apps.users.models.models import LoginType
 class PostCreateServiceTest(TestCase):
 
     def setUp(self) -> None:
-        self.service = PostCreateService()
+        self.service = PostService()
         self.user = User.objects.create_user(
             email="test@example.com",
             name="test",
@@ -20,7 +21,7 @@ class PostCreateServiceTest(TestCase):
             birth_day=date(1992, 6, 6),
             login_type=LoginType.EMAIL,
         )
-        self.data = {
+        self.data: dict[str, Any] = {
             "title": "test_title",
             "description": "test_description",
             "thumbnail": "prod/posts/thumbnail/uuid.jpg",
@@ -59,6 +60,10 @@ class PostCreateServiceTest(TestCase):
         self.assertEqual(PostSpotImage.objects.count(), 1)
         self.assertEqual(post.title, "test_title")
         self.assertEqual(post.user, self.user)
+        self.assertEqual(post.thumbnail_width, 1080)
+        self.assertEqual(post.thumbnail_height, 1350)
+        post.refresh_from_db()
+        self.assertEqual(post.spot_count, 1)
 
     def test_create_post_service_no_spots(self) -> None:
         """spots 없이 게시글 생성 성공 테스트"""
@@ -67,3 +72,35 @@ class PostCreateServiceTest(TestCase):
         self.assertIsInstance(post, Post)
         self.assertEqual(Post.objects.count(), 1)
         self.assertEqual(PostSpot.objects.count(), 0)
+        post.refresh_from_db()
+        self.assertEqual(post.spot_count, 0)
+
+    def test_create_post_service_multiple_spots_and_images(self) -> None:
+        """spot·이미지가 여러 개일 때 spot_count와 img_order가 정확한지 테스트"""
+        spot = self.data["spots"][0]
+        data = {
+            **self.data,
+            "spots": [
+                {**spot, "order": 1},
+                {**spot, "order": 2, "images": [*spot["images"], *spot["images"]]},
+            ],
+        }
+        post = self.service.create_post(data, self.user)
+        self.assertEqual(PostSpot.objects.count(), 2)
+        self.assertEqual(PostSpotImage.objects.count(), 3)
+        post.refresh_from_db()
+        self.assertEqual(post.spot_count, 2)
+
+        first_spot, second_spot = PostSpot.objects.order_by("order")
+        self.assertEqual(list(first_spot.images.values_list("img_order", flat=True)), [1])
+        self.assertEqual(
+            list(
+                second_spot.images.order_by("img_order").values_list(
+                    "img_order", flat=True
+                )
+            ),
+            [1, 2],
+        )
+        # bulk_create가 auto_now_add(created_at)를 정상적으로 채우는지 확인
+        for image in PostSpotImage.objects.all():
+            self.assertIsNotNone(image.created_at)

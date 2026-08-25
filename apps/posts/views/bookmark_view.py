@@ -6,10 +6,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.posts.schemas.bookmark_view_schema import (
-    bookmark_create_schema,
-    bookmark_delete_schema,
-)
+from apps.posts.schemas import bookmark_create_schema, bookmark_delete_schema
 from apps.posts.services.bookmark_service import BookmarkService
 from apps.users.models import User
 
