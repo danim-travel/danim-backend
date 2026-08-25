@@ -1,0 +1,28 @@
+name: Hook Pins Check
+
+# 훅 설정(.pre-commit-config.yaml)은 uv.lock 을 읽지 못해 버전이 따로 적힌다. 어긋나면
+# "로컬 훅은 통과했는데 CI 는 실패" 또는 mypy INTERNAL ERROR 로 커밋 자체가 막힌다.
+# nginx-check 와 같은 이유로 PR 경로에만 두면 안 된다 — ci.yml(PR)·build.yml(main)·
+# build-dev.yml(develop) 세 곳에서 호출한다. develop·main 에 브랜치 보호가 없어 PR 을
+# 거치지 않은 직접 push 가 그대로 배포되고, deploy.yml 이 Build 성공을 조건으로 물려
+# 있어 이 검사는 배포 게이트이기도 하다.
+on:
+  workflow_call:
+
+jobs:
+  pins-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 스크립트는 표준 라이브러리만 쓰므로 의존성 설치가 필요 없다. 다만 tomllib 이
+      # 3.11+ 라 러너 기본 파이썬에 기대지 않고 버전을 명시한다.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: 훅 설정 ↔ uv.lock 정합 검사
+        run: python scripts/check_hook_pins.py

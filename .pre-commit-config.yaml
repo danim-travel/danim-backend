@@ -1,18 +1,18 @@
 repos:
   - repo: https://github.com/psf/black
     # black 공식레포
-    rev: 24.10.0
+    rev: 26.5.1
     hooks:
       - id: black
 
   - repo: https://github.com/PyCQA/isort
     # isort 공식레포
-    rev: 5.13.2
+    rev: 8.0.1
     hooks:
       - id: isort
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
         # 불필요한 공백 자동 제거
@@ -25,29 +25,58 @@ repos:
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     # mypy 공식 레포
-    rev: v1.11.0
+    #
+    # 주의: 이 훅은 CI 의 `uv run mypy .` 와 같은 검사가 아니라 축소판이다.
+    #   - mirrors-mypy 기본 args 가 `--ignore-missing-imports` 라 스텁 없는 임포트를 넘긴다
+    #   - 변경된 파일만 검사한다(CI 는 트리 전체)
+    #   - 이 환경에 pytest·torch 계열이 없어 tests/ 가 사실상 Any 로 통과한다
+    # 따라서 "훅 통과 = CI 통과" 가 아니다. 최종 게이트는 CI 다.
+    rev: v1.13.0
     hooks:
       - id: mypy
         additional_dependencies:
-          - python-ulid
-          - django-stubs
+          # 훅은 uv.lock 을 읽지 못하고 pip 으로 설치하므로, 버전을 적지 않으면 설치
+          # 시점의 최신이 깔려 CI 와 어긋난다. 아래 == 고정값은 uv.lock 해석 결과다.
+          #
+          # 전부 고정하지 않는 이유: 수동 관리 대상이 늘수록 갱신을 빠뜨릴 확률도
+          # 커진다(이 파일의 커밋 이력이 대부분 사후 드리프트 수리다). 고정 기준은
+          # "django.setup() 경로에 있는가" 다 — django-stubs 플러그인이 설정을 읽으며
+          # INSTALLED_APPS 를 실제로 임포트하므로, 이 패키지들의 버전이 어긋나면
+          # 타입체크 결과가 달라지거나 플러그인이 그 자리에서 죽는다.
+          # 고정값 갱신을 잊지 않도록 scripts/check_hook_pins.py 가 CI 에서 대조한다.
+          - python-ulid==3.1.0
+          - django==6.0.5
+          # [compatible-mypy] extra 는 스텁이 요구하는 mypy 버전 제약을 활성화한다.
+          # 없으면 rev 와 스텁 버전이 어긋나도 pip 이 조용히 설치하고, 실제 실행 때
+          # mypy 가 INTERNAL ERROR 로 죽는다(이 PR 이 고친 장애). 붙여두면 훅 설치
+          # 시점에 의존성 충돌로 즉시 실패해 원인이 바로 드러난다.
+          - django-stubs[compatible-mypy]==6.0.4
+          - django-stubs-ext==6.0.4
+          - djangorestframework-stubs[compatible-mypy]==3.17.0
+          # ── INSTALLED_APPS 항목 — django.setup() 이 임포트하므로 전부 고정한다 ──
+          - daphne==4.2.1
+          - channels==4.3.2
+          - djangorestframework==3.17.1
+          - djangorestframework-simplejwt==5.5.1
+          - django-allauth==65.17.0
+          - dj-rest-auth==7.2.0
+          - django-cors-headers==4.9.0
+          - django-storages[s3]==1.14.6
+          - drf-spectacular==0.29.0
+          # ── 그 밖의 런타임 의존성 ──
           - django-environ
-          - daphne
-          - channels
           - channels-redis
-          - djangorestframework
-          - djangorestframework-simplejwt
-          - django-allauth
-          - dj-rest-auth
-          - django-cors-headers
-          - django-storages
-          - django-redis
-          - drf-spectacular
+          - django-redis==6.0.0
           - psycopg2-binary
-          - boto3
-          - boto3-stubs[s3]
+          - boto3==1.43.13
+          - boto3-stubs[s3]==1.43.16
+          - mypy-boto3-s3==1.43.14
           - Pillow
-          - pgvector
+          # 0.x 라 마이너 변경이 파괴적일 수 있고, 모델이 직접 임포트한다
+          # (apps/posts/models/rec_models.py 의 VectorField) — 메이저 갈림은 아니지만
+          # 같은 이유로 고정한다.
+          - pgvector==0.4.2
           - httpx
-          - sentry-sdk
+          # [django] extra 는 uv.lock(pyproject)이 요구하는 것과 맞춘다.
+          - sentry-sdk[django]
           - celery

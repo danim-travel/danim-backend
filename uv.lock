@@ -554,8 +554,8 @@ dev = [
     { name = "black" },
     { name = "boto3-stubs", extra = ["s3"] },
     { name = "coverage" },
-    { name = "django-stubs" },
-    { name = "djangorestframework-stubs" },
+    { name = "django-stubs", extra = ["compatible-mypy"] },
+    { name = "djangorestframework-stubs", extra = ["compatible-mypy"] },
     { name = "isort" },
     { name = "mypy" },
     { name = "pre-commit" },
@@ -598,8 +598,8 @@ dev = [
     { name = "black", specifier = ">=24.0" },
     { name = "boto3-stubs", extras = ["s3"], specifier = ">=1.43.16" },
     { name = "coverage", specifier = ">=7.5" },
-    { name = "django-stubs", specifier = ">=5.0" },
-    { name = "djangorestframework-stubs", specifier = ">=3.15" },
+    { name = "django-stubs", extras = ["compatible-mypy"], specifier = ">=6.0.4" },
+    { name = "djangorestframework-stubs", extras = ["compatible-mypy"], specifier = ">=3.17.0" },
     { name = "isort", specifier = ">=5.13" },
     { name = "mypy", specifier = "==1.13.0" },
     { name = "pre-commit", specifier = ">=3.7" },
@@ -736,6 +736,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/ba/e7/5128914ada94dd6277626ef5a4a5680a4def7d2f9366214d26c1cd86723b/django_stubs-6.0.4-py3-none-any.whl", hash = "sha256:e991c68f77239663577a5f4fc75e99c84f867f378cafc97cbf4acc5aff378279", size = 543791, upload-time = "2026-05-09T21:24:28.218Z" },
 ]
 
+[package.optional-dependencies]
+compatible-mypy = [
+    { name = "mypy" },
+]
+
 [[package]]
 name = "django-stubs-ext"
 version = "6.0.4"
@@ -787,6 +792,12 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/9d/a1/45e25dab89b3dfc5da7a138f7e82aca4e970269c53a3fceed1e94b31d390/djangorestframework_stubs-3.17.0.tar.gz", hash = "sha256:74c0307cad304c03c15aee5955ec2fdeab0ac854b5bea569dc124892792e2b96", size = 33115, upload-time = "2026-05-13T18:58:36.554Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/72/ff/6e27d4aea12f67d14e0c0ec41869307ae98ad3816858ddc2a56bc3f4e0b5/djangorestframework_stubs-3.17.0-py3-none-any.whl", hash = "sha256:babe2703f0401507780848439f49f76222a178b4fc73a6dcb30d0952a0a6dbc6", size = 57629, upload-time = "2026-05-13T18:58:34.779Z" },
+]
+
+[package.optional-dependencies]
+compatible-mypy = [
+    { name = "django-stubs", extra = ["compatible-mypy"] },
+    { name = "mypy" },
 ]
 
 [[package]]
