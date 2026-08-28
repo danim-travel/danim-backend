@@ -20,7 +20,7 @@ class PostDetailService:
         with transaction.atomic():
             if user.is_authenticated:
                 PostClick.objects.create(user=user, post_id=post_id)
-            Post.objects.filter(id=post_id).update(view_count=F("view_count") + 1)
+                Post.objects.filter(id=post_id).update(view_count=F("view_count") + 1)
 
         queryset = cast(Any, Post.objects.filter(id=post_id))
         queryset = queryset.select_related("user").prefetch_related(
