@@ -127,6 +127,23 @@ class Inquiry(TimeStampModel):
         # 맞춘다. (user, created_at)이면 커서 페이지네이션이 이 인덱스를 쓰지 못한다.
         # ULID는 시간 순증가라 -id 정렬이 -created_at과 사실상 같은 순서를 준다.
         indexes = [models.Index(fields=["user", "id"])]
+        constraints = [
+            # 애플리케이션 검사(serializer)에 기대지 않는 **최종 방어선**.
+            # 한 key를 두 문의가 공유하면 파기 태스크가 재시도 없이 보류하고, 대장
+            # 행과 S3 객체가 회수 수단 없이 남는다(5차 리뷰 HIGH).
+            #
+            # 부분 유니크 인덱스는 `WHERE img_key = %s` 조회에도 그대로 쓰이므로
+            # 별도 인덱스를 두지 않는다 — 파기 태스크와 등록 검증이 그 조회를 한다.
+            #
+            # ⚠ 이 테이블에 **다음번** 인덱스를 추가할 때는 데이터가 쌓여 있을
+            #   것이므로 `AddIndexConcurrently` + `Migration.atomic = False`가
+            #   필요하다. 비-CONCURRENTLY는 ShareLock으로 쓰기를 막는다.
+            models.UniqueConstraint(
+                fields=["img_key"],
+                condition=models.Q(img_key__isnull=False),
+                name="uq_inquiry_img_key",
+            )
+        ]
 
     def __str__(self) -> str:
         return f"[{self.get_category_display()}] {self.title}"
@@ -150,3 +167,39 @@ class InquiryAnswer(TimeStampModel):
 
     def __str__(self) -> str:
         return f"{self.inquiry.title} 답변"
+
+
+class PendingInquiryAttachmentDeletion(models.Model):
+    """파기 지시 대장 — 지워야 할 첨부 key의 **양(positive) 기록**.
+
+    왜 필요한가. 문의 행이 하드 삭제되면 `img_key`는 DB 어디에도 남지 않아,
+    파기 지시의 유일한 사본이 브로커 메시지가 된다. 그 결과 두 문제가 동시에 생겼다.
+
+    ① **부재로는 체크-후-행동 창이 닫히지 않는다.**
+       A(key=K) 삭제 커밋 → 태스크가 `Inquiry.filter(img_key=K).exists()`로 False를
+       보고 S3 왕복(최대 약 30초)을 시작 → 그 사이 같은 K로 B가 등록·커밋 → 태스크가
+       **살아 있는 B의 첨부를 지운다.** 등록 시점에 `Inquiry`로 같은 검사를 걸어도
+       그 구간에는 A가 이미 없고 B는 아직 없어 **두 검사가 같은 False를 본다**.
+       "지워야 할 key"를 남겨 두고 **존재**로 판정해야 닫힌다(4차 리뷰).
+    ② 브로커가 메시지를 잃으면 무엇을 지워야 하는지조차 복구할 수 없다.
+
+    이름을 supports 범위로 좁혀 둔다 — 형제 도메인(게시글·댓글·DM·프로필)도 같은
+    문제를 갖지만 그쪽 정리는 별도 과제(#338)이고, 공통 대장이 필요해지면 그때
+    apps/core로 올리면서 설계를 맞추는 편이 낫다.
+
+    수명: 문의 삭제와 같은 트랜잭션에서 생기고, S3 파기가 **성공한 뒤에만** 지워진다.
+    남아 있는 행은 곧 "아직 파기되지 않은 개인정보"이므로 회수·감사 대상이다.
+    주기 재구동은 `tasks.redrive_pending_attachment_deletions`(매일 04:00)가 한다 —
+    **브로커에 내구성을 두지 않으므로 그 배치가 파기 약속의 이행 보증이다.**
+    영구 실패 행의 해소(시도 횟수·포기 조건·운영자 조치 수단)는 후속 과제다(#341).
+    """
+
+    key = models.CharField(max_length=255, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "pending_inquiry_attachment_deletions"
+        ordering = ["created_at"]
+
+    def __str__(self) -> str:
+        return self.key

@@ -6,7 +6,13 @@ from rest_framework import serializers
 from apps.core.storage.s3 import s3_svc
 from apps.core.storage.s3.services import CategoryEnum
 from apps.core.storage.s3.validators import validate_attach_key
-from apps.supports.models import FAQ, FAQCategory, Inquiry, InquiryAnswer
+from apps.supports.models import (
+    FAQ,
+    FAQCategory,
+    Inquiry,
+    InquiryAnswer,
+    PendingInquiryAttachmentDeletion,
+)
 
 
 class FAQCategorySerializer(serializers.ModelSerializer):
@@ -60,7 +66,29 @@ class InquiryCreateSerializer(serializers.ModelSerializer):
         # `value in (None, "")`로 쓰면 mypy가 str로 좁히지 못해 아래 호출이 걸린다.
         if not value:
             return None
-        return validate_attach_key(value, CategoryEnum.INQUIRY)
+        validate_attach_key(value, CategoryEnum.INQUIRY)
+
+        # **key 재사용을 두 검사의 합집합으로 막는다. 둘은 대안이 아니라 상호보완이다.**
+        #
+        #   구간                 Inquiry 검사        대장 검사
+        #   삭제 트랜잭션 커밋 전   A가 보인다 → 막음    아직 안 보임(READ COMMITTED)
+        #   삭제 트랜잭션 커밋 후   A가 사라져 못 봄     행이 보인다 → 막음
+        #
+        # 대장만 두면(5차 리뷰 HIGH) "살아 있는 두 문의가 같은 key를 공유"하는 상태가
+        # 만들어진다. 상세 응답이 `image.key`를 그대로 돌려주므로 재제출만으로 도달
+        # 가능하다. 그 상태에서 A를 지우면 파기 태스크가 B의 참조를 보고 **재시도 없이
+        # 보류**하고, 대장 행과 S3 객체가 함께 남는다. B에 답변이 달리면 사용자는 409로
+        # B도 못 지워 회수 수단이 사라진다.
+        #
+        # Inquiry 검사만 두면 반대로 커밋 후 구간이 열린다 — A가 이미 없고 B는 아직
+        # 없어 이 검사와 파기 태스크의 검사가 **같은 False를 본다**(4차 리뷰).
+        #
+        # 정상 사용에는 제약이 없다 — 첨부는 presigned로 매번 새 key를 발급받는다.
+        if Inquiry.objects.filter(img_key=value).exists():
+            raise serializers.ValidationError("이미 사용된 이미지입니다.")
+        if PendingInquiryAttachmentDeletion.objects.filter(key=value).exists():
+            raise serializers.ValidationError("파기 예약된 이미지입니다.")
+        return value
 
 
 class InquiryListSerializer(serializers.ModelSerializer):

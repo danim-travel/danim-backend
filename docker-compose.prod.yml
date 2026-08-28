@@ -11,6 +11,66 @@ services:
       - redis
     restart: always
 
+  # 알림 워커. dev에는 있었지만 prod에는 한 번도 없었다(git log -S 확인).
+  # 그동안 미배달로 쌓여 있던 것은 아니다 — main에는 apps/supports가 없고 `.delay(`
+  # 호출도 0건이라 생산자 자체가 없었다. 이 PR에서 생산자(첨부 파기)와 소비자(워커)가
+  # 같은 배포로 함께 들어간다(2·3차 리뷰).
+  #
+  # dev와 달리 -Q로 큐를 명시한다. 알림은 짧고 첨부 파기는 외부 I/O라 성격이
+  # 다른데 solo 풀은 순차 처리라 하나가 늘어지면 다른 하나가 통째로 대기한다.
+  #
+  # mem_limit은 dev와 같은 값으로 시작한다(같은 이미지·같은 Django 부팅).
+  # ⚠ prod 인스턴스 여유를 확인하고 조정할 것 — 파이썬 컨테이너가 1개에서 3개로
+  #   늘어난다. dev에서 2026-08-09에 컨테이너 증가로 디스크가 고갈된 이력이 있다.
+  celery-worker:
+    image: ${DOCKER_USERNAME}/danim-backend:latest
+    command: uv run --no-sync celery -A config worker -l info --pool=solo -Q celery
+    env_file:
+      - envs/.env.prod
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.prod
+    depends_on:
+      - redis
+    restart: always
+    mem_limit: 400m
+    mem_reservation: 250m
+
+  # 첨부 파기 전용 워커. S3 왕복은 알림보다 느리고 실패 시 재시도까지 도는데,
+  # 같은 solo 워커에 얹으면 그동안 알림이 전부 밀린다(docker-compose.dev.yml의
+  # 경고 주석이 정확히 이 경우를 금지한다).
+  #
+  # stop_grace_period: S3 호출 한 번이 최대 약 30초(connect 5 + read 10, 2회 시도)라
+  # docker 기본 10초로는 처리 중이던 파기가 SIGKILL로 끊긴다. acks_late 덕에 재배달은
+  # 되지만, 끊기지 않고 끝내는 편이 낫다.
+  celery-s3-worker:
+    image: ${DOCKER_USERNAME}/danim-backend:latest
+    command: uv run --no-sync celery -A config worker -l info --pool=solo -Q s3_cleanup
+    env_file:
+      - envs/.env.prod
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.prod
+    depends_on:
+      - redis
+    restart: always
+    stop_grace_period: 40s
+    mem_limit: 400m
+    mem_reservation: 250m
+
+  # CELERY_BEAT_SCHEDULE(매일 03:00 오래된 알림 정리)를 도는 스케줄러.
+  # dev에는 있는데 prod에는 없어서, 소비자가 생겨도 **생산자가 없어** 그 배치는
+  # 영원히 실행되지 않는 상태였다. 보존기간 미집행은 파기 의무와도 맞닿는다(3차 리뷰).
+  celery-beat:
+    image: ${DOCKER_USERNAME}/danim-backend:latest
+    command: uv run --no-sync celery -A config beat -l info
+    env_file:
+      - envs/.env.prod
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.prod
+    depends_on:
+      - redis
+    restart: always
+    mem_limit: 250m
+
   nginx:
     image: nginx:alpine
     ports:
@@ -23,6 +83,42 @@ services:
       - django
     restart: always
 
+  # ⚠ 이 인스턴스 하나를 브로커·캐시(default/auth)·채널레이어가 **함께** 쓴다
+  #   (deploy.yml이 REDIS_URL 하나만 만든다). 그래서 **상한을 두지 않는다** —
+  #   상한을 둔다는 것은 상한에 닿는 순간 쓰기를 거부한다는 뜻인데, 여기엔
+  #   fail-closed인 auth 캐시가 얹혀 있다:
+  #     - CACHES["default"]  : IGNORE_EXCEPTIONS=True  → 조용히 miss(의도된 fail-open)
+  #     - CACHES["auth"]     : IGNORE_EXCEPTIONS **없음** → 예외가 그대로 올라간다.
+  #                            LOCATION도 REDIS_URL이다(REDIS_AUTH_URL이 아니다 —
+  #                            그건 EMAIL_VERIFY_REDIS_URL만 쓴다).
+  #                            → 로그인·회원가입·소셜·로그아웃이 전부 500
+  #     - CHANNEL_LAYERS     : hosts=[REDIS_URL] → group_send 실패로 실시간 DM 끊김
+  #   최대 테넌트는 explores의 피드 캐시(사용자 1인당 전체 게시글 id 리스트, TTL 30분)라
+  #   noeviction의 자가 회복 수단이 TTL 만료뿐이어서 **인증이 깜빡이는 플래핑 장애**가
+  #   된다.
+  #
+  #   "상한"에는 **메모리(maxmemory·mem_limit)뿐 아니라 디스크(appendonly)도 포함**된다.
+  #   AOF write/fsync가 실패하면(ENOSPC 포함) redis는 이후 **모든 쓰기 명령을
+  #   -MISCONF로 거부**하므로 정확히 같은 cascade가 디스크 쪽에서 돈다. 5차에 넣은
+  #   메모리 상한을 6차에서 뺐는데, 같은 PR이 남긴 AOF가 그 문을 디스크로 다시 열고
+  #   있었다(7차 리뷰). 이 호스트는 2026-08-09에 실제로 디스크가 고갈된 적이 있다.
+  #
+  #   **파기 지시의 내구성은 redis 디스크가 아니라 Postgres 대장이 준다.**
+  #   `pending_inquiry_attachment_deletions` 행은 문의 삭제와 같은 트랜잭션에서 생기고
+  #   S3 파기가 성공한 뒤에만 지워지며, 브로커가 메시지를 잃어도
+  #   `redrive_pending_attachment_deletions`(매일 04:00 beat)가 대장을 읽어 다시
+  #   큐잉한다. 그래서 redis는 base와 같은 **순수 전송 계층**으로 되돌린다 —
+  #   이 PR이 redis에 추가하는 실패 모드는 0이다.
+  #
+  #   지켜야 할 것 두 가지:
+  #   1) maxmemory-policy는 noeviction을 유지한다(redis 기본값과 같다. 값이 아니라
+  #      **의도**를 남긴다). 어떤 eviction 정책을 걸든 브로커 메시지가 evict 대상이
+  #      되어 조용히 사라지고, 그때 파기는 최대 하루 지연된다.
+  #   2) 이 DB에 `cache.clear()`를 호출하지 말 것 — django-redis는 FLUSHDB를 쳐서
+  #      대기 중인 파기 지시까지 전멸시킨다(현재 호출부 0건).
+  #   인스턴스 분리와 실측 상한은 이슈 #343.
   redis:
     image: redis:7-alpine
+    command: redis-server --maxmemory-policy noeviction
     restart: always
+

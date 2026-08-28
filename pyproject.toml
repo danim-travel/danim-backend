@@ -39,6 +39,9 @@ dev = [
     "coverage>=7.5",
     "pytest>=8.0",
     "pytest-django>=4.8",
+    # compose 파일을 파싱하는 테스트가 쓴다. drf-spectacular 경유 전이 의존이라
+    # 상위 패키지가 끊으면 테스트가 수집 단계에서 깨진다 — 명시한다.
+    "pyyaml>=6.0",
     "pre-commit>=3.7",
     "boto3-stubs[s3]>=1.43.16",
     "sentence-transformers",

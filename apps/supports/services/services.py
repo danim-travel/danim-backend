@@ -9,7 +9,7 @@
 from typing import Any, cast
 
 from django.core.cache import cache
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import QuerySet
 
 from apps.core.exceptions.exception import ConflictException, NotFoundException
@@ -97,8 +97,25 @@ def create_faq_feedback(faq_id: str, is_helpful: bool, user: User | None) -> Non
 
 
 def create_inquiry(user: User, validated_data: dict[str, Any]) -> Inquiry:
-    """1:1 문의 등록. 상태는 모델 기본값(PENDING)에서 시작한다."""
-    return Inquiry.objects.create(user=user, **validated_data)
+    """1:1 문의 등록. 상태는 모델 기본값(PENDING)에서 시작한다.
+
+    예외: img_key 부분 유니크 제약 위반은 409로 바꾼다. serializer가 먼저 걸러내지만
+        그 검사도 체크-후-행동이라 동시 요청 둘이 각각 통과할 수 있다 — 제약이 그
+        경합을 막는 최종 방어선이고, 변환하지 않으면 500이 된다.
+
+        INSERT를 `atomic()`으로 감싸는 이유: PostgreSQL은 오류가 난 트랜잭션에서
+        이후 모든 쿼리를 거부한다. `save_base`는 savepoint를 만들지 않으므로,
+        이 함수가 바깥 트랜잭션 안에서 호출되면 IntegrityError를 잡아도 그 트랜잭션은
+        이미 깨져 있어 409 응답을 만들다 다시 터진다. 지금은 ATOMIC_REQUESTS가 꺼져
+        있고 호출부가 뷰뿐이라 도달하지 않지만, 그 전제는 설정 한 줄로 사라진다.
+    """
+    try:
+        with transaction.atomic():
+            return Inquiry.objects.create(user=user, **validated_data)
+    except IntegrityError as exc:
+        if "uq_inquiry_img_key" not in str(exc):
+            raise
+        raise ConflictException("이미 사용된 이미지입니다.") from exc
 
 
 def get_my_inquiries(user: User) -> QuerySet[Inquiry]:
@@ -133,9 +150,11 @@ def delete_my_inquiry(inquiry_id: str, user: User) -> None:
         사용자가 되돌릴 대상이 아니기 때문이다.
     예외: 남의 문의는 404(get_my_inquiry_detail과 같은 이유), 이미 처리된 문의는 409.
 
-    첨부 이미지(S3 객체)는 함께 지우지 않는다 — 이 프로젝트의 어느 도메인도
-    레코드 삭제 시 S3 객체를 지우지 않으며(수명주기 정책 영역), 문의만 예외로
-    두면 동작이 불규칙해진다.
+    첨부 이미지(S3 객체)도 함께 지운다 — `signals.delete_inquiry_attachment`가
+    post_delete에서 처리하므로 admin 삭제·탈퇴 CASCADE 경로까지 덮인다.
+    (이전 주석은 "수명주기 정책 영역"이라며 넘겼는데, 버킷에 그런 규칙이 없음을
+    확인해 정정했다 — 2026-08-11. 개인정보를 지우려고 삭제한 사용자에게 스크린샷이
+    영구히 남는 것은 거짓 약속이다.)
 
     **행 잠금으로 답변 저장과의 경합을 막는다.** 상태 판정과 삭제 사이가 벌어지면
     그 틈에 커밋된 답변이 함께 지워진다. 판정을 `filter(status=PENDING).delete()`로

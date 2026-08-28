@@ -30,6 +30,10 @@ jobs:
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
+          # 기본값(false)이면 drone-ssh가 명령마다 종료코드 가드를 붙이지 않아
+          # migrate가 실패해도 다음 줄 up -d가 실행된다 — 신규 코드 워커가 구
+          # 스키마에 붙고, 마지막 명령이 성공하면 "배포 완료"까지 나간다(4차 리뷰).
+          script_stop: true
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_PRIVATE_KEY }}
@@ -74,10 +78,63 @@ jobs:
             echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
             docker pull ${{ secrets.DOCKER_USERNAME }}/danim-backend:latest
             export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
+            # migrate는 **트래픽을 끊은 뒤, 컨테이너는 남긴 채로** 돌린다.
+            #
+            # 세 가지를 동시에 만족해야 한다:
+            #   ① 신규 코드가 구 스키마를 만나는 창이 없을 것
+            #      → migrate가 `up -d`보다 먼저여야 한다.
+            #   ② migrate가 실패해도 전면 다운으로 끝나지 않을 것
+            #      → `down` 뒤에 두면 script_stop:true가 거기서 끊어 `up -d`가
+            #        영원히 실행되지 않는다(6차 리뷰).
+            #   ③ DDL 락이 서비스 트래픽과 만나지 않을 것
+            #      → 구 스택이 요청을 받는 동안 migrate를 돌리면 안 된다(7차 리뷰).
+            # `stop`이 셋을 다 준다 — 트래픽만 끊고 컨테이너는 남으므로 실패 시
+            # `start`로 즉시 되살릴 수 있다.
+            #
+            # ⚠ 마이그레이션 안전성에 대한 전제를 좁혀 둔다. 이전 주석은 "0004는
+            #   CreateModel + AddConstraint라 순수 가산"이라고 적었는데 **틀렸다**:
+            #     - `AddConstraint(UniqueConstraint)`는 가산이 아니라 **제한**이다.
+            #       구 코드에는 중복 검사도 IntegrityError→409 변환도 없다.
+            #     - 부분 유니크는 비-CONCURRENTLY `CREATE UNIQUE INDEX`로 나가
+            #       ShareLock으로 쓰기를 막는다(models.py의 같은 경고 참조).
+            #     - 같은 커밋이 그 0004에 데이터 변경 `RunPython`을 넣었다.
+            #     - 이 배포는 supports/0004 하나가 아니라 main..develop의 마이그레이션
+            #       전부를 적용한다(users/0006의 전 유저 순회 RunPython,
+            #       notifications/0002의 비-CONCURRENTLY AddIndex 포함).
+            #   즉 **가산이라서 안전한 게 아니라, 트래픽을 끊고 돌리기 때문에 안전하다.**
+            #   제한적 제약(UNIQUE·CHECK·FK)과 비-CONCURRENTLY DDL, 대량 RunPython은
+            #   무중단이 필요해지면 2단계 배포로 나눠야 한다.
+            # 목록이 흩어져 있으면 서비스를 추가할 때 한 곳을 빠뜨린다 —
+            # 특히 롤백(start)에서 빠지면 그 서비스만 안 살아난다.
+            SVCS="django nginx celery-worker celery-s3-worker celery-beat"
+
+            docker compose -f docker-compose.prod.yml stop $SVCS
+
+            if ! docker compose -f docker-compose.prod.yml run --rm --no-deps django uv run --no-sync python manage.py migrate; then
+              echo "::error::migrate 실패 — 구 스택을 되살립니다"
+              docker compose -f docker-compose.prod.yml start $SVCS
+              exit 1
+            fi
+
             docker compose -f docker-compose.prod.yml down
             docker compose -f docker-compose.prod.yml up -d
-            sleep 10
-            docker compose -f docker-compose.prod.yml exec -T django uv run --no-sync python manage.py migrate
+
+            # up -d는 컨테이너를 **시작**하면 반환한다. celery는 Django 앱 전체를
+            # 임포트하므로 설정·env 오류로 죽는 데 5~15초가 걸려, 곧바로 확인하면
+            # 아직 running이라 통과해 버린다. 잠시 기다린 뒤 상태와 재시작 횟수를
+            # 함께 본다 — RestartCount>0이면 떴다가 죽고 있다는 뜻이다(4차 리뷰).
+            sleep 25
+            for s in $SVCS; do
+              cid=$(docker compose -f docker-compose.prod.yml ps -q "$s")
+              st=$(docker inspect -f '{{.State.Status}}' "$cid" 2>/dev/null || echo missing)
+              rc=$(docker inspect -f '{{.RestartCount}}' "$cid" 2>/dev/null || echo 0)
+              if [ "$st" != "running" ] || [ "$rc" -gt 0 ]; then
+                echo "::error::$s 기동 실패(status=$st restarts=$rc)"
+                docker compose -f docker-compose.prod.yml logs --tail=50 "$s"
+                exit 1
+              fi
+            done
+
             docker image prune -f
 
       - name: Close SSH port
