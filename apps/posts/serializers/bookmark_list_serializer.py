@@ -6,6 +6,12 @@ from apps.core.storage.s3 import s3_svc
 class BookmarkListSerializer(serializers.Serializer):
     post_id = serializers.CharField(read_only=True, source="post.id")
     thumbnail = serializers.SerializerMethodField()
+    thumbnail_width = serializers.IntegerField(
+        read_only=True, source="post.thumbnail_width", allow_null=True
+    )
+    thumbnail_height = serializers.IntegerField(
+        read_only=True, source="post.thumbnail_height", allow_null=True
+    )
     description = serializers.CharField(read_only=True, source="post.description")
     comment_count = serializers.IntegerField(read_only=True, source="post.comment_count")
     is_liked = serializers.BooleanField(read_only=True)

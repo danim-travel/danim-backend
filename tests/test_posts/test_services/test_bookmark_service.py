@@ -53,6 +53,8 @@ class BookmarkServiceTest(TestCase):
     def test_delete_bookmark(self) -> None:
         """북마크 취소 성공 테스트"""
         BookMark.objects.create(post=self.post, user=self.user)
+        self.user.bookmark_count = 1
+        self.user.save()
         self.service.delete_bookmark(post_id=self.post.id, request_user=self.user)
         self.assertEqual(
             BookMark.objects.filter(post=self.post, user=self.user).count(), 0

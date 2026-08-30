@@ -63,6 +63,7 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampModel):
     is_active = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
     unread_noti_count = models.PositiveIntegerField(default=0)
+    bookmark_count = models.PositiveIntegerField(default=0)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = [
@@ -79,7 +80,11 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampModel):
             models.CheckConstraint(
                 condition=models.Q(unread_noti_count__gte=0),
                 name="unread_noti_count_non_negative",
-            )
+            ),
+            models.CheckConstraint(
+                condition=models.Q(bookmark_count__gte=0),
+                name="bookmark_count_non_negative",
+            ),
         ]
         indexes = [
             # 유저 검색(nickname__icontains)용 trigram GIN.

@@ -41,6 +41,7 @@ class UserInfoResponseSerializer(serializers.Serializer):
     name = serializers.CharField(read_only=True)
     phone_number = serializers.CharField(read_only=True, allow_null=True)
     intro = serializers.CharField(read_only=True, allow_null=True)
+    bookmark_count = serializers.IntegerField(read_only=True)
 
 
 class UserDeleteRequestSerializer(serializers.Serializer):
