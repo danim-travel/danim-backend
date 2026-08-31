@@ -148,6 +148,11 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "apps.core.exceptions.exception_handler.custom_exception_handler",
+    # nginx(신뢰 프록시 1단)가 "클라이언트 XFF, 실제IP" 형태로 XFF를 만든다.
+    # 미설정 시 DRF가 XFF 전체 문자열을 ident로 써서 클라이언트가 앞부분을
+    # 조작해 스로틀 버킷을 무한히 갈라놓을 수 있다.
+    # ⚠ 앞단에 ALB/CDN을 붙이면 이 값도 함께 올려야 한다.
+    "NUM_PROXIES": 1,
     # 스코프별 rate limit — 전역 스로틀은 걸지 않고, 무인증 쓰기 등
     # 필요한 뷰에서만 ScopedRateThrottle + throttle_scope로 선택 적용한다
     "DEFAULT_THROTTLE_RATES": {
@@ -157,6 +162,12 @@ REST_FRAMEWORK = {
         # presigned 발급은 S3 객체를 무한히 만들 수 있는 축이라 별도로 조인다
         # (발급 자체는 저렴해도 업로드까지 이어지면 용량·비용이 늘어난다).
         "inquiry_presigned": "20/min",
+        # 검색엔진 크롤러는 보통 하루 한두 번이면 충분하지만, 여러 크롤러가
+        # 겹치거나 페이지네이션을 여러 번 순회하는 상황을 감안해 여유를 뒀다.
+        # SITEMAP_PAGE_SIZE(apps/posts/services/sitemap_service.py, 1만 건)를
+        # 전제로 산출: 12 × 10,000 = 시간당 최대 12만 건까지 전량 순회 가능.
+        # page_size를 바꾸면 이 값도 같이 재계산할 것.
+        "sitemap": "12/hour",
     },
 }
 

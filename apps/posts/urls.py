@@ -9,6 +9,7 @@ from apps.posts.views import (
     main_list_view,
     presigned_url_post_view,
     share_view,
+    sitemap_view,
 )
 
 app_name = "posts"
@@ -24,6 +25,7 @@ urlpatterns: list[URLPattern | URLResolver] = [
     path(
         "/bookmarks", bookmark_list_view.BookmarkListView.as_view(), name="bookmark_list"
     ),
+    path("/sitemap", sitemap_view.SitemapView.as_view(), name="post_sitemap"),
     path("/nearspots", include("apps.posts.near_postspot.urls")),
     path("/<str:post_id>", detail_view.PostDetailView.as_view(), name="post_detail"),
     path("/<str:post_id>/like", like_view.PostLikeView.as_view(), name="post_like"),
